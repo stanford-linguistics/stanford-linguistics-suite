@@ -1,0 +1,54 @@
+{
+  "name": "t-orders",
+  "private": true,
+  "homepage": "https://cogeto.stanford.edu/",
+  "scripts": {
+    "deploy": "now && now alias",
+    "start": "react-scripts start",
+    "now-start": "serve -s ./build",
+    "build": "react-scripts build",
+    "build:local": "env-cmd -f .env.local react-scripts build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject",
+    "precommit": "pretty-quick --staged"
+  },
+  "devDependencies": {
+    "eslint-plugin-prettier": "^3.0.0",
+    "prettier": "1.16.3",
+    "react-scripts": "^3.4.1",
+    "terser": "^3.14.1"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^1.2.14",
+    "@fortawesome/free-solid-svg-icons": "^5.7.1",
+    "@fortawesome/react-fontawesome": "^0.1.4",
+    "bootstrap": "^4.4.1",
+    "connected-react-router": "4.5.0",
+    "env-cmd": "^10.1.0",
+    "moment": "^2.24.0",
+    "moment-timezone": "^0.5.23",
+    "react": "16.7.0",
+    "react-bootstrap": "1.0.0-beta.5",
+    "react-dom": "16.7.0",
+    "react-moment": "^0.8.4",
+    "react-particles-js": "2.5.1",
+    "react-redux": "5.1.1",
+    "react-router": "4.3.1",
+    "react-router-bootstrap": "^0.24.4",
+    "react-router-dom": "4.3.1",
+    "react-router-hash-link": "^1.2.1",
+    "react-spinners": "^0.5.1",
+    "react-toastify": "^4.5.2",
+    "redux": "4.0.1",
+    "redux-persist": "^5.10.0",
+    "redux-thunk": "2.3.0",
+    "sanitize.css": "7.0.3",
+    "serve": "^11.3.0"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
+}

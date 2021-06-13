@@ -1,0 +1,299 @@
+/* TORDER COLORS: 
+#fbfbf9; 
+#544948; 
+#2f2424; 
+#f9f6ef; 
+*****************/
+
+/* PAGEWIDE STYLES */
+
+body,
+p {
+  font-family: 'Roboto', sans-serif;
+}
+
+.sticky-nav {
+  position: sticky;
+  top: 0;
+}
+
+/* h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Jacques Francois Shadow', cursive;
+} */
+
+a {
+  color: #820000;
+}
+a:hover {
+  color: #000;
+}
+
+#su-content {
+  padding: 0;
+}
+
+/* NAV */
+
+.torder-settings-btn,
+.torder-settings-btn:hover {
+  border: none;
+}
+
+.torder-settings-btn {
+  background-color: rgba(0, 0, 0, 0) !important;
+}
+
+/* HOME PAGE */
+
+.torder-jumbotron {
+  margin: 6em 0;
+  padding: 3em 2em;
+}
+
+.torder-home-main-container {
+  background-color: #464c50;
+}
+
+.torder-my-torders-main-container,
+.torder-docs-main-container {
+  background-image: url('../src/assets/images/graphy.png');
+  background-repeat: repeat;
+}
+
+#torder-home-content h1,
+#torder-mytorders-container h1,
+#torder-home-content h6 {
+  text-align: center;
+}
+
+#torder-home-content h1,
+#torder-mytorders-container h1,
+.torder-docs-section h1 {
+  margin: 0;
+  font-size: 3em;
+  text-align: center;
+}
+
+#torder-home-content h6,
+#torder-mytorders-container h6,
+.torder-docs-section h6 {
+  font-family: 'Roboto', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#torder-home-content h6,
+#torder-home-content p {
+  margin-bottom: 3em;
+}
+
+.torder-settings-btn:hover {
+  color: #8c1515;
+}
+
+.torder-home-bg-color,
+#torder-mytorders-container {
+  background-color: #f4f4f4;
+}
+
+#torder-mytorders-container {
+  margin: 6em 0;
+  padding: 3em;
+}
+
+.torder-primary-btn,
+.torder-primary-btn:hover {
+  border: none;
+  margin: 5px;
+}
+
+.torder-primary-btn {
+  background-color: #343a40 !important;
+  color: #fff !important;
+}
+
+.torder-primary-btn:hover {
+  background-color: #8c1515 !important;
+}
+
+.torder-secondary-btn,
+.torder-secondary-btn:hover {
+  border: 1px solid #343a40;
+  margin: 5px;
+}
+
+.torder-secondary-btn {
+  background-color: #343a4000 !important;
+  color: #343a40;
+}
+
+.torder-secondary-btn:hover {
+  color: #8c1515;
+}
+
+#torder-learn-more,
+#torder-compute {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.cogeto-font {
+  font-family: 'Jacques Francois Shadow', cursive;
+}
+
+/* ABOUT PAGE */
+
+#torder-docs-container {
+  background-color: #f4f4f4;
+  margin: 6em 0;
+  padding: 3em;
+}
+
+.torder-docs-section h6,
+#torder-mytorders-container h6 {
+  margin: 3em 1em 1em 0;
+}
+
+.uppercase-text {
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+/* COMPUTE PAGE */
+
+#results-container {
+  margin: 3em;
+}
+
+#torder-mytorders-table-container {
+  overflow: auto;
+}
+
+#torder-mytorders-table-wrapper {
+  max-height: 500px;
+}
+
+@media (max-width: 767px) {
+  #torder-mytorders-table-wrapper {
+    width: 650px;
+  }
+}
+
+#torder-mytorders-table {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+#torder-mytorders-table tbody tr td {
+  white-space: nowrap;
+}
+
+.list-group-item.active {
+  background-color: #8c1515;
+  border-color: black !important;
+}
+
+svg.svg-inline--fa.fa-question-circle.fa-w-16.torder-info-icon {
+  padding: 4px;
+  font-size: 20px;
+}
+
+.torder-panel {
+  margin: 10px;
+}
+
+#torder-input-file-col {
+  padding: 0;
+}
+
+#torder-sample-file-col {
+  text-align: right;
+}
+
+.torder-link-active {
+  color: #fff;
+}
+
+/* FOOTERS */
+
+#torder-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.footer-item-container {
+  padding: 1em;
+  margin: 1em;
+}
+
+.su-footer-item-container {
+  margin: 2em;
+}
+
+#torder-footer-contact h4 {
+  text-align: center;
+  font-family: 'Roboto', sans-serif;
+}
+
+#torder-footer-contact h4,
+#torder-footer-contact p {
+  color: #e3dfd5;
+}
+
+#torder-footer-contact p {
+  margin: 0;
+}
+
+#torder-footer-contact a {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+#torder-footer-contact hr {
+  border-top-color: #e3dfd5;
+}
+
+#torder-su-footer {
+  background-color: #8c1515;
+  padding: 3em 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+#primary-links,
+#policy-links,
+#copywrite {
+  list-style-type: none;
+  margin-bottom: 0;
+}
+
+#primary-links a:hover,
+#policy-links a:hover,
+#copywrite a:hover {
+  text-decoration: none;
+}
+
+#primary-links a,
+#policy-links a,
+#copywrite li {
+  color: #e3dfd5;
+}
+
+.doc-list li {
+  padding-bottom: 8px;
+}
+
+.doc-header {
+  /* text-transform: none !important; */
+  font-weight: bold;
+}
+
+.centered {
+  text-align: center;
+}
