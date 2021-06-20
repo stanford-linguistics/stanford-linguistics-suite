@@ -1,0 +1,66 @@
+import React from 'react';
+import SettingsIcon from '@material-ui/icons/Settings';
+import { makeStyles } from '@material-ui/core/styles';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogActions,
+  Tooltip,
+  IconButton,
+  Slide,
+  Button,
+  Typography,
+} from '@material-ui/core';
+
+const useStyles = makeStyles(() => ({
+  icon: { color: 'white' },
+}));
+
+const Transition = React.forwardRef(function Transition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
+
+const Settings = () => {
+  const classes = useStyles();
+  const [open, setOpen] = React.useState(false);
+
+  const handleClickOpen = () => {
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+  return (
+    <>
+      <Tooltip title="Settings">
+        <IconButton onClick={handleClickOpen}>
+          <SettingsIcon className={classes.icon} />
+        </IconButton>
+      </Tooltip>
+      <Dialog
+        open={open}
+        TransitionComponent={Transition}
+        keepMounted
+        onClose={handleClose}>
+        <DialogTitle>
+          <Typography>Settings</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography>Settings</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleClose} color="primary">
+            Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
+export default Settings;
