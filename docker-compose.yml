@@ -55,6 +55,16 @@ services:
       VIRTUAL_PORT: 80
     depends_on:
       - nginx-proxy
+  metrical-tree-client:
+    build:
+      context: ./metrical-tree-client
+      dockerfile: Dockerfile.local
+    restart: always
+    environment:
+      VIRTUAL_HOST: metricaltree.local
+      VIRTUAL_PORT: 80
+    depends_on:
+      - nginx-proxy
   redis:
     image: redis
     restart: always

@@ -10,11 +10,14 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  Button,
 } from '@material-ui/core';
+import { useMutation } from '@apollo/client';
 
 import IdentityBar from '../../components/IdentityBar';
 import Footer from '../../components/Footer';
 import Appbar from '../../components/Appbar';
+import { UPLOAD_METRICAL_TREE_FILE } from '../../graphql/metricalTree';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -26,6 +29,25 @@ const useStyles = makeStyles((theme) => ({
 
 const ComputePage = () => {
   const classes = useStyles();
+
+  const [uploadFile, { data }] = useMutation(
+    UPLOAD_METRICAL_TREE_FILE
+  );
+  console.log('Data: ', data);
+
+  const handleUpload = () => {
+    const blob = new Blob(['Hello, this is a test input'], {
+      type: 'text/plain',
+    });
+    var fileOfBlob = new File([blob], 'input.txt', {
+      type: 'text/plain',
+    });
+    uploadFile({
+      variables: {
+        file: fileOfBlob,
+      },
+    });
+  };
 
   function createData(name, calories, fat, carbs, protein) {
     return { name, calories, fat, carbs, protein };
@@ -50,6 +72,7 @@ const ComputePage = () => {
         className={classes.container}>
         <Grid item xs={10} sm={10} md={6} lg={4}>
           <Typography>COMPUTE</Typography>
+          <Button onClick={handleUpload}>UPLOAD FILE</Button>
           <TableContainer component={Paper}>
             <Table
               className={classes.table}

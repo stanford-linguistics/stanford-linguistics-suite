@@ -7,6 +7,8 @@ import {
   ThemeProvider,
   createMuiTheme,
 } from '@material-ui/core/styles';
+import { ApolloProvider } from '@apollo/client';
+import { client } from './config/apollo';
 
 export const theme = createMuiTheme({
   typography: {
@@ -16,9 +18,11 @@ export const theme = createMuiTheme({
 
 ReactDOM.render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <App />
-    </ThemeProvider>
+    <ApolloProvider client={client}>
+      <ThemeProvider theme={theme}>
+        <App />
+      </ThemeProvider>
+    </ApolloProvider>
   </React.StrictMode>,
   document.getElementById('root')
 );
