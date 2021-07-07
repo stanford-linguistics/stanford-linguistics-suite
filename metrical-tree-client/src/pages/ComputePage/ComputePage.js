@@ -1,39 +1,98 @@
-import React from 'react';
-import { makeStyles } from '@material-ui/core/styles';
+import React, { useState } from 'react';
+import { useMutation } from '@apollo/client';
+import MUIDataTable from 'mui-datatables';
+import DownloadIcon from '@material-ui/icons/GetApp';
+import ViewIcon from '@material-ui/icons/Visibility';
+import DeleteIcon from '@material-ui/icons/Delete';
+import { makeStyles, createMuiTheme } from '@material-ui/core/styles';
 import {
   Grid,
   Typography,
-  TableContainer,
-  Paper,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
   Button,
+  IconButton,
 } from '@material-ui/core';
-import { useMutation } from '@apollo/client';
 
 import IdentityBar from '../../components/IdentityBar';
-import Footer from '../../components/Footer';
+import PrimaryFooter from '../../components/PrimaryFooter';
+import SecondaryFooter from '../../components/SecondaryFooter';
 import Appbar from '../../components/Appbar';
 import { UPLOAD_METRICAL_TREE_FILE } from '../../graphql/metricalTree';
+import { MuiThemeProvider } from '@material-ui/core';
+import ComputeDialog from '../../components/ComputeDialog';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    marginTop: 64,
-    height: 'calc(100vh - 216px)',
-    backgroundColor: 'white',
+    marginTop: 80,
+    padding: 16,
+    minHeight: 'calc(100vh - 236px)',
+    height: 'auto',
+    backgroundColor: '#f2f2f2',
+    [theme.breakpoints.down('sm')]: {
+      minHeight: 'calc(100vh - 322px)',
+    },
+    [theme.breakpoints.down('xs')]: {
+      minHeight: 'calc(100vh - 360px)',
+    },
+  },
+  title: {
+    fontWeight: 'bold',
+    marginBottom: 16,
+    fontSize: '1.25rem',
+  },
+  subTitle: { fontSize: '0.625rem', marginBottom: -4 },
+  button: {
+    margin: ' 8px 0 24px 0',
+    borderRadius: 32,
+    backgroundColor: '#44AB77',
+    '&:hover': {
+      backgroundColor: '#3C8F65',
+      textDecoration: 'underline',
+      color: 'white',
+    },
+  },
+  buttonLabel: {
+    color: 'white',
+    textTransform: 'uppercase',
+    fontSize: '0.625rem',
+    fontWeight: 'bold',
+  },
+  expirationNotice: {
+    textAlign: 'center',
+    fontSize: '0.625rem',
+    marginBottom: 4,
   },
 }));
 
 const ComputePage = () => {
   const classes = useStyles();
+  const [computeDialogIsOpen, setIsComputeDialogOpen] =
+    useState(false);
+
+  const theme = createMuiTheme({
+    overrides: {
+      MUIDataTableToolbar: { root: { display: 'none' } },
+      MUIDataTableHeadCell: {
+        root: { padding: '8px 0 8px 16px', fontWeight: 'bold' },
+      },
+      MUIDataTableBodyCell: { root: { padding: '0 0 0 8px' } },
+    },
+  });
+
+  // TODO: GET FILES
+  const files = [
+    {
+      id: 'file-abc',
+    },
+  ];
 
   const [uploadFile, { data }] = useMutation(
     UPLOAD_METRICAL_TREE_FILE
   );
   console.log('Data: ', data);
+
+  const handleComputeClick = () => {
+    setIsComputeDialogOpen(true);
+  };
 
   const handleUpload = () => {
     const blob = new Blob(['Hello, this is a test input'], {
@@ -49,65 +108,138 @@ const ComputePage = () => {
     });
   };
 
-  function createData(name, calories, fat, carbs, protein) {
-    return { name, calories, fat, carbs, protein };
-  }
-
-  const rows = [
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-    createData('Cupcake', 305, 3.7, 67, 4.3),
-    createData('Gingerbread', 356, 16.0, 49, 3.9),
+  const columns = [
+    {
+      name: 'id',
+      label: 'Id',
+      options: {
+        filter: false,
+        display: 'excluded',
+      },
+    },
+    {
+      name: 'id',
+      label: '#',
+      options: {
+        filter: false,
+        searchable: false,
+        sort: false,
+      },
+    },
+    {
+      name: 'id',
+      label: 'Name',
+      options: {
+        filter: false,
+        searchable: false,
+        sort: false,
+      },
+    },
+    {
+      name: 'id',
+      label: 'Status',
+      options: {
+        filter: false,
+        searchable: false,
+        sort: false,
+      },
+    },
+    {
+      name: 'id',
+      label: 'Expires',
+      options: {
+        filter: false,
+        searchable: false,
+        sort: false,
+      },
+    },
+    {
+      name: 'id',
+      label: ' ',
+      options: {
+        filter: false,
+        searchable: false,
+        sort: false,
+        customBodyRender: (id, rowData) => {
+          return (
+            <Grid container justify="flex-end">
+              <Grid item>
+                <IconButton size="small">
+                  <DownloadIcon />
+                </IconButton>
+              </Grid>
+              <Grid item>
+                <IconButton size="small">
+                  <ViewIcon />
+                </IconButton>
+              </Grid>
+              <Grid item>
+                <IconButton size="small">
+                  <DeleteIcon />
+                </IconButton>
+              </Grid>
+            </Grid>
+          );
+        },
+      },
+    },
   ];
+
+  const options = {
+    selectableRowsHeader: false,
+    selectableRows: 'none',
+    selectableRowsOnClick: false,
+    print: false,
+    search: false,
+    filter: false,
+    download: false,
+    viewColumns: false,
+    rowsPerPageOptions: [],
+  };
 
   return (
     <>
-      <IdentityBar />
-      <Appbar />
-      <Grid
-        container
-        justify="center"
-        alignContent="center"
-        className={classes.container}>
-        <Grid item xs={10} sm={10} md={6} lg={4}>
-          <Typography>COMPUTE</Typography>
-          <Button onClick={handleUpload}>UPLOAD FILE</Button>
-          <TableContainer component={Paper}>
-            <Table
-              className={classes.table}
-              aria-label="simple table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Dessert (100g serving)</TableCell>
-                  <TableCell align="right">Calories</TableCell>
-                  <TableCell align="right">Fat&nbsp;(g)</TableCell>
-                  <TableCell align="right">Carbs&nbsp;(g)</TableCell>
-                  <TableCell align="right">
-                    Protein&nbsp;(g)
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.name}>
-                    <TableCell component="th" scope="row">
-                      {row.name}
-                    </TableCell>
-                    <TableCell align="right">
-                      {row.calories}
-                    </TableCell>
-                    <TableCell align="right">{row.fat}</TableCell>
-                    <TableCell align="right">{row.carbs}</TableCell>
-                    <TableCell align="right">{row.protein}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+      <MuiThemeProvider theme={theme}>
+        <IdentityBar />
+        <Appbar />
+        <Grid
+          container
+          justify="center"
+          className={classes.container}>
+          <Grid item xs={10} sm={10} md={8} lg={8}>
+            <Typography className={classes.subTitle}>
+              Metrical Tree
+            </Typography>
+            <Typography className={classes.title}>Compute</Typography>
+            <Typography>
+              Click the button below to begin analysis of text.
+            </Typography>
+            <Button
+              onClick={handleComputeClick}
+              className={classes.button}>
+              <Typography className={classes.buttonLabel}>
+                Compute
+              </Typography>
+            </Button>
+            <Typography className={classes.expirationNotice}>
+              Your results are listed below. They will expire after 3
+              days.
+            </Typography>
+            <MUIDataTable
+              title={'Results'}
+              data={files}
+              columns={columns}
+              options={options}
+            />
+          </Grid>
         </Grid>
-      </Grid>
-      <Footer />
+        <SecondaryFooter />
+        <PrimaryFooter />
+      </MuiThemeProvider>
+      <ComputeDialog
+        isOpen={computeDialogIsOpen}
+        setIsOpen={setIsComputeDialogOpen}
+      />
     </>
   );
 };

@@ -11,21 +11,21 @@ import {
 } from '@material-ui/core';
 
 import IdentityBar from '../../components/IdentityBar';
-import Footer from '../../components/Footer';
+import PrimaryFooter from '../../components/PrimaryFooter';
+import SecondaryFooter from '../../components/SecondaryFooter';
 import Appbar from '../../components/Appbar';
 import background from '../../assets/images/homepageBg.jpg';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    marginTop: 64,
-    backgroundColor: 'white',
+    height: 'calc(100vh - 236px)',
     backgroundImage: `url(${background})`,
     backgroundSize: 'cover',
     [theme.breakpoints.down('sm')]: {
-      marginTop: 56,
+      height: 'calc(100vh - 322px)',
     },
     [theme.breakpoints.down('xs')]: {
-      marginTop: 56,
+      height: 'calc(100vh - 360px)',
     },
   },
   card: {
@@ -46,26 +46,27 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 'bold',
     fontSize: '1.75rem',
     marginBottom: 16,
+    marginTop: -8,
     [theme.breakpoints.down('xs')]: {
       fontSize: '1.25rem',
     },
   },
-  linkContainer: { marginTop: 16 },
   link: {
-    color: '#158c8c',
-    fontWeight: 'bold',
-    '&:hover': { cursor: 'pointer', color: '#158c8c' },
+    color: '#44AB77',
+    '&:hover': { cursor: 'pointer', color: '#44AB77' },
   },
   linkLabel: {
     display: 'inline',
+    fontWeight: 'bold',
+    fontSize: '0.875rem',
   },
   button: {
-    borderRadius: 0,
+    borderRadius: 32,
     display: 'block',
     marginTop: 32,
-    backgroundColor: '#8c1515',
+    backgroundColor: '#44AB77',
     '&:hover': {
-      backgroundColor: '#2e2d29',
+      backgroundColor: '#3C8F65',
       textDecoration: 'underline',
       color: 'white',
     },
@@ -75,8 +76,9 @@ const useStyles = makeStyles((theme) => ({
   },
   buttonLabel: {
     color: 'white',
-    textTransform: 'capitalize',
-    fontSize: '1.25rem',
+    textTransform: 'uppercase',
+    fontSize: '0.625rem',
+    fontWeight: 'bold',
   },
 }));
 
@@ -90,30 +92,30 @@ const Home = () => {
       <Appbar />
       <Grid
         container
-        justify="center"
+        justify="flex-start"
         alignContent="center"
         className={classes.container}>
-        <Grid item xs={11} sm={10} md={6} lg={4}>
+        <Grid item xs={1} sm={1} md={1} lg={2}></Grid>
+        <Grid item xs={10} sm={10} md={6} lg={4}>
           <Card className={classes.card}>
             <Typography className={classes.subtitle}>
-              Lorem Ipsum is simply dummy text of the printing and
-              typesetting
+              Metrical Tree
             </Typography>
             <Typography className={classes.title}>
-              Lorem Ipsum is simply dummy
+              Analyze Sentence Structure
             </Typography>
             <Typography>
-              Lorem Ipsum is simply dummy text of the printing and
-              typesetting industry. Lorem Ipsum has been the
-              industry's standard dummy text ever since the 1500s,
+              Metrical Tree generates a normal stress contour for
+              English sentences. You can type in your own text from
+              the keyboard or upload a text file.
             </Typography>
             <Link
               className={classes.link}
               onClick={() => history.push('/my-results')}>
-              <Grid container className={classes.linkContainer}>
+              <Grid container>
                 <Grid item>
                   <Typography className={classes.linkLabel}>
-                    My Results
+                    Learn More
                   </Typography>
                 </Grid>
                 <Grid item>
@@ -121,18 +123,22 @@ const Home = () => {
                 </Grid>
               </Grid>
             </Link>
-            <Button
-              variant="contained"
-              className={classes.button}
-              onClick={() => history.push('/compute')}>
-              <Typography className={classes.buttonLabel}>
-                Compute
-              </Typography>
-            </Button>
+            <Grid container justify="flex-end">
+              <Button
+                size="small"
+                variant="contained"
+                className={classes.button}
+                onClick={() => history.push('/compute')}>
+                <Typography className={classes.buttonLabel}>
+                  Compute
+                </Typography>
+              </Button>
+            </Grid>
           </Card>
         </Grid>
       </Grid>
-      <Footer />
+      <SecondaryFooter />
+      <PrimaryFooter />
     </>
   );
 };

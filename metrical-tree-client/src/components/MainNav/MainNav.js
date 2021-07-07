@@ -19,7 +19,7 @@ import {
 const useStyles = makeStyles({
   list: { width: 250 },
   fullList: { width: 'auto' },
-  icon: { color: 'white' },
+  menuButton: { padding: 0, marginRight: 16 },
 });
 
 const MainNav = () => {
@@ -84,8 +84,10 @@ const MainNav = () => {
 
   return (
     <Fragment>
-      <IconButton onClick={toggleDrawer('left', true)}>
-        <MenuIcon className={classes.icon} />
+      <IconButton
+        onClick={toggleDrawer('left', true)}
+        className={classes.menuButton}>
+        <MenuIcon />
       </IconButton>
       <Drawer
         anchor={'left'}

@@ -17,13 +17,13 @@ export const theme = createMuiTheme({
 });
 
 ReactDOM.render(
-  <React.StrictMode>
-    <ApolloProvider client={client}>
-      <ThemeProvider theme={theme}>
-        <App />
-      </ThemeProvider>
-    </ApolloProvider>
-  </React.StrictMode>,
+  // <React.StrictMode>
+  <ApolloProvider client={client}>
+    <ThemeProvider theme={theme}>
+      <App />
+    </ThemeProvider>
+  </ApolloProvider>,
+  // </React.StrictMode>,
   document.getElementById('root')
 );
 

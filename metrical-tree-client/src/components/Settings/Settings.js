@@ -14,7 +14,8 @@ import {
 } from '@material-ui/core';
 
 const useStyles = makeStyles(() => ({
-  icon: { color: 'white' },
+  icon: { color: '#8c1515' },
+  settingsButton: { padding: 0, marginRight: 16 },
 }));
 
 const Transition = React.forwardRef(function Transition(props, ref) {
@@ -35,8 +36,10 @@ const Settings = () => {
   return (
     <>
       <Tooltip title="Settings">
-        <IconButton onClick={handleClickOpen}>
-          <SettingsIcon className={classes.icon} />
+        <IconButton
+          onClick={handleClickOpen}
+          className={classes.settingsButton}>
+          <SettingsIcon className={classes.icon} size="small" />
         </IconButton>
       </Tooltip>
       <Dialog

@@ -7,7 +7,6 @@ import {
   Toolbar,
   Grid,
   Link,
-  Hidden,
 } from '@material-ui/core';
 
 import MainNav from '../MainNav';
@@ -17,16 +16,32 @@ const useStyles = makeStyles((theme) => ({
   appbar: {
     marginTop: 30,
     paddingLeft: 76,
-    backgroundColor: '#158c8c',
-    [theme.breakpoints.down('sm')]: { padding: 0 },
+    backgroundColor: '#fff',
+    [theme.breakpoints.down('sm')]: { paddingLeft: 16 },
   },
-  toolbar: { [theme.breakpoints.down('sm')]: { paddingLeft: 2 } },
+  toolbar: {
+    padding: '8px 0px 8px 2px',
+    [theme.breakpoints.down('sm')]: { paddingLeft: 2 },
+  },
+  appNameLink: {
+    '&:hover': { cursor: 'pointer', textDecoration: 'none' },
+  },
   link: {
-    color: 'white',
-    '&:hover': { cursor: 'pointer' },
+    color: '#000',
+    '&:hover': { cursor: 'pointer', color: '#8c1515' },
   },
-  linkLabel: { paddingRight: 24, verticalAlign: 'bottom' },
-  icon: { color: 'white' },
+  appNameLinkLabel: { fontSize: '1.5rem', fontWeight: 'bold' },
+  linkLabel: {
+    fontSize: '0.875rem',
+    paddingRight: 48,
+    verticalAlign: 'bottom',
+    fontWeight: 'bold',
+  },
+  icon: {
+    color: '#000',
+  },
+  stanfordTitle: { color: '#8c1515' },
+  metricalTreeTitle: { color: '#61615f', fontWeight: 'lighter' },
 }));
 
 const Appbar = () => {
@@ -37,62 +52,84 @@ const Appbar = () => {
     <AppBar className={classes.appbar}>
       <Toolbar className={classes.toolbar}>
         <Grid container justify="space-between" alignItems="center">
-          <Grid item>
+          <Grid item xs={12}>
             <Grid container direction="row" alignItems="center">
-              <Hidden only={['md', 'lg', 'xl']}>
-                <Grid item>
-                  <MainNav />
-                </Grid>
-              </Hidden>
+              <Grid item>
+                <MainNav />
+              </Grid>
               <Grid item>
                 <Link
-                  className={classes.link}
+                  className={classes.appNameLink}
                   onClick={() => history.push('/')}>
                   <Typography
-                    className={classes.linkLabel}
+                    className={classes.appNameLinkLabel}
                     style={{
                       fontSize: '1.5rem',
                       fontWeight: 'bold',
                     }}>
-                    Metrical Tree
+                    <span className={classes.stanfordTitle}>
+                      Stanford{' '}
+                    </span>
+                    <span className={classes.metricalTreeTitle}>
+                      | Metrical Tree
+                    </span>
                   </Typography>
                 </Link>
               </Grid>
-              <Hidden only={['xs', 'sm']}>
-                <>
-                  <Grid item>
-                    <Link
-                      className={classes.link}
-                      onClick={() => history.push('/about')}>
-                      <Typography className={classes.linkLabel}>
-                        About
-                      </Typography>
-                    </Link>
-                  </Grid>
-                  <Grid item>
-                    <Link
-                      className={classes.link}
-                      onClick={() => history.push('/compute')}>
-                      <Typography className={classes.linkLabel}>
-                        Compute
-                      </Typography>
-                    </Link>
-                  </Grid>
-                  <Grid item>
-                    <Link
-                      className={classes.link}
-                      onClick={() => history.push('/my-results')}>
-                      <Typography className={classes.linkLabel}>
-                        My Results
-                      </Typography>
-                    </Link>
-                  </Grid>
-                </>
-              </Hidden>
             </Grid>
-          </Grid>
-          <Grid item>
-            <Settings />
+            <Grid container direction="row" alignItems="center">
+              <Grid item xs={12}>
+                <Grid
+                  container
+                  justify="space-between"
+                  alignItems="center">
+                  <Grid item>
+                    <Grid container>
+                      <Grid item>
+                        <Link
+                          className={classes.link}
+                          onClick={() => history.push('/')}>
+                          <Typography className={classes.linkLabel}>
+                            Home
+                          </Typography>
+                        </Link>
+                      </Grid>
+                      <Grid item>
+                        <Link
+                          className={classes.link}
+                          onClick={() => history.push('/about')}>
+                          <Typography className={classes.linkLabel}>
+                            About
+                          </Typography>
+                        </Link>
+                      </Grid>
+                      <Grid item>
+                        <Link
+                          className={classes.link}
+                          onClick={() => history.push('/compute')}>
+                          <Typography className={classes.linkLabel}>
+                            Compute
+                          </Typography>
+                        </Link>
+                      </Grid>
+                    </Grid>
+                  </Grid>
+                  <Grid item>
+                    <Settings />
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              {/* <Grid item>
+                <Link
+                  className={classes.link}
+                  onClick={() => history.push('/my-results')}>
+                  <Typography className={classes.linkLabel}>
+                    My Results
+                  </Typography>
+                </Link>
+              </Grid> */}
+            </Grid>
           </Grid>
         </Grid>
       </Toolbar>
