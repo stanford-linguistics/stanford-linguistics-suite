@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import MUIDataTable from 'mui-datatables';
+import { useHistory } from 'react-router-dom';
 import DownloadIcon from '@material-ui/icons/GetApp';
 import ViewIcon from '@material-ui/icons/Visibility';
 import DeleteIcon from '@material-ui/icons/Delete';
@@ -19,6 +20,7 @@ import Appbar from '../../components/Appbar';
 import { UPLOAD_METRICAL_TREE_FILE } from '../../graphql/metricalTree';
 import { MuiThemeProvider } from '@material-ui/core';
 import ComputeDialog from '../../components/ComputeDialog';
+import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog/DeleteConfirmationDialog';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -65,8 +67,13 @@ const useStyles = makeStyles((theme) => ({
 
 const ComputePage = () => {
   const classes = useStyles();
+  const history = useHistory();
   const [computeDialogIsOpen, setIsComputeDialogOpen] =
     useState(false);
+  const [
+    deleteConfirmationDialogIsOpen,
+    setIsDeleteConfirmationDialogOpen,
+  ] = useState(false);
 
   const theme = createMuiTheme({
     overrides: {
@@ -106,6 +113,11 @@ const ComputePage = () => {
         file: fileOfBlob,
       },
     });
+  };
+
+  // TODO: Connection on delete
+  const handleDeleteComputation = () => {
+    console.log('DELETE THE COMPUTATION');
   };
 
   const columns = [
@@ -169,12 +181,18 @@ const ComputePage = () => {
                 </IconButton>
               </Grid>
               <Grid item>
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  onClick={() => history.push('/')}>
                   <ViewIcon />
                 </IconButton>
               </Grid>
               <Grid item>
-                <IconButton size="small">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    setIsDeleteConfirmationDialogOpen(true)
+                  }>
                   <DeleteIcon />
                 </IconButton>
               </Grid>
@@ -239,6 +257,15 @@ const ComputePage = () => {
       <ComputeDialog
         isOpen={computeDialogIsOpen}
         setIsOpen={setIsComputeDialogOpen}
+      />
+      <DeleteConfirmationDialog
+        isOpen={deleteConfirmationDialogIsOpen}
+        setIsOpen={setIsDeleteConfirmationDialogOpen}
+        title={'Delete Computation'}
+        content={
+          ' You are deleting the computation [NAME]. This action cannot be undone.'
+        }
+        handleSubmit={handleDeleteComputation}
       />
     </>
   );

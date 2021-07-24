@@ -8,7 +8,7 @@ import {
 import Home from '../../pages/Home';
 import AboutPage from '../../pages/AboutPage';
 import ComputePage from '../../pages/ComputePage';
-import MyResultsPage from '../../pages/MyResultsPage';
+import ResultPage from '../../pages/ResultPage';
 
 const App = () => {
   return (
@@ -17,11 +17,7 @@ const App = () => {
         <Route path="/" exact={true} component={Home} />
         <Route path="/about" exact={true} component={AboutPage} />
         <Route path="/compute" exact={true} component={ComputePage} />
-        <Route
-          path="/my-results"
-          exact={true}
-          component={MyResultsPage}
-        />
+        <Route path="/result" exact={true} component={ResultPage} />
       </Switch>
     </Router>
   );
