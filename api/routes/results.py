@@ -67,6 +67,14 @@ def get_images(folder_id):
     return images
 
 
+def get_data(folder_id):
+    data = None
+    resultsPath = os.path.join(app.config['PUBLIC_FOLDER'], folder_id, 'results.json')
+    with open(resultsPath) as f:
+      data = json.load(f)
+    return data
+
+
 @routes.route('/results/<string:task_id>')
 def check_task(task_id: str) -> str:
     res = celery.AsyncResult(task_id)
@@ -76,6 +84,7 @@ def check_task(task_id: str) -> str:
     expiresOn = None
     expiresIn = None
     images = []
+    data = None
     if res.state == states.SUCCESS:
         if directory_exists(task_id):
             link = url_for('routes.download_file',
@@ -84,6 +93,7 @@ def check_task(task_id: str) -> str:
             expiresIn = result['expires_in']
             expiresOn = result['expires_on']
             images = get_images(task_id)
+            data = get_data(task_id)
         else:
             status = 'EXPIRED'
             result = json.loads(res.result)
@@ -105,4 +115,4 @@ def check_task(task_id: str) -> str:
     if res.state == states.FAILURE:
         errorMessage = str(res.result)
 
-    return make_response(jsonify(id=task_id, status=status, link=link, expiresIn=expiresIn, expiresOn=expiresOn, errorMessage=errorMessage, images=images), 200)
+    return make_response(jsonify(id=task_id, status=status, link=link, expiresIn=expiresIn, expiresOn=expiresOn, errorMessage=errorMessage, images=images, data=data), 200)

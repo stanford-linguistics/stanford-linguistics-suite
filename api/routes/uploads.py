@@ -46,8 +46,6 @@ def queue_delete_results_folder(folder_id):
                      directory_to_delete], kwargs={}, countdown=FOLDER_TTL)
 
 def upload_file(request, allowed_extensions):
-    #compute_type = request.form.get('computeType')
-    #allowed_extensions = app.config['METRICAL_TREE_ALLOWED_EXTENSIONS'] if compute_type == 'metricaltree' else app.config['ALLOWED_EXTENSIONS']
     if no_file_was_uploaded(request.files):
         return 'No file received', status.HTTP_400_BAD_REQUEST
     elif is_invalid_file(request.files['file'], allowed_extensions):

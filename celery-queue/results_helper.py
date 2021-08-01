@@ -1,6 +1,8 @@
 import os
 import zipfile
 import shutil
+import csv
+import json
 
 PUBLIC_FOLDER = '/public'
 GPRAH_IMAGE_EXTENSION = '.png'
@@ -9,6 +11,7 @@ GPRAH_IMAGE_EXTENSION = '.png'
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
+
 
 def get_all_file_paths(directory):
     file_paths = []
@@ -19,6 +22,7 @@ def get_all_file_paths(directory):
 
     return file_paths
 
+
 def copy_graphs(results_directory, folder_id):
     if os.path.exists(results_directory):
         public_folder = os.path.join(PUBLIC_FOLDER, folder_id)
@@ -28,6 +32,25 @@ def copy_graphs(results_directory, folder_id):
         for file in file_paths:
             if file.endswith(GPRAH_IMAGE_EXTENSION):
                 shutil.copy(file, public_folder)
+
+
+def copy_results_to_json(results_directory, folder_id):
+    if os.path.exists(results_directory):
+        public_folder = os.path.join(PUBLIC_FOLDER, folder_id)
+        create_directory(public_folder)
+        print(public_folder)
+
+        csv_file_path = os.path.join(results_directory, 'results.csv')
+        json_file_path = os.path.join(public_folder, 'results.json')
+        jsonArray = []
+        with open(csv_file_path) as csvf:
+            csvReader = csv.DictReader(csvf)
+            for row in csvReader:
+                jsonArray.append(row)
+
+        with open(json_file_path, 'w') as jsonf:
+            jsonString = json.dumps(jsonArray, indent=4)
+            jsonf.write(jsonString)
 
 
 def zip_all(directory, zip_name):

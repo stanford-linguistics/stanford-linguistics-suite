@@ -130,6 +130,12 @@ def copy_graphs(folder_id):
     results_helper.copy_graphs(results_directory, folder_id)
 
 
+def copy_results_to_json(folder_id):
+    results_directory = os.path.join(
+        get_task_results_path(folder_id), 'output')
+    results_helper.copy_results_to_json(results_directory, folder_id)
+
+
 def zip_results(input_filename, folder_id):
     directory_to_zip = get_task_results_path(folder_id)
     zip_name = os.path.splitext(input_filename)[0] + '.zip'
@@ -213,6 +219,7 @@ def compute_metrical_tree(self, input_file_path,
                      ambiguous_tags, 
                      ambiguous_deps,
                      stressed_words)
+    copy_results_to_json(folder_id)
     zip_results(input_filename, folder_id)
     result = Result(get_download_url(folder_id),
                     FOLDER_TTL, get_expiration_on())
