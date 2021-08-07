@@ -49,13 +49,13 @@ export const GET_RESULT_FOR_SINGLE_COMPUTE = gql`
     result(id: $id)
       @rest(type: "Result", path: "/results/{args.id}") {
       id
-      data
-      dataUrl
       errorMessage
-      expiresIn
-      expiresOn
       link
       status
+      data
+      dataUrl
+      expiresIn
+      expiresOn
     }
   }
 `;

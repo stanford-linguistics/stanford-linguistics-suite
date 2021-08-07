@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MUIDataTable from 'mui-datatables';
 import { useHistory } from 'react-router-dom';
 import DownloadIcon from '@material-ui/icons/GetApp';
@@ -10,7 +10,10 @@ import {
   Typography,
   Button,
   IconButton,
+  LinearProgress,
 } from '@material-ui/core';
+import Moment from 'react-moment';
+import 'moment-timezone';
 
 import IdentityBar from '../../components/IdentityBar';
 import PrimaryFooter from '../../components/PrimaryFooter';
@@ -20,6 +23,8 @@ import { MuiThemeProvider } from '@material-ui/core';
 import ComputeDialog from '../../components/ComputeDialog';
 import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog/DeleteConfirmationDialog';
 import { useComputeResults } from 'recoil/results';
+import useLazyQueryPromise from 'hooks/useLazyQueryPromise';
+import { GET_RESULT_FOR_SINGLE_COMPUTE } from 'graphql/metricalTree';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -69,14 +74,72 @@ const ComputePage = () => {
   const history = useHistory();
   const [computeDialogIsOpen, setIsComputeDialogOpen] =
     useState(false);
+  const [selectedResultIdToDelete, setSelectedResultIdToDelete] =
+    useState(null);
   const [
     deleteConfirmationDialogIsOpen,
     setIsDeleteConfirmationDialogOpen,
   ] = useState(false);
-  const [resultsState, { upsertComputeResult }] = useComputeResults();
+  const [resultsState, { deleteComputeResult, updateComputeResult }] =
+    useComputeResults();
 
   const results = resultsState.results;
-  console.log(results);
+
+  const [getComputeResult] = useLazyQueryPromise(
+    GET_RESULT_FOR_SINGLE_COMPUTE,
+    {
+      fetchPolicy: 'no-cache',
+    }
+  );
+
+  const requestResults = () => {
+    if (results.length > 0) {
+      results.forEach(function (result) {
+        if (shouldUpdate(result)) {
+          getComputeResult({ id: result.id }).then(
+            (updatedResult) => {
+              console.log(
+                'UPDATED RESULT: ',
+                updatedResult.data.result
+              );
+              updateComputeResult(updatedResult.data.result);
+            }
+          );
+        }
+        if (
+          result.status === 'EXPIRED'
+          //&&shouldDeleteExpiredTorders
+        ) {
+          deleteComputeResult(result.id);
+        }
+      });
+    }
+    function shouldUpdate(result) {
+      if (result.status === 'SUCCESS') {
+        var utcSeconds = result.expiresOn;
+        var d = new Date(0); // sets the date to the epoch
+        d.setUTCSeconds(utcSeconds);
+
+        var today = new Date();
+        if (today >= d) {
+          return true;
+        }
+      }
+      return (
+        result.status === 'PENDING' || result.status === 'RUNNING'
+      );
+    }
+  };
+
+  useEffect(() => {
+    requestResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const intervalId = setInterval(requestResults, 3000);
+    return () => clearInterval(intervalId);
+  });
 
   const theme = createTheme({
     overrides: {
@@ -92,9 +155,8 @@ const ComputePage = () => {
     setIsComputeDialogOpen(true);
   };
 
-  // TODO: Connection on delete
-  const handleDeleteComputation = () => {
-    console.log('DELETE THE COMPUTATION');
+  const handleDeleteComputation = (id) => {
+    deleteComputeResult(id);
   };
 
   const columns = [
@@ -115,29 +177,75 @@ const ComputePage = () => {
     {
       name: 'status',
       label: 'Status',
+      options: {
+        customBodyRender: (status, rowData) => {
+          return (
+            <>
+              <Typography>{status}</Typography>
+              {(status === 'RUNNING' || status === 'PENDING') && (
+                // TODO: Fix color
+                <LinearProgress color="secondary" />
+              )}
+            </>
+          );
+        },
+      },
     },
     {
       name: 'expiresOn',
       label: 'Expires',
       options: {
         filter: false,
+        customBodyRender: (expiresOn, rowData) => {
+          return (
+            <>
+              {expiresOn && (
+                <Moment
+                  interval={10000}
+                  to={new Date(0).setUTCSeconds(expiresOn)}
+                />
+              )}
+            </>
+          );
+        },
       },
     },
     {
-      name: '',
+      name: 'link',
+      label: 'Download Link',
+      options: {
+        filter: false,
+        searchable: false,
+        sort: false,
+        display: 'excluded',
+      },
+    },
+    {
+      name: 'id',
       label: 'Actions',
       options: {
         filter: false,
         searchable: false,
         sort: false,
-        customBodyRender: () => {
+        customBodyRender: (id, rowData) => {
+          const status = rowData.rowData[2];
+          const downloadUrl = rowData.rowData[4]
+            ? rowData.rowData[4].replace('https', 'http')
+            : null;
           return (
             <Grid container justifyContent="flex-end">
-              <Grid item>
-                <IconButton size="small">
-                  <DownloadIcon />
-                </IconButton>
-              </Grid>
+              {downloadUrl && (
+                <Grid item>
+                  <a
+                    title="Download"
+                    role="button"
+                    href={downloadUrl}
+                    download>
+                    <DownloadIcon />
+                  </a>
+                </Grid>
+              )}
+
               <Grid item>
                 <IconButton
                   size="small"
@@ -148,9 +256,14 @@ const ComputePage = () => {
               <Grid item>
                 <IconButton
                   size="small"
-                  onClick={() =>
-                    setIsDeleteConfirmationDialogOpen(true)
-                  }>
+                  onClick={() => {
+                    setSelectedResultIdToDelete(id);
+                    if (status !== 'EXPIRED') {
+                      setIsDeleteConfirmationDialogOpen(true);
+                    } else {
+                      deleteComputeResult(id);
+                    }
+                  }}>
                   <DeleteIcon />
                 </IconButton>
               </Grid>
@@ -221,9 +334,13 @@ const ComputePage = () => {
         setIsOpen={setIsDeleteConfirmationDialogOpen}
         title={'Delete Computation'}
         content={
-          ' You are deleting the computation [NAME]. This action cannot be undone.'
+          'You are deleting this computation. This action cannot be undone.'
         }
-        handleSubmit={handleDeleteComputation}
+        handleSubmit={() => {
+          handleDeleteComputation(selectedResultIdToDelete);
+          setSelectedResultIdToDelete(null);
+          setIsDeleteConfirmationDialogOpen(false);
+        }}
       />
     </>
   );

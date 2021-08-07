@@ -26,7 +26,10 @@ import {
 } from '@material-ui/core';
 import ComputeOptionalConfigForm from 'components/ComputeOptionalConfigForm';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary';
-import { DEFAULT_SETTINGS_CONFIG } from 'constants/settings';
+import {
+  DEFAULT_SETTINGS_CONFIG,
+  SAMPLE_RAW_TEXT,
+} from 'constants/settings';
 import {
   UPLOAD_METRICAL_TREE_FILE,
   COMPUTE_METRICAL_TREE_FILE,
@@ -111,7 +114,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [shouldShowConfigOptions, setShouldShowConfigOptions] =
     useState(false);
-  const [, { upsertComputeResult }] = useComputeResults();
+  const [, { addComputeResult }] = useComputeResults();
 
   const [
     uploadMetricalTreeFile,
@@ -127,10 +130,17 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     palette: { primary: { main: '#44AB77' } },
   });
 
-  const { watch, register, handleSubmit, control, formState } =
-    useForm({ defaultValues });
+  const {
+    watch,
+    register,
+    handleSubmit,
+    control,
+    formState,
+    setValue,
+  } = useForm({ defaultValues });
 
   const selectedFile = watch('file');
+  const currentRawText = watch('rawText');
 
   const onSubmit = (data) => {
     console.log(data);
@@ -173,8 +183,8 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
       })
       .then((result) => {
         console.log('COMPUTE RESULT: ', result);
-        upsertComputeResult(result.data.compute);
-        // handleClose();
+        addComputeResult(result.data.compute);
+        handleClose();
       });
   };
 
@@ -298,20 +308,9 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
               </Grid>
               {selectedInputMethod === 'file' && (
                 <Grid item xs={12}>
-                  <Grid container justifyContent="flex-end">
-                    <Grid item>
-                      <Link
-                        className={classes.link}
-                        underline="always">
-                        <Typography className={classes.linkText}>
-                          Sample input file
-                        </Typography>
-                      </Link>
-                    </Grid>
-                  </Grid>
                   <section>
                     <Typography className={classes.sectionTitle}>
-                      Input File
+                      Input File (.txt only)
                     </Typography>
                     <Grid
                       container
@@ -358,6 +357,15 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                     <Grid item>
                       <Link
                         className={classes.link}
+                        onClick={() =>
+                          setValue(
+                            'rawText',
+                            currentRawText + SAMPLE_RAW_TEXT,
+                            {
+                              shouldDirty: true,
+                            }
+                          )
+                        }
                         underline="always">
                         <Typography className={classes.linkText}>
                           Paste sample text

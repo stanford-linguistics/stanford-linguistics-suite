@@ -16,3 +16,6 @@ export const DEFAULT_SETTINGS_CONFIG = {
   ambiguousDeps: ['cop', 'neg', 'aux', 'auxpass'],
   stressedWords: [],
 };
+
+export const SAMPLE_RAW_TEXT =
+  'We must adjust to changing times and still hold to unchanging principles.';

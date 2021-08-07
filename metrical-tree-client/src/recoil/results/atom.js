@@ -35,7 +35,7 @@ export const useComputeResults = () => {
   const [computeResultsState, setComputeResultsState] =
     useRecoilState(computeResultsAtom);
 
-  const upsertComputeResult = (resultToUpsert) => {
+  const addComputeResult = (resultToUpsert) => {
     const results = [
       ...getFilteredArray(
         computeResultsState.results,
@@ -47,18 +47,34 @@ export const useComputeResults = () => {
     saveResultsToLocalStorage(results);
   };
 
-  const deleteComputeResult = (resultToDelete) => {
+  const deleteComputeResult = (resultIdToDelete) => {
     const results = getFilteredArray(
       computeResultsState.results,
-      resultToDelete.id
+      resultIdToDelete
     );
+    setComputeResultsState({ ...computeResultsState, results });
+    saveResultsToLocalStorage(results);
+  };
+
+  const updateComputeResult = (resultToUpdate) => {
+    const results = computeResultsState.results.map((result) => {
+      if (result.id === resultToUpdate.id) {
+        return {
+          ...result,
+          ...resultToUpdate,
+        };
+      } else {
+        return result;
+      }
+    });
+
     setComputeResultsState({ ...computeResultsState, results });
     saveResultsToLocalStorage(results);
   };
 
   return [
     computeResultsState,
-    { upsertComputeResult, deleteComputeResult },
+    { addComputeResult, deleteComputeResult, updateComputeResult },
   ];
 };
 
