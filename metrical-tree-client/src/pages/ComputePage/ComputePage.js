@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { useMutation } from '@apollo/client';
 import MUIDataTable from 'mui-datatables';
 import { useHistory } from 'react-router-dom';
 import DownloadIcon from '@material-ui/icons/GetApp';
 import ViewIcon from '@material-ui/icons/Visibility';
 import DeleteIcon from '@material-ui/icons/Delete';
-import { makeStyles, createMuiTheme } from '@material-ui/core/styles';
+import { makeStyles, createTheme } from '@material-ui/core/styles';
 import {
   Grid,
   Typography,
@@ -17,10 +16,10 @@ import IdentityBar from '../../components/IdentityBar';
 import PrimaryFooter from '../../components/PrimaryFooter';
 import SecondaryFooter from '../../components/SecondaryFooter';
 import Appbar from '../../components/Appbar';
-import { UPLOAD_METRICAL_TREE_FILE } from '../../graphql/metricalTree';
 import { MuiThemeProvider } from '@material-ui/core';
 import ComputeDialog from '../../components/ComputeDialog';
 import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog/DeleteConfirmationDialog';
+import { useComputeResults } from 'recoil/results';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -74,8 +73,12 @@ const ComputePage = () => {
     deleteConfirmationDialogIsOpen,
     setIsDeleteConfirmationDialogOpen,
   ] = useState(false);
+  const [resultsState, { upsertComputeResult }] = useComputeResults();
 
-  const theme = createMuiTheme({
+  const results = resultsState.results;
+  console.log(results);
+
+  const theme = createTheme({
     overrides: {
       MUIDataTableToolbar: { root: { display: 'none' } },
       MUIDataTableHeadCell: {
@@ -85,34 +88,8 @@ const ComputePage = () => {
     },
   });
 
-  // TODO: GET FILES
-  const files = [
-    {
-      id: 'file-abc',
-    },
-  ];
-
-  const [uploadFile, { data }] = useMutation(
-    UPLOAD_METRICAL_TREE_FILE
-  );
-  console.log('Data: ', data);
-
   const handleComputeClick = () => {
     setIsComputeDialogOpen(true);
-  };
-
-  const handleUpload = () => {
-    const blob = new Blob(['Hello, this is a test input'], {
-      type: 'text/plain',
-    });
-    var fileOfBlob = new File([blob], 'input.txt', {
-      type: 'text/plain',
-    });
-    uploadFile({
-      variables: {
-        file: fileOfBlob,
-      },
-    });
   };
 
   // TODO: Connection on delete
@@ -126,55 +103,36 @@ const ComputePage = () => {
       label: 'Id',
       options: {
         filter: false,
+        searchable: false,
+        sort: false,
         display: 'excluded',
       },
     },
     {
-      name: 'id',
-      label: '#',
-      options: {
-        filter: false,
-        searchable: false,
-        sort: false,
-      },
-    },
-    {
-      name: 'id',
+      name: 'name',
       label: 'Name',
-      options: {
-        filter: false,
-        searchable: false,
-        sort: false,
-      },
     },
     {
-      name: 'id',
+      name: 'status',
       label: 'Status',
-      options: {
-        filter: false,
-        searchable: false,
-        sort: false,
-      },
     },
     {
-      name: 'id',
+      name: 'expiresOn',
       label: 'Expires',
       options: {
         filter: false,
-        searchable: false,
-        sort: false,
       },
     },
     {
-      name: 'id',
-      label: ' ',
+      name: '',
+      label: 'Actions',
       options: {
         filter: false,
         searchable: false,
         sort: false,
-        customBodyRender: (id, rowData) => {
+        customBodyRender: () => {
           return (
-            <Grid container justify="flex-end">
+            <Grid container justifyContent="flex-end">
               <Grid item>
                 <IconButton size="small">
                   <DownloadIcon />
@@ -222,7 +180,7 @@ const ComputePage = () => {
         <Appbar />
         <Grid
           container
-          justify="center"
+          justifyContent="center"
           className={classes.container}>
           <Grid item xs={10} sm={10} md={8} lg={8}>
             <Typography className={classes.subTitle}>
@@ -245,7 +203,7 @@ const ComputePage = () => {
             </Typography>
             <MUIDataTable
               title={'Results'}
-              data={files}
+              data={results}
               columns={columns}
               options={options}
             />

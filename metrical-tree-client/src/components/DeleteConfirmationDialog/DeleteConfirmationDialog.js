@@ -55,13 +55,12 @@ const DeleteConfirmationDialog = ({
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      maxWidth="sm"
-      onClose={handleClose}
-      disableBackdropClick>
+    <Dialog open={isOpen} maxWidth="sm" onClose={handleClose}>
       <DialogTitle className={classes.dialogTitle}>
-        <Grid container justify="space-between" alignItems="center">
+        <Grid
+          container
+          justifyContent="space-between"
+          alignItems="center">
           <Grid item>
             <Typography className={classes.dialogTitleText}>
               {title}
@@ -85,7 +84,7 @@ const DeleteConfirmationDialog = ({
         </Grid>
       </DialogContent>
       <DialogActions className={classes.dialogActions}>
-        <Grid container justify="flex-end" alignItems="center">
+        <Grid container justifyContent="flex-end" alignItems="center">
           <Grid item>
             <Button
               onClick={handleClose}

@@ -16,13 +16,9 @@ import {
   Grid,
   Checkbox,
   FormControlLabel,
-  Select,
-  MenuItem,
-  Chip,
-  FormControl,
-  InputLabel,
-  Input,
 } from '@material-ui/core';
+import ComputeOptionalConfigForm from 'components/ComputeOptionalConfigForm';
+import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 
 const useStyles = makeStyles(() => ({
   dialogTitle: { padding: '8px 8px 0 16px' },
@@ -54,6 +50,11 @@ const useStyles = makeStyles(() => ({
 
   icon: { color: '#8c1515' },
   settingsButton: { padding: 0, marginRight: 16 },
+  warningMessage: {
+    backgroundColor: '#f2f2f2',
+    padding: 16,
+    borderLeft: '8px solid #c1c1c1',
+  },
 }));
 
 const Transition = React.forwardRef(function Transition(props, ref) {
@@ -64,12 +65,7 @@ const Settings = () => {
   const classes = useStyles();
   const [open, setOpen] = React.useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm();
+  const { handleSubmit, control } = useForm();
 
   // TODO: Connection on create graph
   const onSubmit = (data) => console.log(data);
@@ -80,38 +76,6 @@ const Settings = () => {
 
   const handleClose = () => {
     setOpen(false);
-  };
-
-  const unstressedWords = ['it', 'the', 'this'];
-  const unstressedTags = ['CC'];
-
-  const [settings, setSettings] = React.useState([]);
-
-  const handleChange = (event, type) => {
-    // if (type === 'unstressedWords') {
-    //   setSettings({
-    //     ...settings,
-
-    //   })
-    // }
-    setSettings(event.target.value);
-  };
-
-  console.log('SETTINGS: ', settings);
-
-  const ITEM_HEIGHT = 48;
-  const ITEM_PADDING_TOP = 8;
-  const MenuProps = {
-    PaperProps: {
-      style: {
-        maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-        width: 250,
-      },
-    },
-  };
-
-  const handleDelete = () => {
-    console.log('DELETE UNSTRESSED WORD');
   };
 
   return (
@@ -129,7 +93,10 @@ const Settings = () => {
         TransitionComponent={Transition}
         keepMounted>
         <DialogTitle>
-          <Grid container justify="space-between" alignItems="center">
+          <Grid
+            container
+            justifyContent="space-between"
+            alignItems="center">
             <Grid item>
               <Typography className={classes.dialogTitleText}>
                 Settings
@@ -145,6 +112,25 @@ const Settings = () => {
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
             <Grid container>
+              <Grid item xs={12} className={classes.warningMessage}>
+                <Grid
+                  container
+                  direction="row"
+                  spacing={1}
+                  alignItems="center">
+                  <Grid item>
+                    <ErrorOutlineIcon />
+                  </Grid>
+                  <Grid item>
+                    <Typography style={{ fontWeight: 'bold' }}>
+                      Please Note
+                    </Typography>
+                  </Grid>
+                </Grid>
+                <Typography variant="subtitle2">
+                  These settings will be applied to all computations.
+                </Typography>
+              </Grid>
               <Grid item xs={12}>
                 <section>
                   <Controller
@@ -170,97 +156,15 @@ const Settings = () => {
                   />
                 </section>
               </Grid>
-              <Grid item xs={12}>
-                <section>
-                  <Controller
-                    render={({ field }) => (
-                      <FormControl className={classes.formControl}>
-                        <InputLabel id="unstressed-words-multiselect-label">
-                          <Typography>Unstressed Words</Typography>
-                        </InputLabel>
-                        <Select
-                          labelId="unstressed-words-multiselect-label"
-                          variant="outlined"
-                          margin="dense"
-                          fullWidth
-                          multiple
-                          value={settings}
-                          onChange={handleChange}
-                          input={<Input id="select-multiple-chip" />}
-                          renderValue={(selected) => (
-                            <div className={classes.chips}>
-                              {selected.map((value) => (
-                                <Chip
-                                  key={value}
-                                  label={value}
-                                  className={classes.chip}
-                                  onDelete={handleDelete}
-                                />
-                              ))}
-                            </div>
-                          )}
-                          MenuProps={MenuProps}>
-                          {unstressedWords.map((word) => (
-                            <MenuItem key={word} value={word}>
-                              {word}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                    name="unstressedWordsSelect"
-                    control={control}
-                  />
-                </section>
-              </Grid>
-              <Grid item xs={12}>
-                <section>
-                  <Controller
-                    render={({ field }) => (
-                      <FormControl className={classes.formControl}>
-                        <InputLabel id="unstressed-tags-multiselect-label">
-                          <Typography>Unstressed Tags</Typography>
-                        </InputLabel>
-                        <Select
-                          labelId="unstressed-tags-multiselect-label"
-                          variant="outlined"
-                          margin="dense"
-                          fullWidth
-                          multiple
-                          value={settings}
-                          onChange={handleChange}
-                          input={<Input id="select-multiple-chip" />}
-                          renderValue={(selected) => (
-                            <div className={classes.chips}>
-                              {selected.map((value) => (
-                                <Chip
-                                  key={value}
-                                  label={value}
-                                  className={classes.chip}
-                                  onDelete={handleDelete}
-                                />
-                              ))}
-                            </div>
-                          )}
-                          MenuProps={MenuProps}>
-                          {unstressedTags.map((word) => (
-                            <MenuItem key={word} value={word}>
-                              {word}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                    name="unstressedWordsSelect"
-                    control={control}
-                  />
-                </section>
-              </Grid>
+              <ComputeOptionalConfigForm control={control} />
             </Grid>
           </form>
         </DialogContent>
         <DialogActions>
-          <Grid container justify="flex-end" alignItems="center">
+          <Grid
+            container
+            justifyContent="flex-end"
+            alignItems="center">
             <Grid item>
               <Button
                 onClick={handleClose}

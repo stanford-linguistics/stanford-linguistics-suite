@@ -51,7 +51,10 @@ const Appbar = () => {
   return (
     <AppBar className={classes.appbar}>
       <Toolbar className={classes.toolbar}>
-        <Grid container justify="space-between" alignItems="center">
+        <Grid
+          container
+          justifyContent="space-between"
+          alignItems="center">
           <Grid item xs={12}>
             <Grid container direction="row" alignItems="center">
               <Grid item>
@@ -81,7 +84,7 @@ const Appbar = () => {
               <Grid item xs={12}>
                 <Grid
                   container
-                  justify="space-between"
+                  justifyContent="space-between"
                   alignItems="center">
                   <Grid item>
                     <Grid container>

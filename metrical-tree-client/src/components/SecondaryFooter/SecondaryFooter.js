@@ -31,7 +31,7 @@ const SecondaryFooter = () => {
     <Grid
       container
       direction="row"
-      justify="space-between"
+      justifyContent="space-between"
       className={classes.container}>
       <Grid item>
         <Typography className={classes.stanfordTitle}>

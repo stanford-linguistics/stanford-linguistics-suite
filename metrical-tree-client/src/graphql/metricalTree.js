@@ -16,3 +16,46 @@ export const UPLOAD_METRICAL_TREE_FILE = gql`
     }
   }
 `;
+
+export const COMPUTE_METRICAL_TREE_FILE = gql`
+  mutation ComputeMetricalTreeFile(
+    $id: string!
+    $options: ComputeOptions
+  ) {
+    compute(id: $id, options: $options)
+      @rest(
+        method: "POST"
+        type: "Compute"
+        path: "/metricaltree/{args.id}"
+        bodyKey: "options"
+      ) {
+      id
+      description
+      errorMessage
+      link
+      name
+      params {
+        description
+        name
+        unstressed_words
+      }
+      status
+    }
+  }
+`;
+
+export const GET_RESULT_FOR_SINGLE_COMPUTE = gql`
+  query GetSingleComputeResult($id: string!) {
+    result(id: $id)
+      @rest(type: "Result", path: "/results/{args.id}") {
+      id
+      data
+      dataUrl
+      errorMessage
+      expiresIn
+      expiresOn
+      link
+      status
+    }
+  }
+`;

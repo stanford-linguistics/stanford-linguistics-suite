@@ -92,7 +92,7 @@ const Home = () => {
       <Appbar />
       <Grid
         container
-        justify="flex-start"
+        justifyContent="flex-start"
         alignContent="center"
         className={classes.container}>
         <Grid item xs={1} sm={1} md={1} lg={2}></Grid>
@@ -123,7 +123,7 @@ const Home = () => {
                 </Grid>
               </Grid>
             </Link>
-            <Grid container justify="flex-end">
+            <Grid container justifyContent="flex-end">
               <Button
                 size="small"
                 variant="contained"

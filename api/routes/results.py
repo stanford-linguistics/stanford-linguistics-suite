@@ -15,6 +15,12 @@ class Image:
         self.url = url
 
 
+class Result:
+    def __init__(self, url, name):
+        self.name = name
+        self.url = url
+
+
 def get_filename(directory, extension):
     filename = ''
     for file in os.listdir(directory):
@@ -69,10 +75,26 @@ def get_images(folder_id):
 
 def get_data(folder_id):
     data = None
-    resultsPath = os.path.join(app.config['PUBLIC_FOLDER'], folder_id, 'results.json')
-    with open(resultsPath) as f:
-      data = json.load(f)
+    resultsPath = os.path.join(
+        app.config['PUBLIC_FOLDER'], folder_id, 'results.json')
+
+    if os.path.exists(resultsPath):
+        with open(resultsPath) as f:
+            data = json.load(f)
     return data
+
+
+def get_data_url(folder_id):
+    data_url = None
+    resultsPath = os.path.join(
+        app.config['PUBLIC_FOLDER'], folder_id, 'results.json')
+    if os.path.exists(resultsPath):
+        head, tail = os.path.split(resultsPath)
+        file_name = os.path.join(folder_id, tail)
+        result = Result(
+            url_for('static', filename=file_name, _external=True, _scheme='https'), tail)
+        data_url = result.__dict__
+    return data_url
 
 
 @routes.route('/results/<string:task_id>')
@@ -85,6 +107,7 @@ def check_task(task_id: str) -> str:
     expiresIn = None
     images = []
     data = None
+    dataUrl = None
     if res.state == states.SUCCESS:
         if directory_exists(task_id):
             link = url_for('routes.download_file',
@@ -93,7 +116,8 @@ def check_task(task_id: str) -> str:
             expiresIn = result['expires_in']
             expiresOn = result['expires_on']
             images = get_images(task_id)
-            data = get_data(task_id)
+            # data = get_data(task_id)
+            dataUrl = get_data_url(task_id)
         else:
             status = 'EXPIRED'
             result = json.loads(res.result)
@@ -115,4 +139,4 @@ def check_task(task_id: str) -> str:
     if res.state == states.FAILURE:
         errorMessage = str(res.result)
 
-    return make_response(jsonify(id=task_id, status=status, link=link, expiresIn=expiresIn, expiresOn=expiresOn, errorMessage=errorMessage, images=images, data=data), 200)
+    return make_response(jsonify(id=task_id, status=status, link=link, expiresIn=expiresIn, expiresOn=expiresOn, errorMessage=errorMessage, images=images, data=data, dataUrl=dataUrl), 200)

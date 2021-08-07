@@ -3,14 +3,12 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './components/App';
 import reportWebVitals from './reportWebVitals';
-import {
-  ThemeProvider,
-  createMuiTheme,
-} from '@material-ui/core/styles';
+import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { ApolloProvider } from '@apollo/client';
 import { client } from './config/apollo';
+import { RecoilRoot } from 'recoil';
 
-export const theme = createMuiTheme({
+export const theme = createTheme({
   typography: {
     fontFamily: ['Source Sans Pro', 'Roboto'].join(','),
   },
@@ -18,11 +16,13 @@ export const theme = createMuiTheme({
 
 ReactDOM.render(
   // <React.StrictMode>
-  <ApolloProvider client={client}>
-    <ThemeProvider theme={theme}>
-      <App />
-    </ThemeProvider>
-  </ApolloProvider>,
+  <RecoilRoot>
+    <ApolloProvider client={client}>
+      <ThemeProvider theme={theme}>
+        <App />
+      </ThemeProvider>
+    </ApolloProvider>
+  </RecoilRoot>,
   // </React.StrictMode>,
   document.getElementById('root')
 );

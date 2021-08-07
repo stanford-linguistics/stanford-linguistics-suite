@@ -111,9 +111,12 @@ const ResultPage = () => {
     <>
       <IdentityBar />
       <Appbar />
-      <Grid container justify="center" className={classes.container}>
+      <Grid
+        container
+        justifyContent="center"
+        className={classes.container}>
         <Grid item xs={10} sm={10} md={10} lg={8}>
-          <Grid container justify="space-between">
+          <Grid container justifyContent="space-between">
             <Grid item>
               <Typography className={classes.subTitle}>
                 Metrical Tree
@@ -211,7 +214,7 @@ const ResultPage = () => {
                       <Card className={classes.graphCard}>
                         [GRAPH]
                       </Card>
-                      <Grid container justify="flex-end">
+                      <Grid container justifyContent="flex-end">
                         <Button
                           style={{ marginBottom: 0 }}
                           onClick={() =>

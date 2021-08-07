@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import {
   makeStyles,
   MuiThemeProvider,
-  createMuiTheme,
+  createTheme,
 } from '@material-ui/core/styles';
 import {
   Typography,
@@ -24,16 +24,26 @@ import {
   Popover,
   TextField,
 } from '@material-ui/core';
+import ComputeOptionalConfigForm from 'components/ComputeOptionalConfigForm';
+import StyledButtonPrimary from 'components/shared/ButtonPrimary';
+import { DEFAULT_SETTINGS_CONFIG } from 'constants/settings';
+import {
+  UPLOAD_METRICAL_TREE_FILE,
+  COMPUTE_METRICAL_TREE_FILE,
+} from 'graphql/metricalTree';
+import { useMutation } from '@apollo/client';
+import { useComputeResults } from 'recoil/results';
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: { padding: '8px 8px 0 16px' },
   dialogTitleText: { fontWeight: 'bold' },
   dialogContent: { padding: '0 16px', height: 'auto' },
-  dialogActions: { padding: 16, maxHeight: 40 },
+  dialogActions: { padding: 16 },
   buttonLabel: {
     textTransform: 'uppercase',
     fontSize: '0.625rem',
     fontWeight: 'bold',
+    color: '#fff',
   },
   cancelButton: {
     marginTop: 8,
@@ -52,8 +62,17 @@ const useStyles = makeStyles((theme) => ({
       color: 'white',
     },
   },
+  chooseFileButton: {
+    marginTop: 8,
+    borderRadius: 32,
+    backgroundColor: '#44AB77',
+    '&:hover': {
+      backgroundColor: '#3C8F65',
+      textDecoration: 'underline',
+      color: 'white',
+    },
+  },
   sectionTitle: {
-    fontFamily: 'Source Sans Pro !important',
     fontWeight: 'bold',
     marginTop: 16,
     fontSize: '0.875rem',
@@ -70,28 +89,94 @@ const useStyles = makeStyles((theme) => ({
   checkedRadioButton: { '&$checked': { color: '#44AB77' } },
   popover: { pointerEvents: 'none' },
   infoIcon: { fontSize: '1rem', marginTop: 6, color: '#44AB77' },
+  configurationLinkContainer: { marginTop: theme.spacing(2) },
 }));
+
+const defaultValues = {
+  name: '',
+  rawText: '',
+  unstressedWords: DEFAULT_SETTINGS_CONFIG.unstressedWords,
+  unstressedTags: DEFAULT_SETTINGS_CONFIG.unstressedTags,
+  unstressedDeps: DEFAULT_SETTINGS_CONFIG.unstressedDeps,
+  ambiguousWords: DEFAULT_SETTINGS_CONFIG.ambiguousWords,
+  ambiguousTags: DEFAULT_SETTINGS_CONFIG.ambiguousTags,
+  ambiguousDeps: DEFAULT_SETTINGS_CONFIG.ambiguousDeps,
+  stressedWords: DEFAULT_SETTINGS_CONFIG.stressedWords,
+};
 
 const ComputeDialog = ({ isOpen, setIsOpen }) => {
   const classes = useStyles();
   const [selectedInputMethod, setSelectedInputMethod] =
     useState('rawText');
   const [anchorEl, setAnchorEl] = useState(null);
+  const [shouldShowConfigOptions, setShouldShowConfigOptions] =
+    useState(false);
+  const [, { upsertComputeResult }] = useComputeResults();
 
-  console.log('selectedInputMethod: ', selectedInputMethod);
+  const [
+    uploadMetricalTreeFile,
+    { loading: uploadLoading, error: uploadError },
+  ] = useMutation(UPLOAD_METRICAL_TREE_FILE);
 
-  const theme = createMuiTheme({
+  const [
+    computeMetricalTreeFile,
+    { loading: computeLoading, error: computeError },
+  ] = useMutation(COMPUTE_METRICAL_TREE_FILE);
+
+  const theme = createTheme({
     palette: { primary: { main: '#44AB77' } },
   });
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm();
+  const { watch, register, handleSubmit, control, formState } =
+    useForm({ defaultValues });
 
-  const onSubmit = (data) => console.log(data);
+  const selectedFile = watch('file');
+
+  const onSubmit = (data) => {
+    console.log(data);
+
+    const getFileFromRawText = () => {
+      const blob = new Blob([data.rawText], { type: 'text/plain' });
+      return new File([blob], 'input.txt', {
+        type: 'text/plain',
+      });
+    };
+
+    const fileToUpload =
+      selectedInputMethod === 'file'
+        ? data.file[0]
+        : getFileFromRawText();
+
+    uploadMetricalTreeFile({
+      variables: {
+        file: fileToUpload,
+      },
+    })
+      .then((result) => {
+        console.log('RESULT DATA: ', result.data.upload);
+        return computeMetricalTreeFile({
+          variables: {
+            id: result.data.upload.id,
+            options: {
+              name: data?.name ?? undefined,
+              description: '', // TODO: Implement this?
+              unstressed_words: data.unstressedWords,
+              unstressed_tags: data.unstressedTags,
+              unstressed_deps: data.unstressedDeps,
+              ambiguous_words: data.ambiguousWords,
+              ambiguous_tags: data.ambiguousTags,
+              ambiguous_deps: data.ambiguousDeps,
+              stressed_words: data.stressedWords,
+            },
+          },
+        });
+      })
+      .then((result) => {
+        console.log('COMPUTE RESULT: ', result);
+        upsertComputeResult(result.data.compute);
+        // handleClose();
+      });
+  };
 
   const handleRadioOptionChange = (event) => {
     setSelectedInputMethod(event.target.value);
@@ -108,6 +193,8 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
   const open = Boolean(anchorEl);
 
   const handleClose = () => {
+    setShouldShowConfigOptions(false);
+    setSelectedInputMethod('rawText');
     setIsOpen(false);
   };
 
@@ -118,11 +205,11 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
           <DialogTitle className={classes.dialogTitle}>
             <Grid
               container
-              justify="space-between"
+              justifyContent="space-between"
               alignItems="center">
               <Grid item>
                 <Typography className={classes.dialogTitleText}>
-                  Compute Text
+                  Compute
                 </Typography>
               </Grid>
               <Grid item>
@@ -136,11 +223,9 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
             <Grid container>
               <Grid item xs={12} className="form-container">
                 <section>
-                  <label
-                    className={classes.sectionTitle}
-                    htmlFor="name">
+                  <Typography className={classes.sectionTitle}>
                     Name (Optional)
-                  </label>
+                  </Typography>
                   <Controller
                     render={({ field }) => (
                       <TextField
@@ -150,7 +235,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                         fullWidth
                       />
                     )}
-                    name="TextField"
+                    name="name"
                     control={control}
                   />
                 </section>
@@ -181,7 +266,11 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                           color="primary"
                         />
                       }
-                      label={'Raw Text'}
+                      label={
+                        <Typography variant="subtitle2">
+                          Raw Text
+                        </Typography>
+                      }
                     />
                     <FormControlLabel
                       classes={{
@@ -198,14 +287,74 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                           color="primary"
                         />
                       }
-                      label={'File'}
+                      label={
+                        <Typography variant="subtitle2">
+                          File
+                        </Typography>
+                      }
                     />
                   </RadioGroup>
                 </FormControl>
               </Grid>
+              {selectedInputMethod === 'file' && (
+                <Grid item xs={12}>
+                  <Grid container justifyContent="flex-end">
+                    <Grid item>
+                      <Link
+                        className={classes.link}
+                        underline="always">
+                        <Typography className={classes.linkText}>
+                          Sample input file
+                        </Typography>
+                      </Link>
+                    </Grid>
+                  </Grid>
+                  <section>
+                    <Typography className={classes.sectionTitle}>
+                      Input File
+                    </Typography>
+                    <Grid
+                      container
+                      direction="row"
+                      spacing={2}
+                      alignItems="center">
+                      <Grid item>
+                        <Button
+                          variant="contained"
+                          component="label"
+                          className={classes.chooseFileButton}>
+                          <Typography className={classes.buttonLabel}>
+                            Choose File
+                          </Typography>
+                          <input
+                            {...register('file', {
+                              required:
+                                selectedInputMethod === 'file',
+                            })}
+                            type="file"
+                            hidden
+                            name="file"
+                            accept=".txt"
+                          />
+                        </Button>
+                      </Grid>
+                      <Grid item>
+                        <Typography
+                          variant="subtitle2"
+                          className={classes.fileName}>
+                          {selectedFile?.[0]?.name
+                            ? selectedFile[0].name
+                            : 'No file chosen'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </section>
+                </Grid>
+              )}
+
               {selectedInputMethod === 'rawText' && (
                 <Grid item xs={12}>
-                  <Grid container justify="flex-end">
+                  <Grid container justifyContent="flex-end">
                     <Grid item>
                       <Link
                         className={classes.link}
@@ -233,7 +382,10 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                           rows={10}
                         />
                       )}
-                      name="TextField"
+                      name="rawText"
+                      rules={{
+                        required: selectedInputMethod === 'rawText',
+                      }}
                       control={control}
                     />
                   </section>
@@ -245,8 +397,17 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                   direction="row"
                   spacing={1}
                   alignItems="center">
-                  <Grid item>
-                    <Link className={classes.link} underline="always">
+                  <Grid
+                    item
+                    className={classes.configurationLinkContainer}>
+                    <Link
+                      className={classes.link}
+                      underline="always"
+                      onClick={() =>
+                        setShouldShowConfigOptions(
+                          !shouldShowConfigOptions
+                        )
+                      }>
                       <Typography className={classes.linkText}>
                         Optional Configuration
                       </Typography>
@@ -283,12 +444,18 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                       <Typography>TODO: HELPER TEXT</Typography>
                     </Popover>
                   </Grid>
+                  {shouldShowConfigOptions && (
+                    <ComputeOptionalConfigForm control={control} />
+                  )}
                 </Grid>
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions className={classes.dialogActions}>
-            <Grid container justify="flex-end" alignItems="center">
+            <Grid
+              container
+              justifyContent="flex-end"
+              alignItems="center">
               <Grid item>
                 <Button
                   onClick={handleClose}
@@ -299,13 +466,11 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                 </Button>
               </Grid>
               <Grid item>
-                <Button
+                <StyledButtonPrimary
                   type={'submit'}
-                  className={classes.submitButton}>
-                  <Typography className={classes.buttonLabel}>
-                    Submit
-                  </Typography>
-                </Button>
+                  disabled={!formState.isValid}
+                  label={'Submit'}
+                />
               </Grid>
             </Grid>
           </DialogActions>

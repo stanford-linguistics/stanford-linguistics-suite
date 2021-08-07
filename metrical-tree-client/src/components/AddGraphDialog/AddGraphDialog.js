@@ -48,12 +48,7 @@ const useStyles = makeStyles((theme) => ({
 const AddGraphDialog = ({ isOpen, setIsOpen }) => {
   const classes = useStyles();
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm();
+  const { handleSubmit, control } = useForm();
 
   // TODO: Connection on create graph
   const onSubmit = (data) => console.log(data);
@@ -63,14 +58,13 @@ const AddGraphDialog = ({ isOpen, setIsOpen }) => {
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      maxWidth="sm"
-      onClose={handleClose}
-      disableBackdropClick>
+    <Dialog open={isOpen} maxWidth="sm" onClose={handleClose}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogTitle className={classes.dialogTitle}>
-          <Grid container justify="space-between" alignItems="center">
+          <Grid
+            container
+            justifyContent="space-between"
+            alignItems="center">
             <Grid item>
               <Typography className={classes.dialogTitleText}>
                 Delete Computation
@@ -112,7 +106,10 @@ const AddGraphDialog = ({ isOpen, setIsOpen }) => {
           </Grid>
         </DialogContent>
         <DialogActions className={classes.dialogActions}>
-          <Grid container justify="flex-end" alignItems="center">
+          <Grid
+            container
+            justifyContent="flex-end"
+            alignItems="center">
             <Grid item>
               <Button
                 onClick={handleClose}

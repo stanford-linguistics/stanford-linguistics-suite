@@ -67,7 +67,7 @@ const AboutPage = () => {
       <Appbar />
       <Grid
         container
-        justify="center"
+        justifyContent="center"
         alignContent="center"
         className={classes.container}>
         <Grid item xs={12} sm={10} md={8} lg={6}>
@@ -157,7 +157,7 @@ const AboutPage = () => {
           </Typography> */}
         </Grid>
         <Grid item xs={12}>
-          <Grid container justify="center">
+          <Grid container justifyContent="center">
             <Grid item>
               <Button
                 size="small"
