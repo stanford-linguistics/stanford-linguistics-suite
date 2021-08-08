@@ -3,10 +3,3 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-@font-face {
-  font-family: 'Source Sans Pro';
-  src: local('Source Sans Pro')
-    url('./assets/fonts/SourceSansPro-Regular.ttf') format('truetype');
-}
-

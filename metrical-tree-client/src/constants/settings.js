@@ -18,4 +18,4 @@ export const DEFAULT_SETTINGS_CONFIG = {
 };
 
 export const SAMPLE_RAW_TEXT =
-  'We must adjust to changing times and still hold to unchanging principles.';
+  'We must adjust to changing times and still hold to unchanging principles';

@@ -11,6 +11,7 @@ import {
   Button,
   IconButton,
 } from '@material-ui/core';
+import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: { padding: '8px 8px 0 16px' },
@@ -27,16 +28,6 @@ const useStyles = makeStyles((theme) => ({
     '&:hover': {
       backgroundColor: 'rgba(0,0,0,0)',
       textDecoration: 'underline',
-    },
-  },
-  submitButton: {
-    marginTop: 8,
-    borderRadius: 32,
-    backgroundColor: '#44AB77',
-    '&:hover': {
-      backgroundColor: '#3C8F65',
-      textDecoration: 'underline',
-      color: 'white',
     },
   },
 }));
@@ -95,13 +86,10 @@ const DeleteConfirmationDialog = ({
             </Button>
           </Grid>
           <Grid item>
-            <Button
-              className={classes.submitButton}
-              onClick={handleSubmit}>
-              <Typography className={classes.buttonLabel}>
-                Submit
-              </Typography>
-            </Button>
+            <StyledButtonPrimary
+              label={'Submit'}
+              onClick={handleSubmit}
+            />
           </Grid>
         </Grid>
       </DialogActions>

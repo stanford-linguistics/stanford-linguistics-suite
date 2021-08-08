@@ -19,6 +19,8 @@ import {
 } from '@material-ui/core';
 import ComputeOptionalConfigForm from 'components/ComputeOptionalConfigForm';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
+import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
+import { useSettings } from 'recoil/settings';
 
 const useStyles = makeStyles(() => ({
   dialogTitle: { padding: '8px 8px 0 16px' },
@@ -63,54 +65,63 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 
 const Settings = () => {
   const classes = useStyles();
-  const [open, setOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [settings, { handleSettingsChange }] = useSettings();
 
-  const { handleSubmit, control } = useForm();
+  const { handleSubmit, control, formState, reset, setValue } =
+    useForm({
+      defaultValues: settings,
+    });
 
-  // TODO: Connection on create graph
-  const onSubmit = (data) => console.log(data);
+  const { isDirty, isValid } = formState;
 
-  const handleClickOpen = () => {
-    setOpen(true);
+  const onSubmit = (data) => {
+    handleSettingsChange({
+      ...data,
+    });
+    handleClose();
   };
 
   const handleClose = () => {
-    setOpen(false);
+    setIsOpen(false);
   };
 
   return (
     <>
       <Tooltip title="Settings">
         <IconButton
-          onClick={handleClickOpen}
+          onClick={() => {
+            reset(settings);
+            setIsOpen(true);
+          }}
           className={classes.settingsButton}>
           <SettingsIcon className={classes.icon} size="small" />
         </IconButton>
       </Tooltip>
       <Dialog
-        open={open}
+        open={isOpen}
         onClose={handleClose}
         TransitionComponent={Transition}
         keepMounted>
-        <DialogTitle>
-          <Grid
-            container
-            justifyContent="space-between"
-            alignItems="center">
-            <Grid item>
-              <Typography className={classes.dialogTitleText}>
-                Settings
-              </Typography>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <DialogTitle>
+            <Grid
+              container
+              justifyContent="space-between"
+              alignItems="center">
+              <Grid item>
+                <Typography className={classes.dialogTitleText}>
+                  Settings
+                </Typography>
+              </Grid>
+              <Grid item>
+                <IconButton onClick={handleClose} size="small">
+                  <CloseIcon />
+                </IconButton>
+              </Grid>
             </Grid>
-            <Grid item>
-              <IconButton onClick={handleClose} size="small">
-                <CloseIcon />
-              </IconButton>
-            </Grid>
-          </Grid>
-        </DialogTitle>
-        <DialogContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          </DialogTitle>
+          <DialogContent>
             <Grid container>
               <Grid item xs={12} className={classes.warningMessage}>
                 <Grid
@@ -134,7 +145,7 @@ const Settings = () => {
               <Grid item xs={12}>
                 <section>
                   <Controller
-                    name="Checkbox"
+                    name="shouldDeleteExpiredResults"
                     control={control}
                     render={({ field }) => (
                       <FormControlLabel
@@ -156,36 +167,36 @@ const Settings = () => {
                   />
                 </section>
               </Grid>
-              <ComputeOptionalConfigForm control={control} />
+              <ComputeOptionalConfigForm
+                control={control}
+                setValue={setValue}
+              />
             </Grid>
-          </form>
-        </DialogContent>
-        <DialogActions>
-          <Grid
-            container
-            justifyContent="flex-end"
-            alignItems="center">
-            <Grid item>
-              <Button
-                onClick={handleClose}
-                className={classes.cancelButton}>
-                <Typography className={classes.buttonLabel}>
-                  Cancel
-                </Typography>
-              </Button>
+          </DialogContent>
+          <DialogActions>
+            <Grid
+              container
+              justifyContent="flex-end"
+              alignItems="center">
+              <Grid item>
+                <Button
+                  onClick={handleClose}
+                  className={classes.cancelButton}>
+                  <Typography className={classes.buttonLabel}>
+                    Cancel
+                  </Typography>
+                </Button>
+              </Grid>
+              <Grid item>
+                <StyledButtonPrimary
+                  type={'submit'}
+                  label={'Submit'}
+                  disabled={!isDirty || !isValid}
+                />
+              </Grid>
             </Grid>
-            <Grid item>
-              <Button
-                type={'submit'}
-                className={classes.submitButton}
-                onClick={handleSubmit}>
-                <Typography className={classes.buttonLabel}>
-                  Submit
-                </Typography>
-              </Button>
-            </Grid>
-          </Grid>
-        </DialogActions>
+          </DialogActions>
+        </form>
       </Dialog>
     </>
   );

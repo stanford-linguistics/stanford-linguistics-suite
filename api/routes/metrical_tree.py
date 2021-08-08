@@ -21,6 +21,7 @@ schema = {
     }
 }
 
+
 def get_filename(directory, allowed_extensions):
     filename = ''
     for file in os.listdir(directory):
@@ -43,11 +44,13 @@ def write_script_params_to_file(directory, params):
     with open(paramsFile, 'w') as f:
         json.dump(params, f)
 
+
 def get_param_if_exists(params, param_key):
     if param_key in params:
         return params[param_key]
     else:
         return None
+
 
 @routes.route('/metricaltree/<string:folder_id>', methods=['POST'])
 @expects_json(schema, fill_defaults=False)
@@ -68,12 +71,18 @@ def compute_metrical_tree(folder_id):
             task = celery.send_task('tasks.compute_metrical_tree', args=[
                                     input_file_path,
                                     input_filename,
-                                    get_param_if_exists(params, 'unstressed_words'),
-                                    get_param_if_exists(params, 'unstressed_tags'),
-                                    get_param_if_exists(params, 'unstressed_deps'),
-                                    get_param_if_exists(params, 'ambiguous_words'),
-                                    get_param_if_exists(params, 'ambiguous_tags'),
-                                    get_param_if_exists(params, 'ambiguous_deps'),
+                                    get_param_if_exists(
+                                        params, 'unstressed_words'),
+                                    get_param_if_exists(
+                                        params, 'unstressed_tags'),
+                                    get_param_if_exists(
+                                        params, 'unstressed_deps'),
+                                    get_param_if_exists(
+                                        params, 'ambiguous_words'),
+                                    get_param_if_exists(
+                                        params, 'ambiguous_tags'),
+                                    get_param_if_exists(
+                                        params, 'ambiguous_deps'),
                                     get_param_if_exists(params, 'stressed_words')], kwargs={}, task_id=folder_id)
             link = url_for('routes.check_task', task_id=task.id,
                            _external=True, _scheme='https')

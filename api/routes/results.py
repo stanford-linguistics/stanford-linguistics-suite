@@ -116,7 +116,7 @@ def check_task(task_id: str) -> str:
             expiresIn = result['expires_in']
             expiresOn = result['expires_on']
             images = get_images(task_id)
-            # data = get_data(task_id)
+            data = get_data(task_id)
             dataUrl = get_data_url(task_id)
         else:
             status = 'EXPIRED'

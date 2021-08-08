@@ -3,24 +3,18 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './components/App';
 import reportWebVitals from './reportWebVitals';
-import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { ApolloProvider } from '@apollo/client';
 import { client } from './config/apollo';
 import { RecoilRoot } from 'recoil';
-
-export const theme = createTheme({
-  typography: {
-    fontFamily: ['Source Sans Pro', 'Roboto'].join(','),
-  },
-});
+import MetricalTreeThemeWrapper from 'components/MetricalTreeThemeWrapper';
 
 ReactDOM.render(
   // <React.StrictMode>
   <RecoilRoot>
     <ApolloProvider client={client}>
-      <ThemeProvider theme={theme}>
+      <MetricalTreeThemeWrapper>
         <App />
-      </ThemeProvider>
+      </MetricalTreeThemeWrapper>
     </ApolloProvider>
   </RecoilRoot>,
   // </React.StrictMode>,

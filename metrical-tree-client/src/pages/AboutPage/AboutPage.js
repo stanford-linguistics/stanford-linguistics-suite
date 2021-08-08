@@ -1,49 +1,26 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import { Grid, Typography, Button, Link } from '@material-ui/core';
-
+import { Grid, Typography, Link } from '@material-ui/core';
 import IdentityBar from '../../components/IdentityBar';
 import PrimaryFooter from '../../components/PrimaryFooter';
 import SecondaryFooter from '../../components/SecondaryFooter';
 import Appbar from '../../components/Appbar';
+import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    marginTop: 80,
     padding: 16,
     backgroundColor: '#f2f2f2',
-    minHeight: 'calc(100vh - 236px)',
-    height: 'auto',
-    [theme.breakpoints.down('sm')]: {
-      minHeight: 'calc(100vh - 322px)',
-    },
-    [theme.breakpoints.down('xs')]: {
-      minHeight: 'calc(100vh - 360px)',
-    },
+    height: 'calc(100vh - 316px)',
+    overflowY: 'auto',
   },
   title: {
     fontWeight: 'bold',
     marginBottom: 16,
     fontSize: '1.25rem',
   },
-  subTitle: { fontSize: '0.625rem', marginBottom: -4 },
-  button: {
-    margin: '24px 0',
-    borderRadius: 32,
-    backgroundColor: '#44AB77',
-    '&:hover': {
-      backgroundColor: '#3C8F65',
-      textDecoration: 'underline',
-      color: 'white',
-    },
-  },
-  buttonLabel: {
-    color: 'white',
-    textTransform: 'uppercase',
-    fontSize: '0.625rem',
-    fontWeight: 'bold',
-  },
+  subTitle: { fontSize: '0.825rem', marginBottom: -4 },
   sectionTitle: {
     marginTop: 24,
     textAlign: 'center',
@@ -51,9 +28,12 @@ const useStyles = makeStyles((theme) => ({
   },
   sectionText: { fontSize: '0.75rem', marginTop: 8 },
   link: {
-    color: '#44AB77',
+    color: theme.palette.primary.main,
     fontWeight: 'bold',
-    '&:hover': { cursor: 'pointer', color: '#44AB77' },
+    '&:hover': {
+      cursor: 'pointer',
+      color: theme.palette.primary.dark,
+    },
   },
 }));
 
@@ -159,15 +139,10 @@ const AboutPage = () => {
         <Grid item xs={12}>
           <Grid container justifyContent="center">
             <Grid item>
-              <Button
-                size="small"
-                variant="contained"
-                className={classes.button}
-                onClick={() => history.push('/')}>
-                <Typography className={classes.buttonLabel}>
-                  Home
-                </Typography>
-              </Button>
+              <StyledButtonPrimary
+                label={'Home'}
+                onClick={() => history.push('/')}
+              />
             </Grid>
           </Grid>
         </Grid>

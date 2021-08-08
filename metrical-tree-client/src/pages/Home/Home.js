@@ -2,30 +2,26 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight';
 import { makeStyles } from '@material-ui/core/styles';
-import {
-  Grid,
-  Button,
-  Typography,
-  Card,
-  Link,
-} from '@material-ui/core';
+import { Grid, Typography, Card, Link } from '@material-ui/core';
 
-import IdentityBar from '../../components/IdentityBar';
-import PrimaryFooter from '../../components/PrimaryFooter';
-import SecondaryFooter from '../../components/SecondaryFooter';
-import Appbar from '../../components/Appbar';
-import background from '../../assets/images/homepageBg.jpg';
+import IdentityBar from 'components/IdentityBar';
+import PrimaryFooter from 'components/PrimaryFooter';
+import SecondaryFooter from 'components/SecondaryFooter';
+import Appbar from 'components/Appbar';
+import background from 'assets/images/homepageBg.jpg';
+import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    height: 'calc(100vh - 236px)',
+    height: 'calc(100vh - 316px)',
     backgroundImage: `url(${background})`,
     backgroundSize: 'cover',
+    backgroundPosition: 'center',
     [theme.breakpoints.down('sm')]: {
-      height: 'calc(100vh - 322px)',
+      height: 'calc(100vh - 402px)',
     },
     [theme.breakpoints.down('xs')]: {
-      height: 'calc(100vh - 360px)',
+      height: 'calc(100vh - 421px)',
     },
   },
   card: {
@@ -52,33 +48,16 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   link: {
-    color: '#44AB77',
-    '&:hover': { cursor: 'pointer', color: '#44AB77' },
+    color: theme.palette.primary.main,
+    '&:hover': {
+      cursor: 'pointer',
+      color: theme.palette.primary.dark,
+    },
   },
   linkLabel: {
     display: 'inline',
     fontWeight: 'bold',
     fontSize: '0.875rem',
-  },
-  button: {
-    borderRadius: 32,
-    display: 'block',
-    marginTop: 32,
-    backgroundColor: '#44AB77',
-    '&:hover': {
-      backgroundColor: '#3C8F65',
-      textDecoration: 'underline',
-      color: 'white',
-    },
-    [theme.breakpoints.down('xs')]: {
-      marginTop: 8,
-    },
-  },
-  buttonLabel: {
-    color: 'white',
-    textTransform: 'uppercase',
-    fontSize: '0.625rem',
-    fontWeight: 'bold',
   },
 }));
 
@@ -124,15 +103,10 @@ const Home = () => {
               </Grid>
             </Link>
             <Grid container justifyContent="flex-end">
-              <Button
-                size="small"
-                variant="contained"
-                className={classes.button}
-                onClick={() => history.push('/compute')}>
-                <Typography className={classes.buttonLabel}>
-                  Compute
-                </Typography>
-              </Button>
+              <StyledButtonPrimary
+                label={'Compute'}
+                onClick={() => history.push('/compute')}
+              />
             </Grid>
           </Card>
         </Grid>

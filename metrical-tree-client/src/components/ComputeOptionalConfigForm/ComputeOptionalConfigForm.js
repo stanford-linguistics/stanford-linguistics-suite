@@ -22,12 +22,23 @@ const useStyles = makeStyles((theme) => ({
   autocompleteInputRoot: { padding: 0 + '!important' },
 }));
 
-const ComputeOptionalConfigForm = ({ control }) => {
+const ResetDefaultLink = ({ onClick }) => {
   const classes = useStyles();
 
-  const handleRestoreDefaults = (type) => {
-    console.log(type);
-    console.log('DEFAULT RESTORED'); // TODO:
+  return (
+    <Link className={classes.link} onClick={onClick}>
+      <Typography className={classes.restoreDefaultsLabel}>
+        Restore Defaults
+      </Typography>
+    </Link>
+  );
+};
+
+const ComputeOptionalConfigForm = ({ control, setValue }) => {
+  const classes = useStyles();
+
+  const handleRestoreDefaults = (type, defaultValue) => {
+    setValue(type, defaultValue);
   };
 
   return (
@@ -54,17 +65,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'unstressedWords',
                     DEFAULT_SETTINGS_CONFIG.unstressedWords
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller
@@ -108,17 +116,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'unstressedTags',
                     DEFAULT_SETTINGS_CONFIG.unstressedTags
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller
@@ -162,17 +167,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'unstressedDeps',
                     DEFAULT_SETTINGS_CONFIG.unstressedDeps
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller
@@ -216,17 +218,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'ambiguousWords',
                     DEFAULT_SETTINGS_CONFIG.ambiguousWords
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller
@@ -270,17 +269,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'ambiguousTags',
                     DEFAULT_SETTINGS_CONFIG.ambiguousTags
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller
@@ -324,17 +320,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'ambiguousDeps',
                     DEFAULT_SETTINGS_CONFIG.ambiguousDeps
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller
@@ -378,17 +371,14 @@ const ComputeOptionalConfigForm = ({ control }) => {
               </Typography>
             </Grid>
             <Grid item>
-              <Link
-                className={classes.link}
+              <ResetDefaultLink
                 onClick={() =>
                   handleRestoreDefaults(
+                    'stressedWords',
                     DEFAULT_SETTINGS_CONFIG.stressedWords
                   )
-                }>
-                <Typography className={classes.restoreDefaultsLabel}>
-                  Restore Defaults
-                </Typography>
-              </Link>
+                }
+              />
             </Grid>
           </Grid>
           <Controller

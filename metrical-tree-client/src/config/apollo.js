@@ -3,7 +3,6 @@ import { RestLink } from 'apollo-link-rest';
 
 const apiUrl = process.env.REACT_APP_API_URL;
 
-console.log('NANI: ', apiUrl);
 const restLink = new RestLink({
   uri: apiUrl,
   bodySerializers: {

@@ -49,7 +49,7 @@ const MainNav = () => {
       history.push('/compute');
     }
     if (index === 3) {
-      history.push('/my-results');
+      history.push('/compute');
     }
   };
 
@@ -62,7 +62,7 @@ const MainNav = () => {
       onClick={toggleDrawer(anchor, false)}
       onKeyDown={toggleDrawer(anchor, false)}>
       <List>
-        {['Home', 'About', 'Compute', 'My Results'].map(
+        {['Home', 'About', 'Compute', 'Results'].map(
           (text, index) => (
             <ListItem
               button

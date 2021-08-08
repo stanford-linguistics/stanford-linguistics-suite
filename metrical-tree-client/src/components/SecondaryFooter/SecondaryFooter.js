@@ -49,7 +49,9 @@ const SecondaryFooter = () => {
           Arto Antilla
         </Typography>
         <Link
-          onClick={() => console.log('email link clicked')}
+          href="mailto:anttila@stanford.edu"
+          target="_blank"
+          rel="noopener noreferrer"
           className={classes.contactEmailLink}>
           <Typography className={classes.contactEmail}>
             anttila@stanford.edu

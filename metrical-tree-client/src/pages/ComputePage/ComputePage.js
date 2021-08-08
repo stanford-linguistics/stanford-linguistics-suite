@@ -4,40 +4,40 @@ import { useHistory } from 'react-router-dom';
 import DownloadIcon from '@material-ui/icons/GetApp';
 import ViewIcon from '@material-ui/icons/Visibility';
 import DeleteIcon from '@material-ui/icons/Delete';
-import { makeStyles, createTheme } from '@material-ui/core/styles';
+import { makeStyles } from '@material-ui/core/styles';
 import {
   Grid,
   Typography,
-  Button,
   IconButton,
   LinearProgress,
 } from '@material-ui/core';
 import Moment from 'react-moment';
 import 'moment-timezone';
-
 import IdentityBar from '../../components/IdentityBar';
 import PrimaryFooter from '../../components/PrimaryFooter';
 import SecondaryFooter from '../../components/SecondaryFooter';
 import Appbar from '../../components/Appbar';
-import { MuiThemeProvider } from '@material-ui/core';
 import ComputeDialog from '../../components/ComputeDialog';
 import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog/DeleteConfirmationDialog';
 import { useComputeResults } from 'recoil/results';
 import useLazyQueryPromise from 'hooks/useLazyQueryPromise';
 import { GET_RESULT_FOR_SINGLE_COMPUTE } from 'graphql/metricalTree';
+import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
+import { useMediaQuery } from 'react-responsive';
+import { useSettings } from 'recoil/settings';
+import noFilesImage from 'assets/images/noFiles.svg';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    marginTop: 80,
     padding: 16,
-    minHeight: 'calc(100vh - 236px)',
-    height: 'auto',
-    backgroundColor: '#f2f2f2',
+    backgroundColor: theme.palette.background.default,
+    height: 'calc(100vh - 316px)',
+    overflowY: 'auto',
     [theme.breakpoints.down('sm')]: {
-      minHeight: 'calc(100vh - 322px)',
+      height: 'calc(100vh - 402px)',
     },
     [theme.breakpoints.down('xs')]: {
-      minHeight: 'calc(100vh - 360px)',
+      height: 'calc(100vh - 421px)',
     },
   },
   title: {
@@ -45,28 +45,20 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: 16,
     fontSize: '1.25rem',
   },
-  subTitle: { fontSize: '0.625rem', marginBottom: -4 },
-  button: {
-    margin: ' 8px 0 24px 0',
-    borderRadius: 32,
-    backgroundColor: '#44AB77',
-    '&:hover': {
-      backgroundColor: '#3C8F65',
-      textDecoration: 'underline',
-      color: 'white',
-    },
-  },
-  buttonLabel: {
-    color: 'white',
-    textTransform: 'uppercase',
-    fontSize: '0.625rem',
-    fontWeight: 'bold',
-  },
+  subTitle: { fontSize: '0.825rem', marginBottom: -4 },
   expirationNotice: {
     textAlign: 'center',
     fontSize: '0.625rem',
     marginBottom: 4,
   },
+  downloadLink: { color: 'rgba(0, 0, 0, 0.54)' },
+  noFilesImage: { width: 250 },
+  noFilesTitle: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: '1.5rem',
+  },
+  noFilesSubTitle: { textAlign: 'center' },
 }));
 
 const ComputePage = () => {
@@ -82,6 +74,10 @@ const ComputePage = () => {
   ] = useState(false);
   const [resultsState, { deleteComputeResult, updateComputeResult }] =
     useComputeResults();
+  const isMobileDevice = useMediaQuery({
+    query: '(max-width: 960px)',
+  });
+  const [settings] = useSettings();
 
   const results = resultsState.results;
 
@@ -98,17 +94,13 @@ const ComputePage = () => {
         if (shouldUpdate(result)) {
           getComputeResult({ id: result.id }).then(
             (updatedResult) => {
-              console.log(
-                'UPDATED RESULT: ',
-                updatedResult.data.result
-              );
               updateComputeResult(updatedResult.data.result);
             }
           );
         }
         if (
-          result.status === 'EXPIRED'
-          //&&shouldDeleteExpiredTorders
+          result.status === 'EXPIRED' &&
+          settings.shouldDeleteExpiredResults
         ) {
           deleteComputeResult(result.id);
         }
@@ -139,16 +131,6 @@ const ComputePage = () => {
   useEffect(() => {
     const intervalId = setInterval(requestResults, 3000);
     return () => clearInterval(intervalId);
-  });
-
-  const theme = createTheme({
-    overrides: {
-      MUIDataTableToolbar: { root: { display: 'none' } },
-      MUIDataTableHeadCell: {
-        root: { padding: '8px 0 8px 16px', fontWeight: 'bold' },
-      },
-      MUIDataTableBodyCell: { root: { padding: '0 0 0 8px' } },
-    },
   });
 
   const handleComputeClick = () => {
@@ -183,8 +165,7 @@ const ComputePage = () => {
             <>
               <Typography>{status}</Typography>
               {(status === 'RUNNING' || status === 'PENDING') && (
-                // TODO: Fix color
-                <LinearProgress color="secondary" />
+                <LinearProgress color="primary" />
               )}
             </>
           );
@@ -230,29 +211,32 @@ const ComputePage = () => {
         customBodyRender: (id, rowData) => {
           const status = rowData.rowData[2];
           const downloadUrl = rowData.rowData[4]
-            ? rowData.rowData[4].replace('https', 'http')
+            ? rowData.rowData[4].replace('https', 'http') //TODO: Remove this for prod
             : null;
           return (
-            <Grid container justifyContent="flex-end">
-              {downloadUrl && (
+            <Grid container alignItems="center">
+              {status === 'SUCCESS' && downloadUrl && (
                 <Grid item>
                   <a
+                    className={classes.downloadLink}
                     title="Download"
                     role="button"
                     href={downloadUrl}
                     download>
-                    <DownloadIcon />
+                    <DownloadIcon style={{ marginTop: 4 }} />
                   </a>
                 </Grid>
               )}
+              {status === 'SUCCESS' && (
+                <Grid item>
+                  <IconButton
+                    size="small"
+                    onClick={() => history.push(`/result/${id}`)}>
+                    <ViewIcon />
+                  </IconButton>
+                </Grid>
+              )}
 
-              <Grid item>
-                <IconButton
-                  size="small"
-                  onClick={() => history.push('/')}>
-                  <ViewIcon />
-                </IconButton>
-              </Grid>
               <Grid item>
                 <IconButton
                   size="small"
@@ -284,47 +268,72 @@ const ComputePage = () => {
     download: false,
     viewColumns: false,
     rowsPerPageOptions: [],
+    rowsPerPage: isMobileDevice ? 3 : 10,
   };
 
   return (
     <>
-      <MuiThemeProvider theme={theme}>
-        <IdentityBar />
-        <Appbar />
-        <Grid
-          container
-          justifyContent="center"
-          className={classes.container}>
-          <Grid item xs={10} sm={10} md={8} lg={8}>
-            <Typography className={classes.subTitle}>
-              Metrical Tree
-            </Typography>
-            <Typography className={classes.title}>Compute</Typography>
-            <Typography>
-              Click the button below to begin analysis of text.
-            </Typography>
-            <Button
-              onClick={handleComputeClick}
-              className={classes.button}>
-              <Typography className={classes.buttonLabel}>
+      <IdentityBar />
+      <Appbar />
+      <Grid
+        container
+        justifyContent="center"
+        className={classes.container}>
+        <Grid item xs={12} sm={12} md={8} lg={8}>
+          <Grid container>
+            <Grid item>
+              <Typography className={classes.subTitle}>
+                Metrical Tree
+              </Typography>
+              <Typography className={classes.title}>
                 Compute
               </Typography>
-            </Button>
-            <Typography className={classes.expirationNotice}>
-              Your results are listed below. They will expire after 3
-              days.
-            </Typography>
-            <MUIDataTable
-              title={'Results'}
-              data={results}
-              columns={columns}
-              options={options}
-            />
+              <Typography>
+                Click the button below to begin analysis of text.
+              </Typography>
+              <StyledButtonPrimary
+                label={'Compute'}
+                onClick={handleComputeClick}
+              />
+            </Grid>
           </Grid>
+          {results.length > 0 && (
+            <>
+              <Typography className={classes.expirationNotice}>
+                Your results are listed below. They will expire after
+                3 days.
+              </Typography>
+              <MUIDataTable
+                title={'Results'}
+                data={results}
+                columns={columns}
+                options={options}
+              />
+            </>
+          )}
+          {results.length < 1 && (
+            <Grid container justifyContent="center">
+              <img
+                className={classes.noFilesImage}
+                src={noFilesImage}
+                alt={'Woman analyzing charts'}
+              />
+              <Grid item xs={12}>
+                <Typography className={classes.noFilesTitle}>
+                  You have no computations.
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography className={classes.noFilesSubTitle}>
+                  Click the compute button above to begin analysis.
+                </Typography>
+              </Grid>
+            </Grid>
+          )}
         </Grid>
-        <SecondaryFooter />
-        <PrimaryFooter />
-      </MuiThemeProvider>
+      </Grid>
+      <SecondaryFooter />
+      <PrimaryFooter />
       <ComputeDialog
         isOpen={computeDialogIsOpen}
         setIsOpen={setIsComputeDialogOpen}

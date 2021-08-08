@@ -14,7 +14,6 @@ import Settings from '../Settings';
 
 const useStyles = makeStyles((theme) => ({
   appbar: {
-    marginTop: 30,
     paddingLeft: 76,
     backgroundColor: '#fff',
     [theme.breakpoints.down('sm')]: { paddingLeft: 16 },
@@ -49,7 +48,7 @@ const Appbar = () => {
   const history = useHistory();
 
   return (
-    <AppBar className={classes.appbar}>
+    <AppBar position="static" className={classes.appbar}>
       <Toolbar className={classes.toolbar}>
         <Grid
           container
@@ -122,16 +121,6 @@ const Appbar = () => {
                   </Grid>
                 </Grid>
               </Grid>
-
-              {/* <Grid item>
-                <Link
-                  className={classes.link}
-                  onClick={() => history.push('/my-results')}>
-                  <Typography className={classes.linkLabel}>
-                    My Results
-                  </Typography>
-                </Link>
-              </Grid> */}
             </Grid>
           </Grid>
         </Grid>

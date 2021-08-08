@@ -35,9 +35,15 @@ export const COMPUTE_METRICAL_TREE_FILE = gql`
       link
       name
       params {
-        description
         name
+        description
         unstressed_words
+        unstressed_tags
+        unstressed_deps
+        ambiguous_words
+        ambiguous_tags
+        ambiguous_deps
+        stressed_words
       }
       status
     }
