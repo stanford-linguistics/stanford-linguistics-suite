@@ -23,7 +23,7 @@ services:
       - /apps/docker-articles/nginx/html:/usr/share/nginx/html
     depends_on:
       - nginx-proxy
-  torders-api:
+  api:
     build:
       context: ./api
       dockerfile: Dockerfile
@@ -39,7 +39,7 @@ services:
       VIRTUAL_PORT: 5001
       LETSENCRYPT_HOST: cogeto-api.stanford.edu
       LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
-  torders-worker:
+  worker:
     build:
       context: celery-queue
       dockerfile: Dockerfile
@@ -50,7 +50,7 @@ services:
     volumes:
       - ./results:/results
       - ./public:/public
-  torders-worker-monitor:
+  worker-monitor:
     build:
       context: celery-queue
       dockerfile: Dockerfile
@@ -65,15 +65,27 @@ services:
       VIRTUAL_PORT: 5555
       LETSENCRYPT_HOST: cogeto-monitor.stanford.edu
       LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
-  torders-client:
+  cogeto-client:
     build:
-      context: ./client
+      context: ./cogeto-client
       dockerfile: Dockerfile
     restart: always
     environment:
       VIRTUAL_HOST: cogeto.stanford.edu
       VIRTUAL_PORT: 80
       LETSENCRYPT_HOST: cogeto.stanford.edu
+      LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
+    depends_on:
+      - nginx-proxy
+  metrical-tree-client:
+    build:
+      context: ./metrical-tree-client
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      VIRTUAL_HOST: metricaltree.stanford.edu
+      VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: metricaltree.stanford.edu
       LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
     depends_on:
       - nginx-proxy
