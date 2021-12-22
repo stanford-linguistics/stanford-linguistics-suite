@@ -73,11 +73,16 @@ const AboutPage = () => {
             2003; Chen and Manning 2014; Manning et al. 2014). The
             source code for MetricalTree is available at{' '}
             <Link
-              onClick={() => console.log('handle go to link')}
+              href="https://github.com/tdozat/Metrics"
               className={classes.link}>
               https://github.com/tdozat/Metrics.
             </Link>
           </Typography>
+          <Link href="https://web.stanford.edu/~anttila/research/AMP-2020-Tutorial-Handout.pdf">
+            <Typography style={{ fontSize: '12px' }}>
+              Download Tutorial Handout
+            </Typography>
+          </Link>
           <Typography className={classes.sectionTitle}>
             FINE-TUNING
           </Typography>
@@ -125,16 +130,15 @@ const AboutPage = () => {
             article:
           </Typography>
           <Typography className={classes.sectionText}>
-            Anttila, Arto, Timothy Dozat, Daniel Galbraith, and Naomi
-            Shapiro. 2020. Sentence stress in presidential speeches.
+            <Link href="https://ling.auf.net/lingbuzz/004303">
+              Anttila, Arto, Timothy Dozat, Daniel Galbraith, and
+              Naomi Shapiro. 2020. Sentence stress in presidential
+              speeches.
+            </Link>{' '}
             In Gerrit Kentner and Joost Kremers (eds.), Prosody in
             Syntactic Encoding, Walter De Gruyter: Berlin/Boston, pp.
             17-50.
           </Typography>
-          {/* TODO: Clarify what this is - from the email */}
-          {/* <Typography className={classes.sectionTitle}>
-            EOF
-          </Typography> */}
         </Grid>
         <Grid item xs={12}>
           <Grid container justifyContent="center">

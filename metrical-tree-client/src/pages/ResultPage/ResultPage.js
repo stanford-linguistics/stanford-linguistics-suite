@@ -1,19 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
-//import { useForm } from 'react-hook-form';
 import { makeStyles } from '@material-ui/core/styles';
-//import GetAppIcon from '@material-ui/icons/GetApp';
 import {
   Grid,
   Typography,
-  //Button,
   Link,
   Card,
-  // Select,
-  // MenuItem,
+  Select,
+  MenuItem,
+  Chip,
 } from '@material-ui/core';
-import { Chart } from 'react-charts';
-import ResizableBox from 'components/ResizableBox';
 
 import IdentityBar from '../../components/IdentityBar';
 import Appbar from '../../components/Appbar';
@@ -27,6 +23,8 @@ import Moment from 'react-moment';
 import 'moment-timezone';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
 import MUIDataTable from 'mui-datatables';
+import ResultsGraph from 'components/ResultsGraph';
+import ReactToPrint from 'react-to-print';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -69,7 +67,90 @@ const useStyles = makeStyles((theme) => ({
   cardTitle: { fontWeight: 'bold' },
   graphCard: { margin: theme.spacing(2, 0, 1, 0) },
   section: { marginBottom: theme.spacing(2) },
+  parameterGroup: {
+    marginRight: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+  },
+  parameterName: { display: 'inline', fontSize: '0.75rem' },
+  parameterWordChip: { marginRight: theme.spacing(0.5) },
 }));
+
+const selectableModels = [
+  {
+    label: 'm1 (raw)',
+    apiKey: 'm1',
+  },
+  {
+    label: 'm1 (normalized)',
+    apiKey: 'norm_m1',
+  },
+  {
+    label: 'm2a (raw)',
+    apiKey: 'm2a',
+  },
+  {
+    label: 'm2a (normalized)',
+    apiKey: 'norm_m2a',
+  },
+  {
+    label: 'm2b (raw)',
+    apiKey: 'm2b',
+  },
+  {
+    label: 'm2b (normalized)',
+    apiKey: 'norm_m2b',
+  },
+  {
+    label: 'mean (raw)',
+    apiKey: 'mean',
+  },
+  {
+    label: 'mean (normalized)',
+    apiKey: 'norm_mean',
+  },
+];
+
+const getModelForSpecifiedKey = (apiKey, data) => {
+  return {
+    data:
+      data
+        ?.map((row) => ({
+          primary: row.word,
+          secondary: Number(row[apiKey]),
+        }))
+        .filter((row) => !isNaN(row.secondary)) ?? [],
+    label: apiKey,
+  };
+};
+
+const getGraphOptions = (resultData) => {
+  const options = selectableModels.map((model) => ({
+    label: model.label,
+    value: [getModelForSpecifiedKey(model.apiKey, resultData)],
+  }));
+
+  options.push({
+    label: 'Series (raw)',
+    value: [
+      getModelForSpecifiedKey('m1', resultData),
+      getModelForSpecifiedKey('m2a', resultData),
+      getModelForSpecifiedKey('m2b', resultData),
+      getModelForSpecifiedKey('mean', resultData),
+    ],
+  });
+
+  options.push({
+    label: 'Series (normalized)',
+    value: [
+      getModelForSpecifiedKey('norm_m1', resultData),
+      getModelForSpecifiedKey('norm_m2a', resultData),
+      getModelForSpecifiedKey('norm_m2b', resultData),
+      getModelForSpecifiedKey('norm_mean', resultData),
+    ],
+  });
+
+  return options;
+};
 
 const ResultPage = () => {
   const classes = useStyles();
@@ -77,6 +158,8 @@ const ResultPage = () => {
   const { resultId } = useParams();
   const [addGraphDialogIsOpen, setIsAddGraphDialogOpen] =
     useState(false);
+  const graphResultToPrintRef = useRef();
+  const [selectedModel, setSelectedModel] = useState(null);
 
   const [resultsState] = useComputeResults();
 
@@ -98,15 +181,18 @@ const ResultPage = () => {
     ...(data?.result ? data.result : {}),
   };
 
-  //const { handleSubmit, control } = useForm();
+  console.log(mergedResult);
 
-  // const onSubmit = (data) => {
-  //   console.log(data);
-  // };
+  const graphOptions = getGraphOptions(mergedResult.data);
 
-  // const handleDeleteGraph = () => {
-  //   console.log('HANDLE DELETE GRAPH');
-  // };
+  useEffect(() => {
+    if (!selectedModel && graphOptions.length > 0) {
+      const defaultModel = graphOptions.find(
+        (option) => option.value[0].label === 'm2a'
+      );
+      setSelectedModel(defaultModel);
+    }
+  }, [graphOptions, selectedModel]);
 
   const columns = [
     {
@@ -219,108 +305,6 @@ const ResultPage = () => {
     rowsPerPageOptions: [],
   };
 
-  const denormalizedMechanicalStressData = [
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.m1),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'm1',
-    },
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.m2a),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'm2a',
-    },
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.m2b),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'm2b',
-    },
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.mean),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'mean',
-    },
-  ];
-
-  const normalizedMechanicalStressData = [
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.norm_m1),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'norm_m1',
-    },
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.norm_m2a),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'norm_m2a',
-    },
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.norm_m2b),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'norm_m2b',
-    },
-    {
-      data:
-        mergedResult?.data
-          ?.map((row) => ({
-            primary: row.word,
-            secondary: Number(row.norm_mean),
-          }))
-          .filter((row) => !isNaN(row.secondary)) ?? [],
-      label: 'norm_mean',
-    },
-  ];
-
-  const primaryAxis = React.useMemo(
-    () => ({
-      getValue: (datum) => datum.primary,
-    }),
-    []
-  );
-
-  const secondaryAxes = React.useMemo(
-    () => [
-      {
-        getValue: (datum) => datum.secondary,
-      },
-    ],
-    []
-  );
-
   return (
     <>
       <IdentityBar />
@@ -379,105 +363,232 @@ const ResultPage = () => {
                   container
                   direction="row"
                   spacing={1}
-                  alignItems="center">
+                  alignItems="center"
+                  justifyContent="space-between">
                   <Grid item>
                     <Typography className={classes.cardTitle}>
                       Graphs
                     </Typography>
                   </Grid>
                   <Grid item>
-                    {/* <Button
-                      style={{ marginBottom: 0 }}
-                      onClick={() => {
-                        setIsAddGraphDialogOpen(true);
+                    <Select
+                      value={selectedModel?.label ?? ''}
+                      variant="outlined"
+                      onChange={(event) => {
+                        const model = graphOptions.find(
+                          (option) =>
+                            option.label === event.target.value
+                        );
+                        setSelectedModel(model);
                       }}
-                      className={classes.button}>
-                      <Typography className={classes.buttonLabel}>
-                        Add Graph
-                      </Typography>
-                    </Button> */}
+                      margin="dense"
+                      fullWidth>
+                      {graphOptions.map((option, index) => (
+                        <MenuItem key={index} value={option.label}>
+                          <Typography
+                            style={{ fontSize: '0.625rem' }}>
+                            {option.label}
+                          </Typography>
+                        </MenuItem>
+                      ))}
+                    </Select>
                   </Grid>
                 </Grid>
                 <Grid container justifyContent="center">
                   <Grid item>
-                    <Typography>
-                      Mechanical Stress Models (Denormalized){' '}
-                    </Typography>
-                    <ResizableBox>
-                      <Chart
-                        options={{
-                          data: denormalizedMechanicalStressData,
-                          primaryAxis,
-                          secondaryAxes,
-                        }}
-                      />
-                    </ResizableBox>
-                  </Grid>
-
-                  <Grid item>
-                    <Typography>
-                      Mechanical Stress Models (Normalized){' '}
-                    </Typography>
-                    <ResizableBox>
-                      <Chart
-                        options={{
-                          data: normalizedMechanicalStressData,
-                          primaryAxis,
-                          secondaryAxes,
-                        }}
-                      />
-                    </ResizableBox>
-                  </Grid>
-
-                  {/* {graphs.map((graph) => (
-                    <Grid
-                      key={graph.id}
-                      item
-                      xs={12}
-                      sm={12}
-                      md={6}
-                      lg={6}>
-                      <form onSubmit={handleSubmit(onSubmit)}>
-                        <section>
-                          <label>
-                            <Typography>Model</Typography>
-                          </label>
-                          <Controller
-                            render={({ field }) => (
-                              <Select
-                                {...field}
-                                className={classes.select}
-                                variant="outlined"
-                                margin="dense"
-                                fullWidth>
-                   
-                                <MenuItem value={10}>Ten</MenuItem>
-                                <MenuItem value={20}>Twenty</MenuItem>
-                                <MenuItem value={30}>Thirty</MenuItem>
-                              </Select>
-                            )}
-                            name="Select"
-                            control={control}
+                    <ResultsGraph
+                      ref={graphResultToPrintRef}
+                      model={selectedModel}
+                    />
+                    <Grid container justifyContent="flex-end">
+                      <ReactToPrint
+                        trigger={() => (
+                          <StyledButtonPrimary
+                            label={'Print'}
+                            onClick={() => {}}
                           />
-                        </section>
-                      </form>
-                      <Card className={classes.graphCard}>
-                        [GRAPH]
-                      </Card>
-                      <Grid container justifyContent="flex-end">
-                        <Button
-                          style={{ marginBottom: 0 }}
-                          onClick={() =>
-                            setIsDeleteConfirmationDialogOpen(true)
-                          }
-                          className={classes.button}>
-                          <Typography className={classes.buttonLabel}>
-                            Delete Graph
-                          </Typography>
-                        </Button>
-                      </Grid>
+                        )}
+                        content={() => graphResultToPrintRef.current}
+                      />
                     </Grid>
-                  ))} */}
+                  </Grid>
+                </Grid>
+              </Card>
+            </Grid>
+            <Grid item xs={12} className={classes.section}>
+              <Card className={classes.card}>
+                <Typography className={classes.cardTitle}>
+                  Parameters Used
+                </Typography>
+                <Grid container>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Unstressed Words:{' '}
+                    </Typography>
+                    {mergedResult?.params?.unstressed_words?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Unstressed Tags:{' '}
+                    </Typography>
+                    {mergedResult?.params?.unstressed_tags?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Unstressed Deps:{' '}
+                    </Typography>
+                    {mergedResult?.params?.unstressed_deps?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Ambiguous Words:{' '}
+                    </Typography>
+                    {mergedResult?.params?.ambiguous_words?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Ambiguous Tags:{' '}
+                    </Typography>
+                    {mergedResult?.params?.ambiguous_tags?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Ambiguous Deps:{' '}
+                    </Typography>
+                    {mergedResult?.params?.ambiguous_deps?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
+                  <Grid
+                    item
+                    xs={12}
+                    className={classes.parameterGroup}>
+                    <Typography className={classes.parameterName}>
+                      Stressed Words:{' '}
+                    </Typography>
+                    {mergedResult?.params?.stressed_words?.map(
+                      (word, index) => (
+                        <Chip
+                          key={index}
+                          className={classes.parameterWordChip}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={
+                            <Typography variant="caption">
+                              {word}
+                            </Typography>
+                          }
+                        />
+                      )
+                    )}
+                  </Grid>
                 </Grid>
               </Card>
             </Grid>

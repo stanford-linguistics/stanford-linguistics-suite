@@ -14,19 +14,22 @@ import nltk.data
 from deptree import DependencyTree, DependencyTreeParser
 import argparse
 
+
 def Get_script_directory():
     absolute_path = os.path.abspath(__file__)
     return os.path.dirname(absolute_path)
+
 
 DATE = '2015-04-20'
 MODELS_VERSION = '3.5.2'
 EJML_VERSION = '0.23'
 
 script_dir = Get_script_directory()
-os.environ['STANFORD_PARSER'] = os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/stanford-parser.jar' % DATE)
-os.environ['STANFORD_MODELS'] =  os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/stanford-parser-%s-models.jar' % (
+os.environ['STANFORD_PARSER'] = os.path.join(
+    script_dir, 'stanford-library/stanford-parser-full-%s/stanford-parser.jar' % DATE)
+os.environ['STANFORD_MODELS'] = os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/stanford-parser-%s-models.jar' % (
     DATE, MODELS_VERSION))
-os.environ['STANFORD_EJML'] =  os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/ejml-%s.jar' % (
+os.environ['STANFORD_EJML'] = os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/ejml-%s.jar' % (
     DATE, EJML_VERSION))
 pickle_path = os.path.join(script_dir, "pickle_jar", "sylcmu.pkl")
 sylcmu = pkl.load(open(pickle_path))
@@ -34,32 +37,44 @@ sent_splitter = nltk.data.load('tokenizers/punkt/english.pickle')
 
 
 def Extant_file(value):
-    ## Type for argparse - checks that file exists but does not open.
+    # Type for argparse - checks that file exists but does not open.
     if not os.path.exists(value):
         raise argparse.ArgumentTypeError("{0} does not exist".format(value))
     return value
 
+
 def Replace_dashes_with_underscores(string):
     return string.replace("-", "_")
 
-def Validate_arguments() :
-    parser = argparse.ArgumentParser(description='Compute T-orders in constraint-based phonology')
-    parser.add_argument("-f", "--input-file", dest="input", help="input txt file", metavar="<FILEPATH>", type=Extant_file)
-    parser.add_argument("-o", "--output", dest="output_directory", help="output path for results (default: current script directory)", metavar="<FILEPATH>")
-    parser.add_argument("--unstressed_words", dest="unstressed_words", default=[], nargs='+', help="List of strings to use for unstressed words")
-    parser.add_argument("--unstressed_tags", dest="unstressed_tags", default=[], nargs='+', help="List of strings to use for unstressed tags")
-    parser.add_argument("--unstressed_deps", dest="unstressed_deps", default=[], nargs='+', help="List of strings to use for unstressed deps")
-    parser.add_argument("--ambiguous_words", dest="ambiguous_words", default=[], nargs='+', help="List of strings to use for ambiguous words")
-    parser.add_argument("--ambiguous_tags", dest="ambiguous_tags", default=[], nargs='+', help="List of strings to use for ambiguous tags")
-    parser.add_argument("--ambiguous_deps", dest="ambiguous_deps", default=[], nargs='+', help="List of strings to use for ambiguous deps")
-    parser.add_argument("--stressed_words", dest="stressed_words", default=[], nargs='+', help="List of strings to use for stressed words")
+
+def Validate_arguments():
+    parser = argparse.ArgumentParser(
+        description='Compute T-orders in constraint-based phonology')
+    parser.add_argument("-f", "--input-file", dest="input",
+                        help="input txt file", metavar="<FILEPATH>", type=Extant_file)
+    parser.add_argument("-o", "--output", dest="output_directory",
+                        help="output path for results (default: current script directory)", metavar="<FILEPATH>")
+    parser.add_argument("--unstressed_words", dest="unstressed_words", default=[],
+                        nargs='+', help="List of strings to use for unstressed words")
+    parser.add_argument("--unstressed_tags", dest="unstressed_tags", default=[],
+                        nargs='+', help="List of strings to use for unstressed tags")
+    parser.add_argument("--unstressed_deps", dest="unstressed_deps", default=[],
+                        nargs='+', help="List of strings to use for unstressed deps")
+    parser.add_argument("--ambiguous_words", dest="ambiguous_words", default=[],
+                        nargs='+', help="List of strings to use for ambiguous words")
+    parser.add_argument("--ambiguous_tags", dest="ambiguous_tags", default=[],
+                        nargs='+', help="List of strings to use for ambiguous tags")
+    parser.add_argument("--ambiguous_deps", dest="ambiguous_deps", default=[],
+                        nargs='+', help="List of strings to use for ambiguous deps")
+    parser.add_argument("--stressed_words", dest="stressed_words", default=[],
+                        nargs='+', help="List of strings to use for stressed words")
     args = parser.parse_args()
     return args
+
 
 def Create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
-
 
 
 def Set_output_directory(directory):
@@ -68,15 +83,16 @@ def Set_output_directory(directory):
         return directory
     else:
         return Get_script_directory()
-#=================================================================================================
+# =================================================================================================
 # Entrypoint
-#=================================================================================================
+# =================================================================================================
+
 
 args = Validate_arguments()
 
-#=================================================================================================
+# =================================================================================================
 # Optional parameters
-#=================================================================================================
+# =================================================================================================
 output_prefix = Set_output_directory(args.output_directory) + "/"
 unstressed_words = args.unstressed_words
 unstressed_tags = args.unstressed_tags
@@ -97,11 +113,12 @@ print('7', stressed_words)
 # ***********************************************************************
 # Multiprocessing worker
 
+
 def parse_worker(q):
     """"""
 
     parser = DependencyTreeParser(
-        model_path= os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz' % DATE))
+        model_path=os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz' % DATE))
     parser = MetricalTreeParser(parser)
     for filename in iter(q.get, 'STOP'):
         sents = []
@@ -133,12 +150,18 @@ def pause_splitter(s):
 class MetricalTree(DependencyTree):
     """"""
 
-    _unstressedWords = ('it',) if not unstressed_words else tuple(unstressed_words)
-    _unstressedTags = ('CC', 'PRP$', 'TO', 'UH', 'DT') if not unstressed_tags else tuple(unstressed_tags)
-    _unstressedDeps = ('det', 'expl', 'cc', 'mark') if not unstressed_deps else tuple(unstressed_deps)
-    _ambiguousWords = ('this', 'that', 'these', 'those') if not ambiguous_words else tuple(ambiguous_words)
-    _ambiguousTags = ('MD', 'IN', 'PRP', 'WP$', 'PDT', 'WDT', 'WP', 'WRB') if not ambiguous_tags else tuple(ambiguous_tags)
-    _ambiguousDeps = ('cop', 'neg', 'aux', 'auxpass') if not ambiguous_deps else tuple(ambiguous_deps)
+    _unstressedWords = ('it',) if not unstressed_words else tuple(
+        unstressed_words)
+    _unstressedTags = ('CC', 'PRP$', 'TO', 'UH',
+                       'DT') if not unstressed_tags else tuple(unstressed_tags)
+    _unstressedDeps = (
+        'det', 'expl', 'cc', 'mark') if not unstressed_deps else tuple(unstressed_deps)
+    _ambiguousWords = ('this', 'that', 'these',
+                       'those') if not ambiguous_words else tuple(ambiguous_words)
+    _ambiguousTags = ('MD', 'IN', 'PRP', 'WP$', 'PDT', 'WDT', 'WP',
+                      'WRB') if not ambiguous_tags else tuple(ambiguous_tags)
+    _ambiguousDeps = ('cop', 'neg', 'aux',
+                      'auxpass') if not ambiguous_deps else tuple(ambiguous_deps)
     _stressedWords = tuple() if not stressed_words else tuple(stressed_words)
 
     # =====================================================================
@@ -546,7 +569,7 @@ class MetricalTreeParser:
             deptreeParser = 'PCFG'
         if isinstance(deptreeParser, compat.string_types):
             deptreeParser = DependencyTreeParser(
-                model_path= os.path.join(script_dir, 'stanford-parser-full-%s/edu/stanford/nlp/models/lexparser/english%s.ser.gz' % (DATE, deptreeParser)))
+                model_path=os.path.join(script_dir, 'stanford-parser-full-%s/edu/stanford/nlp/models/lexparser/english%s.ser.gz' % (DATE, deptreeParser)))
         elif not isinstance(deptreeParser, DependencyTreeParser):
             raise ValueError('Provided an invalid dependency tree parser')
         self.deptreeParser = deptreeParser
