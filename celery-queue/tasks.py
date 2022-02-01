@@ -36,32 +36,36 @@ def get_output_path(folder_id):
     return os.path.join(RESULTS_FOLDER, folder_id, 'output')
 
 
+def get_safe_string(unsafe_string):
+    return pipes.quote(unsafe_string)
+
+
 def get_optional_args(hg_feasible_mappings_only, optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows):
     args_string = ''
     if hg_feasible_mappings_only:
         args_string += '--hg-feasible-mappings-only '
     if optimization_method is not None:
-        args_string += '--optimization-method ' + optimization_method + ' '
+        args_string += '--optimization-method ' + \
+            get_safe_string(optimization_method) + ' '
     if bound_on_number_of_candidates is not None:
         args_string += '--bound-on-number-of-candidates ' + \
-            str(bound_on_number_of_candidates) + ' '
+            get_safe_string(str(bound_on_number_of_candidates)) + ' '
     if num_trials is not None:
-        args_string += '--num-trials ' + str(num_trials) + ' '
+        args_string += '--num-trials ' + get_safe_string(str(num_trials)) + ' '
     if weight_bound is not None:
-        args_string += '--weight-bound ' + str(weight_bound) + ' '
+        args_string += '--weight-bound ' + \
+            get_safe_string(str(weight_bound)) + ' '
     if include_arrows:
         args_string += '--include-arrows'
-    if(args_string):
-      return pipes.quote(args_string)
-    else:
-      return ''
+    return args_string
 
 
 def call_t_order(input_file_path, output_path, hg_feasible_mappings_only, optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows):
     optional_args = get_optional_args(hg_feasible_mappings_only, optimization_method,
                                       bound_on_number_of_candidates, num_trials, weight_bound, include_arrows)
-    t_order_command = 'python torders/t_orders.py ' + pipes.quote(input_file_path) + \
-        ' --output ' + pipes.quote(output_path) + ' ' + optional_args
+    t_order_command = 'python torders/t_orders.py ' + get_safe_string(input_file_path) + \
+        ' --output ' + get_safe_string(output_path) + ' ' + optional_args
+
     try:
         output = subprocess.check_output(
             t_order_command, shell=True, stderr=subprocess.STDOUT)
@@ -73,33 +77,40 @@ def call_t_order(input_file_path, output_path, hg_feasible_mappings_only, optimi
         raise ValueError(
             'Something went wrong while trying to process your file.', output)
 
-def get_safe_string(unsafe_string):
-    return pipes.quote(unsafe_string)
 
 def get_safe_list(unsafe_list):
-  return map(get_safe_string, unsafe_list)
+    return map(get_safe_string, unsafe_list)
 
 
 def get_metrical_tree_optional_args(unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words):
     args_string = ''
     if unstressed_words is not None:
-        args_string += '--unstressed_words ' + ' '.join(get_safe_list(unstressed_words)) + ' '
+        args_string += '--unstressed_words ' + \
+            ' '.join(get_safe_list(unstressed_words)) + ' '
     if unstressed_tags is not None:
-        args_string += '--unstressed_tags ' + ' '.join(get_safe_list(unstressed_tags)) + ' '
+        args_string += '--unstressed_tags ' + \
+            ' '.join(get_safe_list(unstressed_tags)) + ' '
     if unstressed_deps is not None:
-        args_string += '--unstressed_deps ' + ' '.join(get_safe_list(unstressed_deps)) + ' '
+        args_string += '--unstressed_deps ' + \
+            ' '.join(get_safe_list(unstressed_deps)) + ' '
     if ambiguous_words is not None:
-        args_string += '--ambiguous_words ' + ' '.join(get_safe_list(ambiguous_words)) + ' '
+        args_string += '--ambiguous_words ' + \
+            ' '.join(get_safe_list(ambiguous_words)) + ' '
     if ambiguous_tags is not None:
-        args_string += '--ambiguous_tags ' + ' '.join(get_safe_list(ambiguous_tags)) + ' '
+        args_string += '--ambiguous_tags ' + \
+            ' '.join(get_safe_list(ambiguous_tags)) + ' '
     if ambiguous_deps is not None:
-        args_string += '--ambiguous_deps ' + ' '.join(get_safe_list(ambiguous_deps)) + ' '
+        args_string += '--ambiguous_deps ' + \
+            ' '.join(get_safe_list(ambiguous_deps)) + ' '
     if stressed_words is not None:
-        args_string += '--stressed_words ' + ' '.join(get_safe_list(stressed_words)) + ' '
+        args_string += '--stressed_words ' + \
+            ' '.join(get_safe_list(stressed_words)) + ' '
     return args_string
 
+
 def call_metrical_tree(input_file_path, output_path, unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words):
-    optional_args = get_metrical_tree_optional_args(unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words)
+    optional_args = get_metrical_tree_optional_args(
+        unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words)
     metrical_tree_command = 'python metrical-tree/metricaltree.py ' + '--input-file ' + pipes.quote(input_file_path) + \
         ' --output ' + pipes.quote(output_path) + ' ' + optional_args
     print ('Command: ', metrical_tree_command)
@@ -202,23 +213,23 @@ def delete_folder(directory_to_delete):
 
 @celery.task(name='tasks.compute_metrical_tree', bind=True)
 def compute_metrical_tree(self, input_file_path,
-                     input_filename,
-                     unstressed_words, 
-                     unstressed_tags, 
-                     unstressed_deps, 
-                     ambiguous_words, 
-                     ambiguous_tags, 
-                     ambiguous_deps,
-                     stressed_words):
+                          input_filename,
+                          unstressed_words,
+                          unstressed_tags,
+                          unstressed_deps,
+                          ambiguous_words,
+                          ambiguous_tags,
+                          ambiguous_deps,
+                          stressed_words):
     self.update_state(state='RUNNING')
     folder_id = self.request.id
-    call_metrical_tree(input_file_path, get_output_path(folder_id), unstressed_words, 
-                     unstressed_tags, 
-                     unstressed_deps, 
-                     ambiguous_words, 
-                     ambiguous_tags, 
-                     ambiguous_deps,
-                     stressed_words)
+    call_metrical_tree(input_file_path, get_output_path(folder_id), unstressed_words,
+                       unstressed_tags,
+                       unstressed_deps,
+                       ambiguous_words,
+                       ambiguous_tags,
+                       ambiguous_deps,
+                       stressed_words)
     copy_results_to_json(folder_id)
     zip_results(input_filename, folder_id)
     result = Result(get_download_url(folder_id),

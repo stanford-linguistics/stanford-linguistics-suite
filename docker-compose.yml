@@ -2,11 +2,27 @@ version: "3"
 services:
   nginx-proxy:
     image: jwilder/nginx-proxy
-    restart: always
     ports:
       - "80:80"
+      - "443:443"
+    restart: always
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
+      - /apps/docker-articles/nginx/vhost.d:/etc/nginx/vhost.d
+      - /apps/docker-articles/nginx/certs:/etc/nginx/certs:ro
+      - /apps/docker-articles/nginx/html:/usr/share/nginx/html
+    labels:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /apps/docker-articles/nginx/vhost.d:/etc/nginx/vhost.d
+      - /apps/docker-articles/nginx/certs:/etc/nginx/certs:rw
+      - /apps/docker-articles/nginx/html:/usr/share/nginx/html
+    depends_on:
+      - nginx-proxy
   api:
     build:
       context: ./api
@@ -19,8 +35,10 @@ services:
       - redis
       - nginx-proxy
     environment:
-      VIRTUAL_HOST: api.local
+      VIRTUAL_HOST: cogeto-api.stanford.edu
       VIRTUAL_PORT: 5001
+      LETSENCRYPT_HOST: cogeto-api.stanford.edu
+      LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
   worker:
     build:
       context: celery-queue
@@ -43,26 +61,32 @@ services:
       - redis
       - nginx-proxy
     environment:
-      VIRTUAL_HOST: monitor.local
+      VIRTUAL_HOST: cogeto-monitor.stanford.edu
       VIRTUAL_PORT: 5555
+      LETSENCRYPT_HOST: cogeto-monitor.stanford.edu
+      LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
   cogeto-client:
     build:
       context: ./cogeto-client
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     restart: always
     environment:
-      VIRTUAL_HOST: cogeto.local
+      VIRTUAL_HOST: cogeto.stanford.edu
       VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: cogeto.stanford.edu
+      LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
     depends_on:
       - nginx-proxy
   metrical-tree-client:
     build:
       context: ./metrical-tree-client
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     restart: always
     environment:
-      VIRTUAL_HOST: metricaltree.local
+      VIRTUAL_HOST: metricaltree.stanford.edu
       VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: metricaltree.stanford.edu
+      LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
     depends_on:
       - nginx-proxy
   redis:

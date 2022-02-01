@@ -1,0 +1,70 @@
+version: "3"
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - ./results:/results
+      - ./public:/public
+    depends_on:
+      - redis
+      - nginx-proxy
+    environment:
+      VIRTUAL_HOST: api.local
+      VIRTUAL_PORT: 5001
+  worker:
+    build:
+      context: celery-queue
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - redis
+      - nginx-proxy
+    volumes:
+      - ./results:/results
+      - ./public:/public
+  worker-monitor:
+    build:
+      context: celery-queue
+      dockerfile: Dockerfile
+    restart: always
+    entrypoint: flower
+    command: -A tasks --port=5555 --broker=redis://redis:6379/0
+    depends_on:
+      - redis
+      - nginx-proxy
+    environment:
+      VIRTUAL_HOST: monitor.local
+      VIRTUAL_PORT: 5555
+  cogeto-client:
+    build:
+      context: ./cogeto-client
+      dockerfile: Dockerfile.local
+    restart: always
+    environment:
+      VIRTUAL_HOST: cogeto.local
+      VIRTUAL_PORT: 80
+    depends_on:
+      - nginx-proxy
+  metrical-tree-client:
+    build:
+      context: ./metrical-tree-client
+      dockerfile: Dockerfile.local
+    restart: always
+    environment:
+      VIRTUAL_HOST: metricaltree.local
+      VIRTUAL_PORT: 80
+    depends_on:
+      - nginx-proxy
+  redis:
+    image: redis
+    restart: always
