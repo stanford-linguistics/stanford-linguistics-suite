@@ -18,6 +18,7 @@ A comprehensive suite of computational linguistics tools developed by the Stanfo
 - [Research Context](#research-context)
 - [Technical Architecture](#technical-architecture)
 - [Installation](#installation)
+  - [WSL2 Setup](#wsl2-setup)
 - [Usage](#usage)
 - [Development](#development)
 - [Contributing](#contributing)
@@ -111,7 +112,7 @@ Frontend Clients (React) ↔ Flask API ↔ Celery Task Queue ↔ Processing Engi
    127.0.0.1 api.local
    127.0.0.1 monitor.local
    127.0.0.1 cogeto.local
-   127.0.0.1 metrical-tree.local
+   127.0.0.1 metricaltree.local
    ```
    
    Location of hosts file:
@@ -125,10 +126,67 @@ Frontend Clients (React) ↔ Flask API ↔ Celery Task Queue ↔ Processing Engi
    ```
 
 4. **Access the applications:**
-   - MetricalTree: http://metrical-tree.local
+   - MetricalTree: http://metricaltree.local
    - CoGeTo: http://cogeto.local
    - API Monitor: http://monitor.local:5555 (Flower monitoring for Celery)
    - API Endpoints: http://api.local:5001
+
+### WSL2 Setup
+
+If you're using Windows Subsystem for Linux 2 (WSL2), there are a few additional configuration steps required:
+
+1. **Install Prerequisites in WSL2:**
+   ```bash
+   # Update package listings
+   sudo apt update
+
+   # Install Docker and related tools if not already installed
+   sudo apt install -y docker-compose
+
+   ```
+
+2. **Host Mapping for WSL2:**
+   Since WSL2 uses a virtualized network interface, you need to use the WSL2 IP address instead of 127.0.0.1:
+   
+   ```bash
+   # Get your WSL2 IP address
+   export WSL_IP=$(ip addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+   echo $WSL_IP
+   ```
+   
+   Then add these entries to your **Windows** hosts file (C:\Windows\System32\drivers\etc\hosts):
+   ```
+   YOUR_WSL_IP api.local
+   YOUR_WSL_IP monitor.local
+   YOUR_WSL_IP cogeto.local
+   YOUR_WSL_IP metricaltree.local
+   ```
+   
+   Note: You do NOT need to modify the hosts file in your WSL2 environment.
+
+3. **Stanford Parser Setup:**
+   If you encounter Git LFS issues with the Stanford Parser files:
+   ```bash
+   # Skip LFS downloads during checkout
+   GIT_LFS_SKIP_SMUDGE=1 git checkout -f
+   
+   # Manually download and install Stanford Parser
+   mkdir -p celery-queue/metrical-tree/stanford-library/
+   wget https://nlp.stanford.edu/software/stanford-parser-full-2015-04-20.zip -P /tmp/
+   unzip /tmp/stanford-parser-full-2015-04-20.zip -d celery-queue/metrical-tree/stanford-library/
+   ```
+
+4. **Launch with Docker Compose:**
+   ```bash
+   # For development, use the local configuration
+   docker-compose -f docker-compose.local.yml up -d
+   ```
+
+5. **Troubleshooting WSL2 Connectivity:**
+   - If you encounter 503 errors, ensure your Windows hosts file is using the correct WSL2 IP
+   - Your WSL2 IP may change after system reboots; update the hosts file if needed
+   - Verify container status: `docker-compose -f docker-compose.local.yml ps`
+   - Check container logs: `docker-compose -f docker-compose.local.yml logs -f nginx-proxy`
 
 ## Usage
 
@@ -141,7 +199,7 @@ The repository includes sample input files for testing:
 ### Basic Workflow
 
 #### MetricalTree
-1. Navigate to http://metrical-tree.local
+1. Navigate to http://metricaltree.local
 2. Enter a sentence in the input field or upload a text file
 3. Configure optional parameters if needed
 4. Click "Generate Tree" to process the input
