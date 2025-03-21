@@ -116,3 +116,4 @@ coverage*
 /results
 /public
 .vscode
+memory-bank/
