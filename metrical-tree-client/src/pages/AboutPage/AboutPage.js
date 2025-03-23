@@ -12,7 +12,7 @@ const useStyles = makeStyles((theme) => ({
   container: {
     padding: 16,
     backgroundColor: '#f2f2f2',
-    height: 'calc(100vh - 316px)',
+    height: 'auto',
     overflowY: 'auto',
   },
   title: {
