@@ -4,7 +4,7 @@ import {
   Button, 
   IconButton, 
   Tooltip,
-  makeStyles 
+  makeStyles,
 } from '@material-ui/core';
 import { 
   ChevronLeft as ChevronLeftIcon, 
@@ -21,6 +21,9 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: theme.spacing(1),
     boxShadow: theme.shadows[1],
     marginBottom: theme.spacing(2),
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1),
+    },
   },
   controlsWrapper: {
     display: 'flex',
@@ -29,24 +32,35 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
+    [theme.breakpoints.down('xs')]: {
+      flexDirection: 'column',
+      alignItems: 'center',
+    },
   },
   paginationContainer: {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     margin: theme.spacing(1, 0),
+    width: '100%',
   },
   pageInfo: {
     margin: theme.spacing(0, 1),
     fontWeight: 500,
     minWidth: '80px',
     textAlign: 'center',
+    [theme.breakpoints.down('xs')]: {
+      fontSize: '0.75rem',
+      minWidth: '60px',
+    },
   },
   jumpToPageContainer: {
     display: 'flex',
     alignItems: 'center',
     [theme.breakpoints.down('sm')]: {
       marginTop: theme.spacing(1),
+      width: '100%',
+      justifyContent: 'center',
     },
   },
   jumpToPageInput: {
@@ -56,24 +70,59 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(0.5, 1),
     border: `1px solid ${theme.palette.divider}`,
     borderRadius: theme.shape.borderRadius,
+    [theme.breakpoints.down('xs')]: {
+      width: '40px',
+      height: '30px',
+      fontSize: '0.9rem',
+    },
   },
   chunkSizeContainer: {
     display: 'flex',
     alignItems: 'center',
+    [theme.breakpoints.down('xs')]: {
+      marginBottom: theme.spacing(1.5),
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+    },
   },
   chunkSizeLabel: {
     marginRight: theme.spacing(1),
     fontSize: '0.8rem',
     fontWeight: 500,
+    [theme.breakpoints.down('xs')]: {
+      width: '100%',
+      textAlign: 'center',
+      marginBottom: theme.spacing(0.5),
+      marginRight: 0,
+    },
   },
   chunkSizeButton: {
     minWidth: '40px',
     marginRight: theme.spacing(0.5),
     height: '28px',
+    [theme.breakpoints.down('xs')]: {
+      height: '32px', // Larger touch target
+      minWidth: '48px',
+      marginBottom: theme.spacing(0.5),
+    },
   },
   buttonGroup: {
     display: 'flex',
     alignItems: 'center',
+    [theme.breakpoints.down('xs')]: {
+      margin: theme.spacing(1, 0),
+    },
+  },
+  navIconButton: {
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1),
+    },
+  },
+  goButton: {
+    [theme.breakpoints.down('xs')]: {
+      height: '32px',
+      minWidth: '48px',
+    }
   }
 }));
 
@@ -113,7 +162,7 @@ const NavigationControls = ({
   showChunkSizeControls = true
 }) => {
   const classes = useStyles();
-  
+
   return (
     <div className={classes.navContainer}>
       <div className={classes.controlsWrapper}>
@@ -146,6 +195,7 @@ const NavigationControls = ({
                 size="small" 
                 onClick={goToFirstPage} 
                 disabled={currentPage === 0}
+                className={classes.navIconButton}
               >
                 <FirstPageIcon />
               </IconButton>
@@ -157,6 +207,7 @@ const NavigationControls = ({
                 size="small" 
                 onClick={goToPrevPage} 
                 disabled={currentPage === 0}
+                className={classes.navIconButton}
               >
                 <ChevronLeftIcon />
               </IconButton>
@@ -171,6 +222,7 @@ const NavigationControls = ({
                 size="small" 
                 onClick={goToNextPage} 
                 disabled={currentPage === totalPages - 1}
+                className={classes.navIconButton}
               >
                 <ChevronRightIcon />
               </IconButton>
@@ -182,6 +234,7 @@ const NavigationControls = ({
                 size="small" 
                 onClick={goToLastPage} 
                 disabled={currentPage === totalPages - 1}
+                className={classes.navIconButton}
               >
                 <LastPageIcon />
               </IconButton>

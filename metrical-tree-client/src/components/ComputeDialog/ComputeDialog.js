@@ -18,10 +18,17 @@ import {
   FormControl,
   FormControlLabel,
   TextField,
+  Tooltip,
 } from '@material-ui/core';
 import ComputeOptionalConfigForm from 'components/ComputeOptionalConfigForm';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary';
-import { SAMPLE_RAW_TEXT } from 'constants/settings';
+import { 
+  SHORT_SAMPLE_TEXT, 
+  MEDIUM_SAMPLE_TEXT, 
+  LONG_SAMPLE_TEXT, 
+  BOOK_SAMPLE_TEXT, 
+  SAMPLE_TEXT_DESCRIPTIONS 
+} from 'constants/settings';
 import {
   UPLOAD_METRICAL_TREE_FILE,
   COMPUTE_METRICAL_TREE_FILE,
@@ -99,6 +106,22 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.primary.main,
   },
   configurationLinkContainer: { marginTop: theme.spacing(2) },
+  sampleTextContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: theme.spacing(1),
+  },
+  sampleTextLabel: {
+    fontSize: '0.75rem',
+    marginRight: theme.spacing(1),
+  },
+  sampleTextLink: {
+    marginRight: theme.spacing(1),
+  },
+  separator: {
+    fontSize: '0.75rem',
+    marginRight: theme.spacing(1),
+  },
 }));
 
 const ComputeDialog = ({ isOpen, setIsOpen }) => {
@@ -107,6 +130,9 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     useState('rawText');
   const [shouldShowConfigOptions, setShouldShowConfigOptions] =
     useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingSampleText, setPendingSampleText] = useState(null);
+  const [pendingSampleType, setPendingSampleType] = useState(null);
   const [, { addComputeResult }] = useComputeResults();
   const [settings] = useSettings();
 
@@ -203,15 +229,69 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     setSelectedInputMethod(event.target.value);
   };
 
+  const isKnownSampleText = (text) => {
+    if (!text || text.trim() === '') return true; // Empty text is fine to replace
+    
+    // Check if text exactly matches any of our samples
+    return [SHORT_SAMPLE_TEXT, MEDIUM_SAMPLE_TEXT, LONG_SAMPLE_TEXT, BOOK_SAMPLE_TEXT].includes(text);
+  };
+
+  const handleSampleTextClick = (text, type) => {
+    if (currentRawText && currentRawText.trim() !== '' && !isKnownSampleText(currentRawText)) {
+      // If there's existing custom text, show confirmation dialog
+      setPendingSampleText(text);
+      setPendingSampleType(type);
+      setConfirmDialogOpen(true);
+    } else {
+      // If there's no existing text or it's just a sample text, replace without confirmation
+      setValue('rawText', text, { shouldDirty: true });
+    }
+  };
+
   const handleClose = () => {
     setShouldShowConfigOptions(false);
     setSelectedInputMethod('rawText');
     setIsOpen(false);
+    setConfirmDialogOpen(false);
     reset(defaultValues);
   };
 
   return (
-    <Dialog open={isOpen} maxWidth="sm" onClose={handleClose}>
+    <>
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        aria-labelledby="confirm-dialog-title">
+        <DialogTitle id="confirm-dialog-title">Replace existing text?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            You have custom text in the field. Would you like to replace it with the {pendingSampleType} sample, or append the sample to your existing text?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => {
+              setValue('rawText', pendingSampleText, { shouldDirty: true });
+              setConfirmDialogOpen(false);
+            }} 
+            color="primary">
+            Replace
+          </Button>
+          <Button 
+            onClick={() => {
+              setValue('rawText', currentRawText + pendingSampleText, { shouldDirty: true });
+              setConfirmDialogOpen(false);
+            }} 
+            color="primary">
+            Append
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      <Dialog open={isOpen} maxWidth="sm" onClose={handleClose}>
       <form onSubmit={handleSubmit(onSubmit)}>
         {isLoading && <LinearProgress color="primary" />}
         <DialogTitle className={classes.dialogTitle}>
@@ -354,26 +434,61 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
 
             {selectedInputMethod === 'rawText' && (
               <Grid item xs={12}>
-                <Grid container justifyContent="flex-end">
-                  <Grid item>
+                <div className={classes.sampleTextContainer}>
+                  <Typography className={classes.sampleTextLabel}>
+                    Sample text:
+                  </Typography>
+                  
+                  <Tooltip title={SAMPLE_TEXT_DESCRIPTIONS.short.tooltip}>
                     <Link
-                      className={classes.link}
-                      onClick={() =>
-                        setValue(
-                          'rawText',
-                          currentRawText + SAMPLE_RAW_TEXT,
-                          {
-                            shouldDirty: true,
-                          }
-                        )
-                      }
+                      className={`${classes.link} ${classes.sampleTextLink}`}
+                      onClick={() => handleSampleTextClick(SHORT_SAMPLE_TEXT, SAMPLE_TEXT_DESCRIPTIONS.short.name)}
                       underline="always">
                       <Typography className={classes.linkText}>
-                        Paste sample text
+                        {SAMPLE_TEXT_DESCRIPTIONS.short.name}
                       </Typography>
                     </Link>
-                  </Grid>
-                </Grid>
+                  </Tooltip>
+                  
+                  <Typography className={classes.separator}>•</Typography>
+                  
+                  <Tooltip title={SAMPLE_TEXT_DESCRIPTIONS.medium.tooltip}>
+                    <Link
+                      className={`${classes.link} ${classes.sampleTextLink}`}
+                      onClick={() => handleSampleTextClick(MEDIUM_SAMPLE_TEXT, SAMPLE_TEXT_DESCRIPTIONS.medium.name)}
+                      underline="always">
+                      <Typography className={classes.linkText}>
+                        {SAMPLE_TEXT_DESCRIPTIONS.medium.name}
+                      </Typography>
+                    </Link>
+                  </Tooltip>
+                  
+                  <Typography className={classes.separator}>•</Typography>
+                  
+                  <Tooltip title={SAMPLE_TEXT_DESCRIPTIONS.long.tooltip}>
+                    <Link
+                      className={`${classes.link} ${classes.sampleTextLink}`}
+                      onClick={() => handleSampleTextClick(LONG_SAMPLE_TEXT, SAMPLE_TEXT_DESCRIPTIONS.long.name)}
+                      underline="always">
+                      <Typography className={classes.linkText}>
+                        {SAMPLE_TEXT_DESCRIPTIONS.long.name}
+                      </Typography>
+                    </Link>
+                  </Tooltip>
+                  
+                  <Typography className={classes.separator}>•</Typography>
+                  
+                  <Tooltip title={SAMPLE_TEXT_DESCRIPTIONS.book.tooltip}>
+                    <Link
+                      className={`${classes.link} ${classes.sampleTextLink}`}
+                      onClick={() => handleSampleTextClick(BOOK_SAMPLE_TEXT, SAMPLE_TEXT_DESCRIPTIONS.book.name)}
+                      underline="always">
+                      <Typography className={classes.linkText}>
+                        {SAMPLE_TEXT_DESCRIPTIONS.book.name}
+                      </Typography>
+                    </Link>
+                  </Tooltip>
+                </div>
                 <section>
                   <Typography className={classes.sectionTitle}>
                     My Text
@@ -456,6 +571,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
         </DialogActions>
       </form>
     </Dialog>
+  </>
   );
 };
 

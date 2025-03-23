@@ -1,6 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import NavigationControls from '../../../../../components/ResultsGraph/components/NavigationControls';
-import { VERY_LONG_INPUT_THRESHOLD } from '../../../../../components/ResultsGraph/constants/chartConfig';
+import React, { useState, useMemo, useCallback, Component, useRef } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import {
   Typography,
@@ -28,6 +26,47 @@ import {
 // No color constants needed in this component
 import VirtualizedTable from './components/VirtualizedTable';
 import TableRow from './components/TableRow';
+
+// Error boundary for VirtualizedTable
+class TableErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // You can log the error to an error reporting service
+    console.error("VirtualizedTable error:", error, errorInfo);
+  }
+
+  render() {
+
+    if (this.state.hasError) {
+      // Fallback UI when an error occurs
+      return (
+        <Paper style={{ padding: '16px', marginBottom: '16px' }}>
+          <Typography variant="h6" color="error" gutterBottom>
+            Something went wrong with the table display.
+          </Typography>
+          <Typography variant="body2" paragraph>
+            We're unable to display the data table due to a technical issue. 
+            Try switching to the Visualization view or refreshing the page.
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            Error details: {this.state.error?.message || "Unknown error"}
+          </Typography>
+        </Paper>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const useStyles = makeStyles((theme) => ({
   controlsContainer: {
@@ -135,10 +174,39 @@ const useStyles = makeStyles((theme) => ({
     '&:last-child': {
       borderRight: 'none',
     },
+    cursor: 'pointer',
+    transition: theme.transitions.create(['background-color']),
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.05),
+    },
+    position: 'relative', // For positioning sort indicators
+  },
+  sortIndicator: {
+    marginLeft: theme.spacing(0.5),
+    fontSize: '0.8rem',
+    opacity: 0.7,
+  },
+  activeSortColumn: {
+    color: theme.palette.primary.main,
+    fontWeight: 'bold',
   },
   columnCell: {
     fontWeight: 'bold',
     fontSize: '0.8rem',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  sortIcon: {
+    fontSize: '0.9rem',
+    marginLeft: theme.spacing(0.5),
+    opacity: 0.8,
+  },
+  sortInfo: {
+    marginBottom: theme.spacing(1),
+    color: theme.palette.text.secondary,
+    fontSize: '0.8rem',
+    display: 'flex',
+    alignItems: 'center',
   },
   metricBarContainer: {
     width: '100%',
@@ -545,6 +613,12 @@ const MetricAnalysisView = ({ pagination, data }) => {
   const [selectedView, setSelectedView] = useState('visualization');
   const [showNormalized, setShowNormalized] = useState(true);
   
+  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' or 'desc'
+  const [localScrollIndex, setLocalScrollIndex] = useState(0);
+  const containerHeightRef = useRef(600);
+  
+
+  
   // Define the metric options with useMemo to prevent recreating on every render
   const metricOptions = useMemo(() => [
     { value: 'position', label: 'Text Position', color: '#9C27B0' },
@@ -587,31 +661,44 @@ const MetricAnalysisView = ({ pagination, data }) => {
     setSelectedView(newValue);
   };
   
-  // Sort full data based on the selected metric
+  // Sort full data based on the selected metric and sort direction
   const sortedFullData = useMemo(() => {
+    // Return empty array if data is undefined or empty
+    if (!data || data.length === 0) return [];
+    
     return [...data].sort((a, b) => {
       // For position sorting, follow the same ordering as WordFocusedView
       if (selectedMetric === 'position') {
         // First compare sentence index
         const sentenceCompare = parseInt(a.sidx, 10) - parseInt(b.sidx, 10);
-        if (sentenceCompare !== 0) return sentenceCompare;
+        if (sentenceCompare !== 0) {
+          // Apply sort direction to sentence comparison
+          return sortDirection === 'asc' ? sentenceCompare : -sentenceCompare;
+        }
         
         // If same sentence, compare word position within sentence
-        return parseInt(a.widx, 10) - parseInt(b.widx, 10);
+        const positionCompare = parseInt(a.widx, 10) - parseInt(b.widx, 10);
+        return sortDirection === 'asc' ? positionCompare : -positionCompare;
       } else {
         // For metric sorting, use the selected metric
         const valueA = parseFloat(a[actualMetricKey]) || 0;
         const valueB = parseFloat(b[actualMetricKey]) || 0;
-        return valueB - valueA; // Sort in descending order
+        
+        // Apply sort direction
+        return sortDirection === 'asc' 
+          ? valueA - valueB  // Ascending: small to large
+          : valueB - valueA; // Descending: large to small
       }
     });
-  }, [data, actualMetricKey, selectedMetric]);
+  }, [data, actualMetricKey, selectedMetric, sortDirection]);
   
-  // Get current page data from the sorted full dataset
+  // Use all data instead of just the current page for the scrollable view
   const currentPageData = useMemo(() => {
-    const startIndex = pagination.pageIndex * pagination.pageSize;
-    return sortedFullData.slice(startIndex, startIndex + pagination.pageSize);
-  }, [sortedFullData, pagination.pageIndex, pagination.pageSize]);
+    if (!sortedFullData || sortedFullData.length === 0) return [];
+    
+    // Return all sorted data instead of paginating it
+    return sortedFullData;
+  }, [sortedFullData]);
   
   // Generate a function to create a compound index string
   const getCompoundIndex = useCallback((item) => {
@@ -640,28 +727,118 @@ const MetricAnalysisView = ({ pagination, data }) => {
     ];
   }, [actualMetricKey, getCompoundIndex]);
   
-  // Table header content
+  // Maps column IDs to metric names to ensure consistent sorting
+  const mapColumnToMetric = useCallback((columnId) => {
+    // First check if it's a position-related column
+    if (columnId === 'compound_index' || 
+        columnId === 'widx' || 
+        columnId === 'position' ||
+        columnId === 'norm_position' ||
+        columnId.toUpperCase() === 'NORM_POSITION') {
+      return 'position';
+    }
+    
+    // Handle normalized metric keys (both lowercase and uppercase versions)
+    if (columnId.startsWith('norm_') || columnId.startsWith('NORM_')) {
+      return columnId.replace(/^norm_|^NORM_/, '').toLowerCase();
+    }
+    
+    // Common metrics
+    if (['mean', 'm1', 'm2a', 'm2b'].includes(columnId.toLowerCase())) {
+      return columnId.toLowerCase();
+    }
+    
+    // Special case for other columns - make them non-sortable metrics
+    if (['word', 'pos', 'lexstress', 'stress', 'nsyll', 'syllables'].includes(columnId.toLowerCase())) {
+      return columnId.toLowerCase();
+    }
+    
+    // Default to the original column ID
+    return columnId.toLowerCase();
+  }, []);
+  
+  // Determines if a column is sortable
+  const isColumnSortable = useCallback((columnId) => {
+    const mappedMetric = mapColumnToMetric(columnId);
+    
+    // Check if it's one of our known sortable metrics
+    return ['position', 'mean', 'm1', 'm2a', 'm2b'].includes(mappedMetric) ||
+           // Or if it's a normalized version of a known metric
+           metricOptions.some(option => option.value === mappedMetric);
+  }, [mapColumnToMetric, metricOptions]);
+  
+  // Handle column header click for sorting
+  const handleSortColumnClick = useCallback((columnId) => {
+    // Skip if the column isn't sortable
+    if (!isColumnSortable(columnId)) {
+      return;
+    }
+    
+    // Map the column ID to a metric
+    const mappedMetric = mapColumnToMetric(columnId);
+    
+    // If clicking the same metric, toggle sort direction
+    if (mappedMetric === selectedMetric) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a different metric, change the selected metric
+      // and reset sort direction to descending
+      setSelectedMetric(mappedMetric);
+      setSortDirection('desc');
+    }
+  }, [selectedMetric, mapColumnToMetric, isColumnSortable]);
+  
+  // Table header content with sort indicators
   const headerContent = useMemo(() => {
     return (
       <>
-        {tableColumns.map((column) => (
-          <div
-            key={column.id}
-            className={classes.columnHeader}
-            style={{ 
-              width: column.width, 
-              flexGrow: column.flexGrow || 0,
-              flexShrink: column.flexShrink || 0 
-            }}
-          >
-            <Typography variant="subtitle2" className={classes.columnCell}>
-              {column.label}
-            </Typography>
-          </div>
-        ))}
+        {tableColumns.map((column) => {
+          // Map column ID to metric for consistent comparison
+          const columnMetric = mapColumnToMetric(column.id);
+          
+          // A column is the active sort column if its mapped metric matches the selected metric
+          const isActiveSort = columnMetric === selectedMetric;
+          
+          // Determine if this column is sortable
+          const sortable = isColumnSortable(column.id);
+          
+          return (
+            <div
+              key={column.id}
+              className={classes.columnHeader}
+              onClick={() => handleSortColumnClick(column.id)}
+              style={{ 
+                width: column.width, 
+                flexGrow: column.flexGrow || 0,
+                flexShrink: column.flexShrink || 0,
+                cursor: sortable ? 'pointer' : 'default',
+              }}
+            >
+              <Typography 
+                variant="subtitle2" 
+                className={`${classes.columnCell} ${isActiveSort ? classes.activeSortColumn : ''}`}
+              >
+                {column.label}
+                {isActiveSort && (
+                  <span className={classes.sortIndicator}>
+                    {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                  </span>
+                )}
+              </Typography>
+            </div>
+          );
+        })}
       </>
     );
-  }, [tableColumns, classes]);
+  }, [
+    tableColumns, 
+    classes, 
+    selectedMetric, 
+    sortDirection, 
+    handleSortColumnClick, 
+    mapColumnToMetric,
+    isColumnSortable
+  ]);
   
   // Render row function for the virtualized table
   const renderRow = useCallback((item, index) => {
@@ -720,13 +897,11 @@ const MetricAnalysisView = ({ pagination, data }) => {
             value="visualization" 
             label="Visualization" 
             icon={<BarChartIcon fontSize="small" />}
-            iconPosition="start"
           />
           <Tab 
             value="data" 
             label="Data" 
             icon={<TableIcon fontSize="small" />}
-            iconPosition="start"
           />
         </Tabs>
       </div>
@@ -810,40 +985,62 @@ const MetricAnalysisView = ({ pagination, data }) => {
         // Data view (table)
         <>
           {/* Show navigation controls only in Data view */}
-          <NavigationControls
-            currentPage={pagination.pageIndex}
-            totalPages={Math.ceil(data.length / pagination.pageSize)}
-            goToNextPage={pagination.goToNextPage}
-            goToPrevPage={pagination.goToPrevPage}
-            goToFirstPage={pagination.goToFirstPage}
-            goToLastPage={pagination.goToLastPage}
-            chunkSize={pagination.pageSize}
-            changeChunkSize={pagination.changePageSize}
-            isVeryLongInput={data.length > VERY_LONG_INPUT_THRESHOLD}
-            jumpToPageValue={pagination.jumpToPageValue}
-            handleJumpToPageChange={pagination.handleJumpToPageChange}
-            handleJumpToPage={pagination.handleJumpToPage}
-            handleJumpToPageKeyPress={pagination.handleJumpToPageKeyPress}
-            showChunkSizeControls={true}
-          />
-          <VirtualizedTable
-            pagination={{
-              ...pagination,
-              currentPageData: currentPageData,
-              // Properly update virtualizedData to match our custom currentPageData
-              virtualizedData: {
-                ...pagination.virtualizedData,
-                items: currentPageData.slice(
-                  pagination.scrollIndex,
-                  pagination.scrollIndex + (pagination.virtualizedData?.items?.length || 20)
-                ),
-                totalHeight: currentPageData.length * (pagination.rowHeight || 48)
-              }
-            }}
-            headerContent={headerContent}
-            renderRow={renderRow}
-            containerHeight={600}
-          />
+          {/* Sort information */}
+          <div className={classes.sortInfo}>
+            <Typography variant="body2">
+              <strong>Sorted by:</strong> {selectedMetric === 'position' 
+                ? `Text Position (${sortDirection === 'asc' ? 'ascending' : 'descending'})` 
+                : `${actualMetricKey.toUpperCase()} (${sortDirection === 'asc' ? 'ascending' : 'descending'})`}
+              &nbsp;•&nbsp;
+              <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+                Click column headers to change sort
+              </span>
+            </Typography>
+          </div>
+          
+          {/* Navigation controls removed for scrollable view */}
+          <TableErrorBoundary>
+            <VirtualizedTable
+              pagination={{
+                // Use simplified pagination for scrollable view with full dataset
+                rowHeight: 48,
+                currentPageData: currentPageData,
+                
+                // Calculate visible items for virtualization (for efficient rendering)
+                virtualizedData: {
+                  startIndex: localScrollIndex,
+                  // Only render the items that are currently visible in the viewport
+                  // plus a buffer for smooth scrolling
+                  items: currentPageData.slice(
+                    localScrollIndex, 
+                    Math.min(localScrollIndex + Math.ceil(700/48) + 10, currentPageData.length)
+                  ),
+                  rowHeight: 48,
+                  totalHeight: currentPageData.length * 48
+                },
+                
+                // Scroll handler for virtualization
+                handleScroll: (e) => {
+                  const scrollTop = e.target.scrollTop;
+                  const rowHeight = 48;
+                  const newStartIndex = Math.floor(scrollTop / rowHeight);
+                  
+                  // Only update if we've scrolled to a new row to prevent unnecessary rerenders
+                  if (newStartIndex !== localScrollIndex) {
+                    setLocalScrollIndex(newStartIndex);
+                  }
+                },
+                
+                // Container height handler
+                setTableContainerHeight: (height) => {
+                  containerHeightRef.current = height;
+                }
+              }}
+              headerContent={headerContent}
+              renderRow={renderRow}
+              containerHeight={700} // Increased height for better viewing
+            />
+          </TableErrorBoundary>
         </>
       )}
     </div>

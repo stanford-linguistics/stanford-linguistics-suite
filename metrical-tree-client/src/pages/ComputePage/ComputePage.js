@@ -282,7 +282,7 @@ const ComputePage = () => {
     filter: false,
     download: false,
     viewColumns: false,
-    rowsPerPageOptions: [5, 10, 25],
+    rowsPerPageOptions: [3, 5, 10, 25],
     rowsPerPage: rowsPerPage,
     page: page,
     count: results.length,

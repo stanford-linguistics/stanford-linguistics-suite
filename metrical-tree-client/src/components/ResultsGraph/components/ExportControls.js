@@ -7,7 +7,10 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  makeStyles 
+  makeStyles,
+  useMediaQuery,
+  useTheme,
+  IconButton
 } from '@material-ui/core';
 import {
   Image as ImageIcon,
@@ -17,7 +20,8 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
   CollectionsBookmark as MultiPageIcon,
   PhotoLibrary as GalleryIcon,
-  Print as PrintIcon
+  Print as PrintIcon,
+  GetApp as DownloadIcon,
 } from '@material-ui/icons';
 
 const useStyles = makeStyles((theme) => ({
@@ -26,6 +30,10 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: 'flex-end',
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(1),
+    flexWrap: 'wrap',
+    [theme.breakpoints.down('xs')]: {
+      justifyContent: 'center',
+    },
   },
   exportButton: {
     fontSize: '0.75rem',
@@ -47,6 +55,20 @@ const useStyles = makeStyles((theme) => ({
   },
   menuIcon: {
     fontSize: '1rem',
+  },
+  mobileExportButton: {
+    margin: theme.spacing(1),
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    '&:hover': {
+      backgroundColor: theme.palette.primary.dark,
+    },
+  },
+  mobileMenuContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(1),
   }
 }));
 
@@ -73,28 +95,28 @@ const ExportControls = ({
   totalPages = 1
 }) => {
   const classes = useStyles();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('xs'));
+  
   const [imageMenuAnchor, setImageMenuAnchor] = useState(null);
   const [pdfMenuAnchor, setPdfMenuAnchor] = useState(null);
+  const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null);
   
-  const openImageMenu = (event) => {
-    setImageMenuAnchor(event.currentTarget);
-  };
+  // Open/close handlers for menus
+  const openImageMenu = (event) => setImageMenuAnchor(event.currentTarget);
+  const closeImageMenu = () => setImageMenuAnchor(null);
   
-  const closeImageMenu = () => {
-    setImageMenuAnchor(null);
-  };
+  const openPdfMenu = (event) => setPdfMenuAnchor(event.currentTarget);
+  const closePdfMenu = () => setPdfMenuAnchor(null);
   
-  const openPdfMenu = (event) => {
-    setPdfMenuAnchor(event.currentTarget);
-  };
+  const openMobileMenu = (event) => setMobileMenuAnchor(event.currentTarget);
+  const closeMobileMenu = () => setMobileMenuAnchor(null);
   
-  const closePdfMenu = () => {
-    setPdfMenuAnchor(null);
-  };
-  
+  // Export handlers
   const handleImageExport = () => {
     handleExportImage();
     closeImageMenu();
+    closeMobileMenu();
   };
   
   const handleAllImagesExport = () => {
@@ -102,6 +124,7 @@ const ExportControls = ({
       handleExportAllImages();
     }
     closeImageMenu();
+    closeMobileMenu();
   };
   
   const handlePdfExport = () => {
@@ -109,6 +132,7 @@ const ExportControls = ({
       handleExportPdf();
     }
     closePdfMenu();
+    closeMobileMenu();
   };
   
   const handleAllPdfExport = () => {
@@ -116,12 +140,24 @@ const ExportControls = ({
       handleExportAllPdf();
     }
     closePdfMenu();
+    closeMobileMenu();
   };
   
-  const buttons = [];
+  const handleCsvExport = () => {
+    handleExportCsv();
+    closeMobileMenu();
+  };
+  
+  const handleJsonExport = () => {
+    handleExportState();
+    closeMobileMenu();
+  };
+  
+  // For desktop view
+  const desktopButtons = [];
   
   // Image Export Button
-  buttons.push(
+  desktopButtons.push(
     <Tooltip key="image-btn" title="Export current chart as PNG image">
       <Button 
         className={classes.exportButton}
@@ -135,7 +171,7 @@ const ExportControls = ({
   
   // Image Dropdown (if multiple pages)
   if (totalPages > 1) {
-    buttons.push(
+    desktopButtons.push(
       <Button 
         key="image-dropdown"
         className={classes.splitButton}
@@ -150,7 +186,7 @@ const ExportControls = ({
   
   // PDF Export (if handler exists)
   if (handleExportPdf) {
-    buttons.push(
+    desktopButtons.push(
       <Tooltip key="pdf-btn" title="Export as PDF for printing">
         <Button 
           className={classes.exportButton}
@@ -164,7 +200,7 @@ const ExportControls = ({
     
     // PDF Dropdown (if multiple pages)
     if (totalPages > 1) {
-      buttons.push(
+      desktopButtons.push(
         <Button 
           key="pdf-dropdown"
           className={classes.splitButton}
@@ -179,7 +215,7 @@ const ExportControls = ({
   }
   
   // CSV Export
-  buttons.push(
+  desktopButtons.push(
     <Tooltip key="csv-btn" title="Export complete dataset as CSV for analysis in Excel/R/etc.">
       <Button 
         className={classes.exportButton}
@@ -192,7 +228,7 @@ const ExportControls = ({
   );
   
   // JSON Export
-  buttons.push(
+  desktopButtons.push(
     <Tooltip key="json-btn" title="Export complete state as JSON (for sharing/archiving)">
       <Button 
         className={classes.exportButton}
@@ -206,7 +242,7 @@ const ExportControls = ({
   
   // Print Function
   if (handleExportPdf) {
-    buttons.push(
+    desktopButtons.push(
       <Tooltip key="print-btn" title="Print the visualization">
         <Button 
           className={classes.exportButton}
@@ -219,57 +255,146 @@ const ExportControls = ({
     );
   }
   
-  return (
-    <div className={classes.exportContainer}>
-      <ButtonGroup size="small" variant="outlined" color="primary">
-        {buttons}
-      </ButtonGroup>
+  // Mobile View
+  const renderMobileMenu = () => (
+    <div className={classes.mobileMenuContainer}>
+      <Tooltip title="Export Options">
+        <IconButton
+          className={classes.mobileExportButton}
+          onClick={openMobileMenu}
+          aria-controls="mobile-export-menu"
+          aria-haspopup="true"
+          color="primary"
+        >
+          <DownloadIcon />
+        </IconButton>
+      </Tooltip>
       
-      {/* Menus (outside ButtonGroup) */}
       <Menu
-        id="image-export-menu"
-        anchorEl={imageMenuAnchor}
+        id="mobile-export-menu"
+        anchorEl={mobileMenuAnchor}
         keepMounted
-        open={Boolean(imageMenuAnchor)}
-        onClose={closeImageMenu}
+        open={Boolean(mobileMenuAnchor)}
+        onClose={closeMobileMenu}
         className={classes.menu}
       >
         <MenuItem onClick={handleImageExport} className={classes.menuItem}>
           <ListItemIcon>
             <ImageIcon className={classes.menuIcon} />
           </ListItemIcon>
-          <ListItemText primary="Current page" />
+          <ListItemText primary="Export as Image" />
         </MenuItem>
-        <MenuItem onClick={handleAllImagesExport} className={classes.menuItem}>
+        
+        {handleExportAllImages && totalPages > 1 && (
+          <MenuItem onClick={handleAllImagesExport} className={classes.menuItem}>
+            <ListItemIcon>
+              <GalleryIcon className={classes.menuIcon} />
+            </ListItemIcon>
+            <ListItemText primary={`All Pages as Images (${totalPages})`} />
+          </MenuItem>
+        )}
+        
+        {handleExportPdf && (
+          <MenuItem onClick={handlePdfExport} className={classes.menuItem}>
+            <ListItemIcon>
+              <PdfIcon className={classes.menuIcon} />
+            </ListItemIcon>
+            <ListItemText primary="Export as PDF" />
+          </MenuItem>
+        )}
+        
+        {handleExportAllPdf && totalPages > 1 && (
+          <MenuItem onClick={handleAllPdfExport} className={classes.menuItem}>
+            <ListItemIcon>
+              <MultiPageIcon className={classes.menuIcon} />
+            </ListItemIcon>
+            <ListItemText primary={`All Pages as PDF (${totalPages})`} />
+          </MenuItem>
+        )}
+        
+        <MenuItem onClick={handleCsvExport} className={classes.menuItem}>
           <ListItemIcon>
-            <GalleryIcon className={classes.menuIcon} />
+            <TableChartIcon className={classes.menuIcon} />
           </ListItemIcon>
-          <ListItemText primary={`All pages (${totalPages})`} />
+          <ListItemText primary="Export as CSV" />
         </MenuItem>
-      </Menu>
-      
-      <Menu
-        id="pdf-export-menu"
-        anchorEl={pdfMenuAnchor}
-        keepMounted
-        open={Boolean(pdfMenuAnchor)}
-        onClose={closePdfMenu}
-        className={classes.menu}
-      >
-        <MenuItem onClick={handlePdfExport} className={classes.menuItem}>
+        
+        <MenuItem onClick={handleJsonExport} className={classes.menuItem}>
           <ListItemIcon>
-            <PdfIcon className={classes.menuIcon} />
+            <CodeIcon className={classes.menuIcon} />
           </ListItemIcon>
-          <ListItemText primary="Current page" />
+          <ListItemText primary="Export as JSON" />
         </MenuItem>
-        <MenuItem onClick={handleAllPdfExport} className={classes.menuItem}>
-          <ListItemIcon>
-            <MultiPageIcon className={classes.menuIcon} />
-          </ListItemIcon>
-          <ListItemText primary={`All pages (${totalPages})`} />
-        </MenuItem>
+        
+        {handleExportPdf && (
+          <MenuItem onClick={handlePdfExport} className={classes.menuItem}>
+            <ListItemIcon>
+              <PrintIcon className={classes.menuIcon} />
+            </ListItemIcon>
+            <ListItemText primary="Print" />
+          </MenuItem>
+        )}
       </Menu>
     </div>
+  );
+  
+  return (
+    <>
+      {isMobile ? (
+        renderMobileMenu()
+      ) : (
+        <div className={classes.exportContainer}>
+          <ButtonGroup size="small" variant="outlined" color="primary">
+            {desktopButtons}
+          </ButtonGroup>
+          
+          {/* Menus (outside ButtonGroup) */}
+          <Menu
+            id="image-export-menu"
+            anchorEl={imageMenuAnchor}
+            keepMounted
+            open={Boolean(imageMenuAnchor)}
+            onClose={closeImageMenu}
+            className={classes.menu}
+          >
+            <MenuItem onClick={handleImageExport} className={classes.menuItem}>
+              <ListItemIcon>
+                <ImageIcon className={classes.menuIcon} />
+              </ListItemIcon>
+              <ListItemText primary="Current page" />
+            </MenuItem>
+            <MenuItem onClick={handleAllImagesExport} className={classes.menuItem}>
+              <ListItemIcon>
+                <GalleryIcon className={classes.menuIcon} />
+              </ListItemIcon>
+              <ListItemText primary={`All pages (${totalPages})`} />
+            </MenuItem>
+          </Menu>
+          
+          <Menu
+            id="pdf-export-menu"
+            anchorEl={pdfMenuAnchor}
+            keepMounted
+            open={Boolean(pdfMenuAnchor)}
+            onClose={closePdfMenu}
+            className={classes.menu}
+          >
+            <MenuItem onClick={handlePdfExport} className={classes.menuItem}>
+              <ListItemIcon>
+                <PdfIcon className={classes.menuIcon} />
+              </ListItemIcon>
+              <ListItemText primary="Current page" />
+            </MenuItem>
+            <MenuItem onClick={handleAllPdfExport} className={classes.menuItem}>
+              <ListItemIcon>
+                <MultiPageIcon className={classes.menuIcon} />
+              </ListItemIcon>
+              <ListItemText primary={`All pages (${totalPages})`} />
+            </MenuItem>
+          </Menu>
+        </div>
+      )}
+    </>
   );
 };
 

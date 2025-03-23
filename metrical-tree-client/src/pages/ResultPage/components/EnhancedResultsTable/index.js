@@ -8,8 +8,10 @@ import {
   Tab,
   Box,
   alpha,
+  Tooltip,
 } from '@material-ui/core';
 import TableChartIcon from '@material-ui/icons/TableChart';
+import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 
 import useHybridPagination from './hooks/useHybridPagination';
 import NavigationControls from '../../../../components/ResultsGraph/components/NavigationControls';
@@ -27,6 +29,11 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(2),
     marginTop: theme.spacing(2),
     overflow: 'visible', // Allow dropdowns to overflow the card
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1.5),
+      marginTop: theme.spacing(1.5),
+      borderRadius: theme.spacing(0.75),
+    },
   },
   cardTitle: {
     fontWeight: 'bold',
@@ -35,6 +42,10 @@ const useStyles = makeStyles((theme) => ({
     display: 'flex',
     alignItems: 'center',
     marginBottom: theme.spacing(2),
+    [theme.breakpoints.down('xs')]: {
+      fontSize: '1rem',
+      marginBottom: theme.spacing(1.5),
+    },
   },
   titleIcon: {
     marginRight: theme.spacing(1),
@@ -43,6 +54,9 @@ const useStyles = makeStyles((theme) => ({
   tabs: {
     marginBottom: theme.spacing(2),
     borderBottom: `1px solid ${theme.palette.divider}`,
+    [theme.breakpoints.down('xs')]: {
+      marginBottom: theme.spacing(1.5),
+    },
   },
   tab: {
     minWidth: 120,
@@ -50,12 +64,30 @@ const useStyles = makeStyles((theme) => ({
       color: theme.palette.primary.main,
       fontWeight: 'bold',
     },
+    [theme.breakpoints.down('xs')]: {
+      minWidth: 'auto',
+      padding: theme.spacing(1, 1),
+      fontSize: '0.75rem',
+    },
   },
   tabIcon: {
     marginRight: theme.spacing(0.5),
+    [theme.breakpoints.down('xs')]: {
+      fontSize: '0.9rem',
+    },
   },
   tabPanel: {
     padding: 0,
+  },
+  responsiveTabIcon: {
+    [theme.breakpoints.down('xs')]: {
+      marginRight: 0, 
+    },
+  },
+  responsiveTabText: {
+    [theme.breakpoints.down('xs')]: {
+      display: 'none',
+    },
   },
   loadingPlaceholder: {
     height: 400,
@@ -101,7 +133,7 @@ const TabPanel = ({ children, value, index, ...other }) => {
  */
 const EnhancedResultsTable = ({ mergedResult }) => {
   const classes = useStyles();
-  const [activeView, setActiveView] = useState('raw-data');
+  const [activeView, setActiveView] = useState('sentence-context');
   
   // Initialize the hybrid pagination with larger chunk sizes for the table
   const hybridPagination = useHybridPagination(
@@ -147,8 +179,99 @@ const EnhancedResultsTable = ({ mergedResult }) => {
                 aria-controls={`table-tabpanel-${index}`}
                 label={
                   <Box display="flex" alignItems="center">
-                    <tab.icon className={classes.tabIcon} fontSize="small" />
-                    {tab.label}
+                    <tab.icon className={`${classes.tabIcon} ${classes.responsiveTabIcon}`} fontSize="small" />
+                    <span className={classes.responsiveTabText}>{tab.label}</span>
+                    <Tooltip 
+                      title={
+                        <div>
+                          <Typography variant="body2" gutterBottom>
+                            <strong>{tab.label}</strong>
+                          </Typography>
+                          {tab.id === 'word-focused' && (
+                            <>
+                              <Typography variant="caption">
+                                Displays individual words with their linguistic properties.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Each word is shown with its part of speech and stress patterns.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Click on words to see detailed metrics and additional information.
+                              </Typography>
+                            </>
+                          )}
+                          {tab.id === 'metric-analysis' && (
+                            <>
+                              <Typography variant="caption">
+                                Analyze and compare different metric values across words.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Visualize metric distributions, trends, and patterns.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Sort words by various metrics to identify significant patterns.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Toggle between raw and normalized metric values.
+                              </Typography>
+                            </>
+                          )}
+                          {tab.id === 'sentence-context' && (
+                            <>
+                              <Typography variant="caption">
+                                This view groups words by their original sentences, providing linguistic context.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Sentences are determined from the data based on sentence index (sidx).
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Each card displays a complete sentence with its average metrics calculated from all words.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Click on any word to see its detailed metrics and properties.
+                              </Typography>
+                            </>
+                          )}
+                          {tab.id === 'raw-data' && (
+                            <>
+                              <Typography variant="caption">
+                                View all raw data in tabular format.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Access complete dataset with all available fields.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Sort and filter data by any column.
+                              </Typography>
+                              <br />
+                              <Typography variant="caption">
+                                Use pagination controls to navigate through large datasets.
+                              </Typography>
+                            </>
+                          )}
+                        </div>
+                      }
+                      placement="bottom-start"
+                    >
+                      <InfoOutlinedIcon
+                        style={{
+                          fontSize: '16px',
+                          marginLeft: '4px',
+                          opacity: 0.7,
+                          cursor: 'help'
+                        }}
+                      />
+                    </Tooltip>
                   </Box>
                 }
                 className={classes.tab}
@@ -157,8 +280,8 @@ const EnhancedResultsTable = ({ mergedResult }) => {
           </Tabs>
         </Grid>
         
-        {/* Navigation controls - visually hidden for Metric Analysis and Word-Focused views */}
-        <Grid item xs={12} style={{ display: activeView === 'metric-analysis' || activeView === 'word-focused' ? 'none' : 'block' }}>
+        {/* Navigation controls - visually hidden for Metric Analysis, Word-Focused, and Sentence Context views */}
+        <Grid item xs={12} style={{ display: activeView === 'metric-analysis' || activeView === 'word-focused' || activeView === 'sentence-context' ? 'none' : 'block' }}>
           <NavigationControls
             currentPage={hybridPagination.currentPage}
             totalPages={hybridPagination.totalPages}

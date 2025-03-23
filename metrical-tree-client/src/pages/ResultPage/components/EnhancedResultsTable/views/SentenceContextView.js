@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import {
   Typography,
@@ -12,12 +12,17 @@ import {
   FormControlLabel,
   Switch,
   alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Collapse,
 } from '@material-ui/core';
 import {
-  Bookmark as BookmarkIcon,
   FileCopy as FileCopyIcon,
-  HighlightOff as HighlightIcon,
-  FilterList as FilterIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@material-ui/icons';
 
 import { POS_COLORS, STRESS_COLORS } from '../constants';
@@ -38,12 +43,10 @@ const useStyles = makeStyles((theme) => ({
       boxShadow: theme.shadows[4],
     },
   },
-  sentenceHighlighted: {
-    borderLeft: `4px solid ${theme.palette.primary.main}`,
-  },
+  // Removed highlighted styling since we removed that functionality
   sentenceId: {
     position: 'absolute',
-    right: theme.spacing(2),
+    right: theme.spacing(6), // Increased from 2 to 6 to avoid overlap with the copy button
     top: theme.spacing(2),
     color: theme.palette.text.secondary,
     fontWeight: 'bold',
@@ -51,6 +54,7 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.default,
     padding: theme.spacing(0.5, 1),
     borderRadius: theme.shape.borderRadius,
+    zIndex: 1,
   },
   wordInSentence: {
     display: 'inline-block',
@@ -119,6 +123,11 @@ const useStyles = makeStyles((theme) => ({
     alignItems: 'center',
     marginBottom: theme.spacing(1),
   },
+  buttonGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+  },
   sentenceStats: {
     display: 'flex',
     gap: theme.spacing(1),
@@ -147,6 +156,57 @@ const useStyles = makeStyles((theme) => ({
     display: 'flex',
     gap: theme.spacing(2),
   },
+  legend: {
+    marginTop: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+    padding: theme.spacing(1.5),
+    backgroundColor: alpha(theme.palette.background.paper, 0.8),
+    borderRadius: theme.shape.borderRadius,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  legendHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    cursor: 'pointer',
+    padding: theme.spacing(0.5, 1),
+    borderRadius: theme.shape.borderRadius,
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.05),
+    },
+  },
+  legendTitle: {
+    fontWeight: 'bold',
+    fontSize: '0.9rem',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  toggleButton: {
+    padding: 2,
+  },
+  legendSection: {
+    marginBottom: theme.spacing(1),
+  },
+  legendItem: {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: theme.spacing(0.5),
+  },
+  legendColor: {
+    width: 16,
+    height: 16,
+    marginRight: theme.spacing(1),
+    borderRadius: 2,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  legendLabel: {
+    fontSize: '0.8rem',
+  },
+  legendGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+    gap: theme.spacing(1),
+  },
   wordDetailsCard: {
     padding: theme.spacing(2),
     marginTop: theme.spacing(2),
@@ -170,6 +230,16 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: 'space-between',
     fontSize: '0.75rem',
     color: theme.palette.text.secondary,
+  },
+  viewHeading: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(2),
+  },
+  viewTitle: {
+    fontWeight: 'bold',
+    fontSize: '1.1rem',
   },
 }));
 
@@ -265,6 +335,193 @@ const processSentences = (data) => {
 };
 
 /**
+ * Color Legend component with collapsible content
+ */
+const ColorLegend = ({ classes, expanded = false, onToggle = () => {} }) => (
+  <Paper className={classes.legend}>
+    <div className={classes.legendHeader} onClick={onToggle}>
+      <Typography className={classes.legendTitle}>Color Legend</Typography>
+      <IconButton className={classes.toggleButton} size="small">
+        {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+      </IconButton>
+    </div>
+    
+    <Collapse in={expanded} timeout="auto">
+      <div style={{ marginTop: 8 }}>
+        <Grid container spacing={2}>
+          {/* POS Colors */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="subtitle2" gutterBottom>
+              Part of Speech (Background Colors)
+            </Typography>
+            <div className={classes.legendGrid}>
+              {Object.entries(POS_COLORS).map(([pos, color]) => (
+                pos !== 'default' && (
+                  <div key={pos} className={classes.legendItem}>
+                    <div 
+                      className={classes.legendColor} 
+                      style={{ backgroundColor: alpha(color, 0.1) }}
+                    />
+                    <Typography className={classes.legendLabel}>{pos}</Typography>
+                  </div>
+                )
+              ))}
+            </div>
+          </Grid>
+          
+          {/* Stress Colors */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="subtitle2" gutterBottom>
+              Lexical Stress (Bottom Border Colors)
+            </Typography>
+            <div className={classes.legendGrid}>
+              {Object.entries(STRESS_COLORS).map(([stress, color]) => (
+                stress !== 'default' && (
+                  <div key={stress} className={classes.legendItem}>
+                    <div 
+                      className={classes.legendColor} 
+                      style={{ backgroundColor: color }}
+                    />
+                    <Typography className={classes.legendLabel}>
+                      {stress === '0' ? 'Unstressed' : 
+                       stress === '1' ? 'Primary' : 
+                       stress === '2' ? 'Secondary' : stress}
+                    </Typography>
+                  </div>
+                )
+              ))}
+            </div>
+          </Grid>
+          
+          {/* Metric Colors */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="subtitle2" gutterBottom>
+              Metric Indicators
+            </Typography>
+            <div className={classes.legendItem}>
+              <div 
+                className={classes.legendColor} 
+                style={{ backgroundColor: alpha('#4caf50', 0.7) }}
+              />
+              <Typography className={classes.legendLabel}>
+                High metrics (&gt; 0.6)
+              </Typography>
+            </div>
+            <div className={classes.legendItem}>
+              <div 
+                className={classes.legendColor} 
+                style={{ backgroundColor: alpha('#ff9800', 0.7) }}
+              />
+              <Typography className={classes.legendLabel}>
+                Medium metrics (0.3-0.6)
+              </Typography>
+            </div>
+            <div className={classes.legendItem}>
+              <div 
+                className={classes.legendColor} 
+                style={{ backgroundColor: alpha('#f44336', 0.7) }}
+              />
+              <Typography className={classes.legendLabel}>
+                Low metrics (&lt; 0.3)
+              </Typography>
+            </div>
+          </Grid>
+        </Grid>
+      </div>
+    </Collapse>
+  </Paper>
+);
+
+/**
+ * Word detail component for the modal
+ */
+const WordDetailContent = ({ word, classes }) => (
+  <Grid container spacing={2}>
+    <Grid item xs={12} sm={6} md={3}>
+      <Typography variant="body2">
+        <strong>Word Index:</strong> {word.widx}
+      </Typography>
+      <Typography variant="body2">
+        <strong>POS:</strong> {word.pos}
+      </Typography>
+      <Typography variant="body2">
+        <strong>Dependency:</strong> {word.dep}
+      </Typography>
+      <Typography variant="body2">
+        <strong>Segmentation:</strong> {word.seg}
+      </Typography>
+    </Grid>
+    
+    <Grid item xs={12} sm={6} md={3}>
+      <Typography variant="body2">
+        <strong>Lexical Stress:</strong> {word.stress}
+      </Typography>
+      <Typography variant="body2">
+        <strong>Syllables:</strong> {word.nsyll}
+      </Typography>
+    </Grid>
+    
+    <Grid item xs={12} sm={12} md={6}>
+      <Typography variant="subtitle2" gutterBottom>
+        Metrics
+      </Typography>
+      
+      <Box>
+        <Typography variant="body2" className={classes.metricGaugeLabel}>
+          <span>M1</span>
+          <span>{word.metrics.m1.toFixed(3)}</span>
+        </Typography>
+        <div className={classes.metricGauge}>
+          <div 
+            className={classes.metricGaugeValue} 
+            style={{ width: `${Math.min(word.metrics.m1 * 100, 100)}%` }}
+          />
+        </div>
+      </Box>
+      
+      <Box>
+        <Typography variant="body2" className={classes.metricGaugeLabel}>
+          <span>M2a</span>
+          <span>{word.metrics.m2a.toFixed(3)}</span>
+        </Typography>
+        <div className={classes.metricGauge}>
+          <div 
+            className={classes.metricGaugeValue} 
+            style={{ width: `${Math.min(word.metrics.m2a * 100, 100)}%` }}
+          />
+        </div>
+      </Box>
+      
+      <Box>
+        <Typography variant="body2" className={classes.metricGaugeLabel}>
+          <span>M2b</span>
+          <span>{word.metrics.m2b.toFixed(3)}</span>
+        </Typography>
+        <div className={classes.metricGauge}>
+          <div 
+            className={classes.metricGaugeValue} 
+            style={{ width: `${Math.min(word.metrics.m2b * 100, 100)}%` }}
+          />
+        </div>
+      </Box>
+      
+      <Box>
+        <Typography variant="body2" className={classes.metricGaugeLabel}>
+          <span>Mean</span>
+          <span>{word.metrics.mean.toFixed(3)}</span>
+        </Typography>
+        <div className={classes.metricGauge}>
+          <div 
+            className={classes.metricGaugeValue} 
+            style={{ width: `${Math.min(word.metrics.mean * 100, 100)}%` }}
+          />
+        </div>
+      </Box>
+    </Grid>
+  </Grid>
+);
+
+/**
  * SentenceContextView component groups words by sentence for contextual analysis
  * 
  * @param {Object} props
@@ -275,30 +532,51 @@ const processSentences = (data) => {
 const SentenceContextView = ({ pagination, data }) => {
   const classes = useStyles();
   const [selectedWord, setSelectedWord] = useState(null);
-  const [highlightedSentence, setHighlightedSentence] = useState(null);
-  const [showPOS, setShowPOS] = useState(true);
-  const [showMetrics, setShowMetrics] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [showPOS, setShowPOS] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [legendExpanded, setLegendExpanded] = useState(false);
+  
+  // Handle toggle legend
+  const handleToggleLegend = useCallback(() => {
+    setLegendExpanded(!legendExpanded);
+  }, [legendExpanded]);
+  
+  // Save legend state in localStorage
+  useEffect(() => {
+    const savedState = localStorage.getItem('sentenceContextLegendExpanded');
+    if (savedState !== null) {
+      setLegendExpanded(savedState === 'true');
+    }
+  }, []);
+  
+  useEffect(() => {
+    localStorage.setItem('sentenceContextLegendExpanded', legendExpanded.toString());
+  }, [legendExpanded]);
   
   // Process data to group by sentences using the full dataset
+  // Sentences are determined based on the 'sidx' (sentence index) field in the data
+  // Each sentence contains all words that share the same sentence index
   const allSentences = useMemo(() => {
     return processSentences(data);
   }, [data]);
   
-  // Get the paginated sentences based on the current page index and size
+  // Display all sentences without pagination
+  // The pagination.chunkSize is still used as a visual density control
   const sentences = useMemo(() => {
-    const startIndex = pagination.currentPage * pagination.chunkSize;
-    return allSentences.slice(startIndex, startIndex + pagination.chunkSize);
-  }, [allSentences, pagination.currentPage, pagination.chunkSize]);
+    return allSentences;
+  }, [allSentences]);
   
-  // Handle word click
+  // Handle word click to open modal
   const handleWordClick = useCallback((word) => {
-    setSelectedWord(selectedWord?.widx === word.widx ? null : word);
-  }, [selectedWord]);
+    setSelectedWord(word);
+    setModalOpen(true);
+  }, []);
   
-  // Handle sentence highlight
-  const handleSentenceHighlight = useCallback((sidx) => {
-    setHighlightedSentence(highlightedSentence === sidx ? null : sidx);
-  }, [highlightedSentence]);
+  // Handle modal close
+  const handleCloseModal = useCallback(() => {
+    setModalOpen(false);
+  }, []);
   
   // Copy sentence text to clipboard
   const handleCopySentence = useCallback((text) => {
@@ -378,7 +656,6 @@ const SentenceContextView = ({ pagination, data }) => {
   
   // Render a sentence card with its words
   const renderSentence = useCallback((sentence) => {
-    const isHighlighted = highlightedSentence === sentence.sidx;
     // Only extract the metrics we're actually using in this view
     const { avgMetrics } = sentence.stats;
     
@@ -388,8 +665,8 @@ const SentenceContextView = ({ pagination, data }) => {
     return (
       <Paper 
         key={sentence.sidx} 
-        className={`${classes.sentencePaper} ${isHighlighted ? classes.sentenceHighlighted : ''}`}
-        elevation={isHighlighted ? 3 : 1}
+        className={classes.sentencePaper}
+        elevation={1}
       >
         <span className={classes.sentenceId}>
           Sentence {sentence.sidx}
@@ -400,23 +677,15 @@ const SentenceContextView = ({ pagination, data }) => {
             {sentence.words.length} words
           </Typography>
           
-          <div>
-            <IconButton 
-              size="small" 
-              onClick={() => handleSentenceHighlight(sentence.sidx)}
-              color={isHighlighted ? "primary" : "default"}
-            >
-              <HighlightIcon fontSize="small" />
-            </IconButton>
-            <IconButton 
-              size="small"
-              onClick={() => handleCopySentence(sentence.text)}
-            >
-              <FileCopyIcon fontSize="small" />
-            </IconButton>
-            <IconButton size="small">
-              <BookmarkIcon fontSize="small" />
-            </IconButton>
+          <div className={classes.buttonGroup}>
+            <Tooltip title="Copy sentence text">
+              <IconButton 
+                size="small"
+                onClick={() => handleCopySentence(sentence.text)}
+              >
+                <FileCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </div>
         </div>
         
@@ -453,10 +722,11 @@ const SentenceContextView = ({ pagination, data }) => {
         </Typography>
       </Paper>
     );
-  }, [classes, highlightedSentence, handleSentenceHighlight, handleCopySentence, renderWord]);
+  }, [classes, handleCopySentence, renderWord]);
   
   return (
     <div>
+      
       {/* Controls */}
       <div className={classes.controlsContainer}>
         <div className={classes.controlsLeft}>
@@ -483,111 +753,40 @@ const SentenceContextView = ({ pagination, data }) => {
             label="Show Metrics"
           />
         </div>
-        
-        <IconButton size="small">
-          <FilterIcon />
-        </IconButton>
       </div>
+      
+      {/* Color Legend */}
+      <ColorLegend 
+        classes={classes} 
+        expanded={legendExpanded} 
+        onToggle={handleToggleLegend} 
+      />
       
       {/* Sentences container */}
       <div className={classes.container}>
         {sentences.map(sentence => renderSentence(sentence))}
       </div>
       
-      {/* Selected word details */}
-      {selectedWord && (
-        <Paper className={classes.wordDetailsCard} elevation={2}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Word Details: <strong>{selectedWord.text}</strong>
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="body2">
-                <strong>Word Index:</strong> {selectedWord.widx}
-              </Typography>
-              <Typography variant="body2">
-                <strong>POS:</strong> {selectedWord.pos}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Dependency:</strong> {selectedWord.dep}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Segmentation:</strong> {selectedWord.seg}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="body2">
-                <strong>Lexical Stress:</strong> {selectedWord.stress}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Syllables:</strong> {selectedWord.nsyll}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6} md={6}>
-              <Typography variant="subtitle2" gutterBottom>
-                Metrics
-              </Typography>
-              
-              <Box>
-                <Typography variant="body2" className={classes.metricGaugeLabel}>
-                  <span>M1</span>
-                  <span>{selectedWord.metrics.m1.toFixed(3)}</span>
-                </Typography>
-                <div className={classes.metricGauge}>
-                  <div 
-                    className={classes.metricGaugeValue} 
-                    style={{ width: `${Math.min(selectedWord.metrics.m1 * 100, 100)}%` }}
-                  />
-                </div>
-              </Box>
-              
-              <Box>
-                <Typography variant="body2" className={classes.metricGaugeLabel}>
-                  <span>M2a</span>
-                  <span>{selectedWord.metrics.m2a.toFixed(3)}</span>
-                </Typography>
-                <div className={classes.metricGauge}>
-                  <div 
-                    className={classes.metricGaugeValue} 
-                    style={{ width: `${Math.min(selectedWord.metrics.m2a * 100, 100)}%` }}
-                  />
-                </div>
-              </Box>
-              
-              <Box>
-                <Typography variant="body2" className={classes.metricGaugeLabel}>
-                  <span>M2b</span>
-                  <span>{selectedWord.metrics.m2b.toFixed(3)}</span>
-                </Typography>
-                <div className={classes.metricGauge}>
-                  <div 
-                    className={classes.metricGaugeValue} 
-                    style={{ width: `${Math.min(selectedWord.metrics.m2b * 100, 100)}%` }}
-                  />
-                </div>
-              </Box>
-              
-              <Box>
-                <Typography variant="body2" className={classes.metricGaugeLabel}>
-                  <span>Mean</span>
-                  <span>{selectedWord.metrics.mean.toFixed(3)}</span>
-                </Typography>
-                <div className={classes.metricGauge}>
-                  <div 
-                    className={classes.metricGaugeValue} 
-                    style={{ width: `${Math.min(selectedWord.metrics.mean * 100, 100)}%` }}
-                  />
-                </div>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-      )}
+      {/* Word Details Modal */}
+      <Dialog
+        open={modalOpen}
+        onClose={handleCloseModal}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby="word-details-dialog-title"
+      >
+        <DialogTitle id="word-details-dialog-title">
+          Word Details: {selectedWord?.text}
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedWord && <WordDetailContent word={selectedWord} classes={classes} />}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

@@ -9,11 +9,15 @@ import {
   Select,
   MenuItem,
   Chip,
-  Tooltip
+  Tooltip,
+  Collapse,
+  IconButton,
+  Divider
 } from '@material-ui/core';
 import {
   Tune as TuneIcon,
   AssessmentOutlined as AssessmentIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@material-ui/icons';
 
 import IdentityBar from '../../components/IdentityBar';
@@ -32,51 +36,216 @@ import ResultsGraph from 'components/ResultsGraph';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    padding: 16,
+    padding: theme.spacing(3),
     minHeight: 'calc(100vh - 236px)',
     height: 'auto',
-    backgroundColor: '#f2f2f2',
+    backgroundColor: theme.palette.background.default,
     [theme.breakpoints.down('sm')]: {
       minHeight: 'calc(100vh - 322px)',
+      padding: theme.spacing(2),
     },
     [theme.breakpoints.down('xs')]: {
       minHeight: 'calc(100vh - 360px)',
+      padding: theme.spacing(1),
     },
   },
-  title: { fontWeight: 'bold', fontSize: '1.25rem' },
-  subTitle: { fontSize: '0.825rem', marginBottom: -4 },
+  contentContainer: {
+    maxWidth: '100%',
+    overflowX: 'hidden',
+  },
+  headerSection: {
+    marginBottom: theme.spacing(3),
+  },
+  title: { 
+    fontWeight: 700, 
+    fontSize: '1.35rem',
+    color: '#2C3E50',
+    letterSpacing: '-0.01em',
+    marginTop: theme.spacing(0.5),
+  },
+  subTitle: { 
+    fontSize: '0.875rem', 
+    marginBottom: 0,
+    color: '#7f8c8d',
+    letterSpacing: '0.01em',
+  },
+  metadata: {
+    marginTop: theme.spacing(1),
+  },
   button: {
-    margin: ' 8px 0 24px 0',
+    margin: theme.spacing(1, 0),
     borderRadius: 32,
-    backgroundColor: '#44AB77',
+    backgroundColor: theme.palette.primary.main,
+    boxShadow: '0 2px 8px rgba(68, 171, 119, 0.25)',
+    padding: theme.spacing(1, 3),
+    transition: 'all 0.2s ease',
     '&:hover': {
-      backgroundColor: '#3C8F65',
-      textDecoration: 'underline',
-      color: 'white',
+      backgroundColor: theme.palette.primary.dark,
+      boxShadow: '0 4px 12px rgba(68, 171, 119, 0.3)',
+      transform: 'translateY(-1px)',
     },
   },
   buttonLabel: {
     color: 'white',
     textTransform: 'uppercase',
-    fontSize: '0.625rem',
+    fontSize: '0.75rem',
     fontWeight: 'bold',
+    letterSpacing: '0.05em',
   },
   link: {
-    color: '#44AB77',
-    fontWeight: 'bold',
-    '&:hover': { cursor: 'pointer', color: '#44AB77' },
+    color: theme.palette.primary.main,
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    position: 'relative',
+    textDecoration: 'none',
+    '&:hover': { 
+      cursor: 'pointer', 
+      color: theme.palette.primary.dark,
+      textDecoration: 'underline',
+    },
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      width: '100%',
+      transform: 'scaleX(0)',
+      height: '1px',
+      bottom: 0,
+      left: 0,
+      backgroundColor: theme.palette.primary.main,
+      transformOrigin: 'bottom right',
+      transition: 'transform 0.25s ease-out',
+    },
+    '&:hover::after': {
+      transform: 'scaleX(1)',
+      transformOrigin: 'bottom left',
+    },
   },
-  linkText: { fontSize: '0.75rem' },
-  card: { padding: theme.spacing(2), marginTop: theme.spacing(2) },
-  cardTitle: { fontWeight: 'bold' },
-  graphCard: { margin: theme.spacing(2, 0, 1, 0) },
-  section: { marginBottom: theme.spacing(2) },
+  linkText: { 
+    fontSize: '0.875rem',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  downloadIcon: {
+    fontSize: '1rem',
+    marginRight: theme.spacing(0.5),
+  },
+  card: { 
+    padding: theme.spacing(3),
+    marginBottom: theme.spacing(3),
+    borderRadius: theme.spacing(1),
+    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+    transition: 'all 0.2s ease',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    overflow: 'visible',
+    '&:hover': {
+      boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+    },
+  },
+  cardTitle: { 
+    fontWeight: 600,
+    color: '#2C3E50',
+    fontSize: '1.1rem',
+    marginBottom: theme.spacing(2),
+    display: 'flex',
+    alignItems: 'center',
+  },
+  titleIcon: {
+    marginRight: theme.spacing(1.5),
+    color: theme.palette.primary.main,
+    backgroundColor: 'rgba(68, 171, 119, 0.08)',
+    padding: theme.spacing(0.75),
+    borderRadius: '50%',
+  },
+  graphCard: { 
+    margin: theme.spacing(2, 0, 1, 0) 
+  },
+  section: { 
+    marginBottom: theme.spacing(3) 
+  },
   parameterGroup: {
     marginRight: theme.spacing(2),
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(1.5),
   },
-  parameterName: { display: 'inline', fontSize: '0.75rem' },
-  parameterWordChip: { marginRight: theme.spacing(0.5) },
+  parameterName: { 
+    display: 'inline', 
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    color: '#34495e',
+    marginRight: theme.spacing(0.75),
+  },
+  parameterWordChip: { 
+    margin: theme.spacing(0.5),
+    borderRadius: 16,
+    backgroundColor: 'rgba(68, 171, 119, 0.08)',
+    border: '1px solid rgba(68, 171, 119, 0.2)',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: 'rgba(68, 171, 119, 0.12)',
+      border: '1px solid rgba(68, 171, 119, 0.3)',
+    },
+  },
+  expand: {
+    transform: 'rotate(0deg)',
+    marginLeft: 'auto',
+    transition: theme.transitions.create('transform', {
+      duration: theme.transitions.duration.standard,
+    }),
+    color: theme.palette.primary.main,
+    backgroundColor: 'rgba(68, 171, 119, 0.08)',
+    padding: 6,
+    '&:hover': {
+      backgroundColor: 'rgba(68, 171, 119, 0.15)',
+    },
+  },
+  expandOpen: {
+    transform: 'rotate(180deg)',
+  },
+  parameterSection: {
+    marginTop: theme.spacing(3),
+    paddingTop: theme.spacing(2),
+  },
+  parameterHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    cursor: 'pointer',
+    padding: theme.spacing(1, 0),
+    borderRadius: theme.spacing(0.5),
+    transition: 'all 0.15s ease',
+    '&:hover': {
+      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    },
+  },
+  modelSelector: {
+    backgroundColor: 'white',
+    borderRadius: theme.spacing(0.75),
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+    transition: 'box-shadow 0.2s ease',
+    '&:hover': {
+      boxShadow: '0 3px 6px rgba(0, 0, 0, 0.15)',
+    },
+  },
+  modelSelectorCaption: {
+    fontWeight: 600,
+    marginBottom: theme.spacing(0.5),
+    color: '#34495e',
+  },
+  modelLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    color: theme.palette.primary.main,
+    fontWeight: 500,
+    marginTop: theme.spacing(0.5),
+  },
+  modelIcon: {
+    fontSize: '0.9rem',
+    marginRight: theme.spacing(0.5),
+    opacity: 0.7,
+  },
+  divider: {
+    margin: theme.spacing(2, 0),
+  },
 }));
 
 const selectableModels = [
@@ -173,6 +342,11 @@ const ResultPage = () => {
     useState(false);
   const graphResultToPrintRef = useRef();
   const [selectedModel, setSelectedModel] = useState(null);
+  const [parametersExpanded, setParametersExpanded] = useState(false);
+  
+  const handleExpandClick = () => {
+    setParametersExpanded(!parametersExpanded);
+  };
 
   const [resultsState] = useComputeResults();
 
@@ -217,45 +391,55 @@ const ResultPage = () => {
         justifyContent="center"
         className={classes.container}>
         <Grid item xs={12}>
-          <Grid container justifyContent="space-between">
-            <Grid item>
+          <Grid 
+            container 
+            spacing={2}
+            direction="row"
+            justifyContent="space-between" 
+            alignItems="flex-start" 
+            className={classes.headerSection}
+          >
+            <Grid item xs={12} sm={8}>
               <Typography className={classes.subTitle}>
                 Metrical Tree
               </Typography>
               <Typography className={classes.title}>
                 {mergedResult?.name ?? 'Compute Result'}
               </Typography>
-
-              {mergedResult?.expiresOn && (
-                <Typography variant="subtitle2">
-                  Expires{' '}
-                  <Moment
-                    interval={10000}
-                    to={new Date(0).setUTCSeconds(
-                      mergedResult.expiresOn
-                    )}
-                  />
-                </Typography>
-              )}
-              {mergedResult?.status === 'SUCCESS' &&
-                mergedResult?.link && (
-                  <Link
-                    className={classes.link}
-                    underline="always"
-                    href={mergedResult.link.replace('https', 'http')} //TODO: Remove this for prod
-                    download>
-                    <Typography className={classes.linkText}>
-                      Download Raw Results
-                    </Typography>
-                  </Link>
+              
+              <div className={classes.metadata}>
+                {mergedResult?.expiresOn && (
+                  <Typography variant="subtitle2" style={{ color: '#7f8c8d', fontSize: '0.8rem' }}>
+                    Expires{' '}
+                    <Moment
+                      interval={10000}
+                      to={new Date(0).setUTCSeconds(
+                        mergedResult.expiresOn
+                      )}
+                    />
+                  </Typography>
                 )}
+                {mergedResult?.status === 'SUCCESS' &&
+                  mergedResult?.link && (
+                    <Link
+                      className={classes.link}
+                      href={mergedResult.link.replace('https', 'http')} //TODO: Remove this for prod
+                      download>
+                      <Typography className={classes.linkText}>
+                        <i className="fas fa-download" style={{ marginRight: '4px', fontSize: '0.8rem' }}></i>
+                        Download Raw Results
+                      </Typography>
+                    </Link>
+                  )}
+              </div>
             </Grid>
-            <Grid item>
+            <Grid item xs={12} sm={4} container justifyContent={{xs: 'flex-start', sm: 'flex-end'}}>
               <StyledButtonPrimary
                 label={'Back'}
                 onClick={() => {
                   history.push('/compute');
                 }}
+                className={classes.button}
               />
             </Grid>
           </Grid>
@@ -265,49 +449,34 @@ const ResultPage = () => {
                 <Grid
                   container
                   direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  justifyContent="space-between">
-                  <Grid item>
+                  spacing={2}
+                  alignItems="flex-start"
+                  justifyContent="space-between"
+                  className={classes.contentContainer}>
+                  <Grid item xs={12} sm={6} md={6}>
                     <Typography 
                       variant="h6" 
                       className={classes.cardTitle}
-                      style={{ 
-                        color: '#2C3E50', 
-                        fontSize: '1.1rem',
-                        display: 'flex',
-                        alignItems: 'center' 
-                      }}
                     >
-                      <AssessmentIcon style={{ marginRight: '8px', color: '#3498DB' }} />
+                      <AssessmentIcon className={classes.titleIcon} />
                       Linguistic Analysis
                     </Typography>
                     {selectedModel && (
                       <Typography 
                         variant="subtitle1" 
-                        style={{ 
-                          color: '#3498DB', 
-                          fontWeight: 500,
-                          marginTop: '4px',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
+                        className={classes.modelLabel}
                       >
                         <Tooltip title="Currently selected model">
-                          <TuneIcon style={{ fontSize: '0.9rem', marginRight: '4px', opacity: 0.7 }} />
+                          <TuneIcon className={classes.modelIcon} />
                         </Tooltip>
                         {selectedModel.label}
                       </Typography>
                     )}
                   </Grid>
-                  <Grid item style={{ minWidth: '220px' }}>
+                  <Grid item xs={12} sm={6} md={4} lg={3}>
                     <Typography 
                       variant="caption" 
-                      style={{ 
-                        fontWeight: 'bold', 
-                        marginBottom: '4px',
-                        display: 'block'
-                      }}
+                      className={classes.modelSelectorCaption}
                     >
                       Select Model:
                     </Typography>
@@ -323,15 +492,11 @@ const ResultPage = () => {
                       }}
                       margin="dense"
                       fullWidth
+                      className={classes.modelSelector}
                       MenuProps={{
                         PaperProps: {
                           style: { maxHeight: 300 }
                         }
-                      }}
-                      style={{
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: '4px',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                       }}
                     >
                       {graphOptions.map((option, index) => {
@@ -379,183 +544,206 @@ const ResultPage = () => {
                     />
                   </Grid>
                 </Grid>
-              </Card>
-            </Grid>
-            <Grid item xs={12} className={classes.section}>
-              <Card className={classes.card}>
-                <Typography className={classes.cardTitle}>
-                  Parameters Used
-                </Typography>
-                <Grid container>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Unstressed Words:{' '}
+                
+                {/* Parameters Section - Collapsible */}
+                <div className={classes.parameterSection}>
+                  <Divider />
+                  <div 
+                    className={classes.parameterHeader}
+                    onClick={handleExpandClick}
+                  >
+                    <Typography 
+                      variant="subtitle1" 
+                      style={{ 
+                        fontWeight: 'bold',
+                        color: '#2C3E50',
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      Analysis Parameters
                     </Typography>
-                    {mergedResult?.params?.unstressed_words?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Unstressed Tags:{' '}
-                    </Typography>
-                    {mergedResult?.params?.unstressed_tags?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Unstressed Deps:{' '}
-                    </Typography>
-                    {mergedResult?.params?.unstressed_deps?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Ambiguous Words:{' '}
-                    </Typography>
-                    {mergedResult?.params?.ambiguous_words?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Ambiguous Tags:{' '}
-                    </Typography>
-                    {mergedResult?.params?.ambiguous_tags?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Ambiguous Deps:{' '}
-                    </Typography>
-                    {mergedResult?.params?.ambiguous_deps?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                  <Grid
-                    item
-                    xs={12}
-                    className={classes.parameterGroup}>
-                    <Typography className={classes.parameterName}>
-                      Stressed Words:{' '}
-                    </Typography>
-                    {mergedResult?.params?.stressed_words?.map(
-                      (word, index) => (
-                        <Chip
-                          key={index}
-                          className={classes.parameterWordChip}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                          label={
-                            <Typography variant="caption">
-                              {word}
-                            </Typography>
-                          }
-                        />
-                      )
-                    )}
-                  </Grid>
-                </Grid>
+                    <IconButton
+                      className={`${classes.expand} ${parametersExpanded ? classes.expandOpen : ''}`}
+                      aria-expanded={parametersExpanded}
+                      aria-label="show parameters"
+                      size="small"
+                    >
+                      <ExpandMoreIcon />
+                    </IconButton>
+                  </div>
+                  <Collapse in={parametersExpanded} timeout="auto" unmountOnExit>
+                    <Grid container style={{ marginTop: '8px' }}>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Unstressed Words:{' '}
+                        </Typography>
+                        {mergedResult?.params?.unstressed_words?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Unstressed Tags:{' '}
+                        </Typography>
+                        {mergedResult?.params?.unstressed_tags?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Unstressed Deps:{' '}
+                        </Typography>
+                        {mergedResult?.params?.unstressed_deps?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Ambiguous Words:{' '}
+                        </Typography>
+                        {mergedResult?.params?.ambiguous_words?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Ambiguous Tags:{' '}
+                        </Typography>
+                        {mergedResult?.params?.ambiguous_tags?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Ambiguous Deps:{' '}
+                        </Typography>
+                        {mergedResult?.params?.ambiguous_deps?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                      <Grid
+                        item
+                        xs={12}
+                        className={classes.parameterGroup}>
+                        <Typography className={classes.parameterName}>
+                          Stressed Words:{' '}
+                        </Typography>
+                        {mergedResult?.params?.stressed_words?.map(
+                          (word, index) => (
+                            <Chip
+                              key={index}
+                              className={classes.parameterWordChip}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={
+                                <Typography variant="caption">
+                                  {word}
+                                </Typography>
+                              }
+                            />
+                          )
+                        )}
+                      </Grid>
+                    </Grid>
+                  </Collapse>
+                </div>
               </Card>
             </Grid>
             <Grid item xs={12}>
