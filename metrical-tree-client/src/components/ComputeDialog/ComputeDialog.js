@@ -156,7 +156,6 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
   const currentRawText = watch('rawText');
 
   const onSubmit = (data) => {
-    console.log(data);
 
     const getFileFromRawText = () => {
       const blob = new Blob([data.rawText], { type: 'text/plain' });
@@ -194,7 +193,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
         });
       })
       .then((result) => {
-        console.log('COMPUTE RESULT: ', result);
+        console.log('Compute Result: ', result);
         addComputeResult(result.data.compute);
         handleClose();
       });

@@ -9,7 +9,12 @@ import {
   Select,
   MenuItem,
   Chip,
+  Tooltip
 } from '@material-ui/core';
+import {
+  Tune as TuneIcon,
+  AssessmentOutlined as AssessmentIcon,
+} from '@material-ui/icons';
 
 import IdentityBar from '../../components/IdentityBar';
 import Appbar from '../../components/Appbar';
@@ -22,9 +27,8 @@ import { useComputeResults } from 'recoil/results';
 import Moment from 'react-moment';
 import 'moment-timezone';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
-import MUIDataTable from 'mui-datatables';
+import EnhancedResultsTable from './components/EnhancedResultsTable';
 import ResultsGraph from 'components/ResultsGraph';
-import ReactToPrint from 'react-to-print';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -117,6 +121,15 @@ const getModelForSpecifiedKey = (apiKey, data) => {
         ?.map((row) => ({
           primary: row.word,
           secondary: Number(row[apiKey]),
+          // Preserve linguistic metadata for statistics
+          pos: row.pos,               // For POS distribution
+          lexstress: row.lexstress,   // For stress distribution
+          nsyll: row.nsyll,           // For syllable counts
+          // Additional useful fields for debugging/display
+          widx: row.widx,
+          sent: row.sent,
+          dep: row.dep,
+          seg: row.seg
         }))
         .filter((row) => !isNaN(row.secondary)) ?? [],
     label: apiKey,
@@ -181,7 +194,6 @@ const ResultPage = () => {
     ...(data?.result ? data.result : {}),
   };
 
-  console.log(mergedResult);
 
   const graphOptions = getGraphOptions(mergedResult.data);
 
@@ -194,116 +206,7 @@ const ResultPage = () => {
     }
   }, [graphOptions, selectedModel]);
 
-  const columns = [
-    {
-      name: 'widx',
-      label: 'widx',
-    },
-    {
-      name: 'norm_widx',
-      label: 'norm_widx',
-    },
-    {
-      name: 'word',
-      label: 'word',
-    },
-    {
-      name: 'seg',
-      label: 'seg',
-    },
-    {
-      name: 'lexstress',
-      label: 'lexstress',
-    },
-    {
-      name: 'nseg',
-      label: 'nseg',
-    },
-    {
-      name: 'nsyll',
-      label: 'nsyll',
-    },
-    {
-      name: 'nstress',
-      label: 'nstress',
-    },
-    {
-      name: 'pos',
-      label: 'pos',
-    },
-    {
-      name: 'dep',
-      label: 'dep',
-    },
-    {
-      name: 'm1',
-      label: 'm1',
-    },
-    {
-      name: 'm2a',
-      label: 'm2a',
-    },
-    {
-      name: 'm2b',
-      label: 'm2b',
-    },
-
-    {
-      name: 'mean',
-      label: 'mean',
-    },
-    {
-      name: 'norm_m1',
-      label: 'norm_m1',
-    },
-    {
-      name: 'norm_m2a',
-      label: 'norm_m2a',
-    },
-    {
-      name: 'norm_m2b',
-      label: 'norm_m2b',
-    },
-    {
-      name: 'norm_mean',
-      label: 'norm_mean',
-    },
-    {
-      name: 'sidx',
-      label: 'sidx',
-    },
-    {
-      name: 'sent',
-      label: 'sent',
-      options: {
-        display: false,
-      },
-    },
-    {
-      name: 'ambig_words',
-      label: 'ambig_words',
-    },
-    {
-      name: 'ambig_monosyll',
-      label: 'ambig_monosyll',
-    },
-    {
-      name: 'contour',
-      label: 'contour',
-    },
-  ];
-
-  const options = {
-    selectableRowsHeader: false,
-    selectableRows: 'none',
-    selectableRowsOnClick: false,
-    print: false,
-    search: false,
-    filter: false,
-    download: true,
-    viewColumns: true,
-    rowsPerPageOptions: [],
-  };
+  // Enhanced results table has replaced the previous MUIDataTable
 
   return (
     <>
@@ -366,11 +269,48 @@ const ResultPage = () => {
                   alignItems="center"
                   justifyContent="space-between">
                   <Grid item>
-                    <Typography className={classes.cardTitle}>
-                      Graphs
+                    <Typography 
+                      variant="h6" 
+                      className={classes.cardTitle}
+                      style={{ 
+                        color: '#2C3E50', 
+                        fontSize: '1.1rem',
+                        display: 'flex',
+                        alignItems: 'center' 
+                      }}
+                    >
+                      <AssessmentIcon style={{ marginRight: '8px', color: '#3498DB' }} />
+                      Linguistic Analysis
                     </Typography>
+                    {selectedModel && (
+                      <Typography 
+                        variant="subtitle1" 
+                        style={{ 
+                          color: '#3498DB', 
+                          fontWeight: 500,
+                          marginTop: '4px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <Tooltip title="Currently selected model">
+                          <TuneIcon style={{ fontSize: '0.9rem', marginRight: '4px', opacity: 0.7 }} />
+                        </Tooltip>
+                        {selectedModel.label}
+                      </Typography>
+                    )}
                   </Grid>
-                  <Grid item>
+                  <Grid item style={{ minWidth: '220px' }}>
+                    <Typography 
+                      variant="caption" 
+                      style={{ 
+                        fontWeight: 'bold', 
+                        marginBottom: '4px',
+                        display: 'block'
+                      }}
+                    >
+                      Select Model:
+                    </Typography>
                     <Select
                       value={selectedModel?.label ?? ''}
                       variant="outlined"
@@ -382,15 +322,52 @@ const ResultPage = () => {
                         setSelectedModel(model);
                       }}
                       margin="dense"
-                      fullWidth>
-                      {graphOptions.map((option, index) => (
-                        <MenuItem key={index} value={option.label}>
-                          <Typography
-                            style={{ fontSize: '0.625rem' }}>
-                            {option.label}
-                          </Typography>
-                        </MenuItem>
-                      ))}
+                      fullWidth
+                      MenuProps={{
+                        PaperProps: {
+                          style: { maxHeight: 300 }
+                        }
+                      }}
+                      style={{
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '4px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      {graphOptions.map((option, index) => {
+                        // Determine if this is a raw or normalized model for icon selection
+                        const isRaw = option.label.includes('raw');
+                        const isSeries = option.label.includes('Series');
+                        
+                        return (
+                          <MenuItem 
+                            key={index} 
+                            value={option.label}
+                            style={{
+                              borderLeft: selectedModel?.label === option.label ? 
+                                '3px solid #3498DB' : '3px solid transparent',
+                              backgroundColor: selectedModel?.label === option.label ?
+                                'rgba(52, 152, 219, 0.1)' : 'transparent'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <i 
+                                className={isSeries ? 
+                                  "fas fa-layer-group" : 
+                                  isRaw ? "fas fa-chart-bar" : "fas fa-percentage"} 
+                                style={{ 
+                                  marginRight: '8px',
+                                  color: isSeries ? '#9b59b6' : isRaw ? '#e74c3c' : '#2ecc71',
+                                  fontSize: '14px'
+                                }}
+                              ></i>
+                              <Typography style={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                                {option.label}
+                              </Typography>
+                            </div>
+                          </MenuItem>
+                        );
+                      })}
                     </Select>
                   </Grid>
                 </Grid>
@@ -400,17 +377,6 @@ const ResultPage = () => {
                       ref={graphResultToPrintRef}
                       model={selectedModel}
                     />
-                    <Grid container justifyContent="flex-end">
-                      <ReactToPrint
-                        trigger={() => (
-                          <StyledButtonPrimary
-                            label={'Print'}
-                            onClick={() => {}}
-                          />
-                        )}
-                        content={() => graphResultToPrintRef.current}
-                      />
-                    </Grid>
                   </Grid>
                 </Grid>
               </Card>
@@ -593,12 +559,7 @@ const ResultPage = () => {
               </Card>
             </Grid>
             <Grid item xs={12}>
-              <MUIDataTable
-                title={'Results'}
-                data={mergedResult?.data ?? []}
-                columns={columns}
-                options={options}
-              />
+              <EnhancedResultsTable mergedResult={mergedResult} />
             </Grid>
           </Grid>
         </Grid>

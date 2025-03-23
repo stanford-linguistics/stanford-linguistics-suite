@@ -258,6 +258,21 @@ const ComputePage = () => {
     },
   ];
 
+  // State for table pagination
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(isMobileDevice ? 3 : 10);
+
+  // Handle page change
+  const handleChangePage = (_, newPage) => {
+    setPage(newPage);
+  };
+
+  // Handle rows per page change
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const options = {
     selectableRowsHeader: false,
     selectableRows: 'none',
@@ -267,8 +282,13 @@ const ComputePage = () => {
     filter: false,
     download: false,
     viewColumns: false,
-    rowsPerPageOptions: [],
-    rowsPerPage: isMobileDevice ? 3 : 10,
+    rowsPerPageOptions: [5, 10, 25],
+    rowsPerPage: rowsPerPage,
+    page: page,
+    count: results.length,
+    serverSide: false,
+    onPageChange: handleChangePage,
+    onRowsPerPageChange: handleChangeRowsPerPage,
   };
 
   return (

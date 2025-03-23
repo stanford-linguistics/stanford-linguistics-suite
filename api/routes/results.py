@@ -44,9 +44,9 @@ def download_file(task_id):
         if zip_filename != '':
             return send_from_directory(directory, zip_filename, as_attachment=True)
         else:
-            return 'No file belonging to id: ' + task_id + ' was found.', HTTP_404_NOT_FOUND
+            return 'No file belonging to id: ' + task_id + ' was found.', status.HTTP_404_NOT_FOUND
     else:
-        return 'No file belonging to id: ' + task_id + ' was found.', HTTP_404_NOT_FOUND
+        return 'No file belonging to id: ' + task_id + ' was found.', status.HTTP_404_NOT_FOUND
 
 
 def get_all_file_paths(directory):
@@ -126,11 +126,11 @@ def check_task(task_id: str) -> str:
 
     if res.state == states.PENDING:
         if directory_exists(task_id):
-            directory = os.path.join(app.config['RESULTS_FOLDER'], folder_id)
+            directory = os.path.join(app.config['RESULTS_FOLDER'], task_id)
             zip_filename = get_filename(
                 directory, app.config['OUTPUT_FILE_EXTENSION'])
             if zip_filename != '':
-                status = SUCCESS
+                status = states.SUCCESS
                 link = url_for('routes.download_file',
                                task_id=task_id, _external=True, _scheme='https')
         else:
