@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ResultErrorDisplay from 'components/ResultErrorDisplay/ResultErrorDisplay';
 import { useHistory, useParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import {
@@ -382,6 +383,14 @@ const ResultPage = () => {
 
   // Enhanced results table has replaced the previous MUIDataTable
 
+  // Check if the result contains an error
+  const hasError = mergedResult?.errorMessage || mergedResult?.error;
+
+  // Handler for retry button
+  const handleRetry = () => {
+    history.push('/compute');
+  };
+  
   return (
     <>
       <IdentityBar />
@@ -443,9 +452,21 @@ const ResultPage = () => {
               />
             </Grid>
           </Grid>
-          <Grid container>
-            <Grid item xs={12} className={classes.section}>
-              <Card className={classes.card}>
+          {/* Display error if present */}
+          {hasError && (
+            <Grid item xs={12}>
+              <ResultErrorDisplay 
+                error={mergedResult} 
+                onRetry={handleRetry}
+              />
+            </Grid>
+          )}
+          
+          {/* Main content - only show if no error */}
+          {!hasError && (
+            <Grid container>
+              <Grid item xs={12} className={classes.section}>
+                <Card className={classes.card}>
                 <Grid
                   container
                   direction="row"
@@ -748,8 +769,9 @@ const ResultPage = () => {
             </Grid>
             <Grid item xs={12}>
               <EnhancedResultsTable mergedResult={mergedResult} />
+              </Grid>
             </Grid>
-          </Grid>
+          )}
         </Grid>
       </Grid>
       <SecondaryFooter />

@@ -4,6 +4,11 @@ import { useHistory } from 'react-router-dom';
 import DownloadIcon from '@material-ui/icons/GetApp';
 import ViewIcon from '@material-ui/icons/Visibility';
 import DeleteIcon from '@material-ui/icons/Delete';
+import ErrorIcon from '@material-ui/icons/Error';
+import InfoIcon from '@material-ui/icons/Info';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import HourglassEmptyIcon from '@material-ui/icons/HourglassEmpty';
+import ErrorDetailModal from '../../components/ErrorDetailModal';
 import { makeStyles } from '@material-ui/core/styles';
 import {
   Grid,
@@ -59,6 +64,49 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '1.5rem',
   },
   noFilesSubTitle: { textAlign: 'center' },
+  statusContainer: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  statusIcon: {
+    marginRight: theme.spacing(1),
+    fontSize: '1.25rem',
+  },
+  errorIcon: {
+    color: theme.palette.error.main,
+  },
+  successIcon: {
+    color: theme.palette.success.main,
+  },
+  pendingIcon: {
+    color: theme.palette.warning.main,
+  },
+  runningIcon: {
+    color: theme.palette.primary.main,
+  },
+  statusText: {
+    fontWeight: 500,
+  },
+  errorStatusText: {
+    color: theme.palette.error.main,
+    fontWeight: 600,
+  },
+  statusErrorMessage: {
+    fontSize: '0.75rem',
+    color: theme.palette.error.main,
+    marginTop: theme.spacing(0.5),
+    display: '-webkit-box',
+    '-webkit-line-clamp': 2,
+    '-webkit-box-orient': 'vertical',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: 200,
+  },
+  infoButton: {
+    padding: 2,
+    color: theme.palette.info.main,
+    marginLeft: theme.spacing(0.5),
+  },
 }));
 
 const ComputePage = () => {
@@ -72,6 +120,8 @@ const ComputePage = () => {
     deleteConfirmationDialogIsOpen,
     setIsDeleteConfirmationDialogOpen,
   ] = useState(false);
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [selectedErrorResult, setSelectedErrorResult] = useState(null);
   const [resultsState, { deleteComputeResult, updateComputeResult }] =
     useComputeResults();
   const isMobileDevice = useMediaQuery({
@@ -140,6 +190,25 @@ const ComputePage = () => {
   const handleDeleteComputation = (id) => {
     deleteComputeResult(id);
   };
+  
+  // Handle opening the error modal
+  const handleOpenErrorModal = (resultId) => {
+    const errorResult = results.find(r => r.id === resultId);
+    setSelectedErrorResult(errorResult);
+    setErrorModalOpen(true);
+  };
+  
+  // Handle retrying a failed computation
+  const handleRetryComputation = (resultId) => {
+    // Find the original computation that failed
+    const originalResult = results.find(r => r.id === resultId);
+    
+    if (originalResult) {
+      // Re-open the compute dialog with the same parameters
+      setIsComputeDialogOpen(true);
+      // We could pre-populate form fields here if needed
+    }
+  };
 
   const columns = [
     {
@@ -161,14 +230,74 @@ const ComputePage = () => {
       label: 'Status',
       options: {
         customBodyRender: (status, rowData) => {
-          return (
-            <>
-              <Typography>{status}</Typography>
-              {(status === 'RUNNING' || status === 'PENDING') && (
+          // Check if there's an error
+          const resultId = rowData.rowData[0];
+          const result = results.find(r => r.id === resultId);
+          const hasError = result && (result.error || result.errorMessage);
+          
+          // Status display with icons
+          if (status === 'SUCCESS') {
+            return (
+              <div className={classes.statusContainer}>
+                <CheckCircleIcon className={`${classes.statusIcon} ${classes.successIcon}`} />
+                <Typography className={classes.statusText}>SUCCESS</Typography>
+              </div>
+            );
+          } else if (status === 'RUNNING') {
+            return (
+              <div>
+                <div className={classes.statusContainer}>
+                  <HourglassEmptyIcon className={`${classes.statusIcon} ${classes.runningIcon}`} />
+                  <Typography className={classes.statusText}>RUNNING</Typography>
+                </div>
                 <LinearProgress color="primary" />
-              )}
-            </>
-          );
+              </div>
+            );
+          } else if (status === 'PENDING') {
+            return (
+              <div>
+                <div className={classes.statusContainer}>
+                  <HourglassEmptyIcon className={`${classes.statusIcon} ${classes.pendingIcon}`} />
+                  <Typography className={classes.statusText}>PENDING</Typography>
+                </div>
+                <LinearProgress color="primary" variant="indeterminate" />
+              </div>
+            );
+          } else if (hasError || status === 'FAILURE' || status === 'ERROR') {
+            // Format for error display
+            return (
+              <div>
+                <div className={classes.statusContainer}>
+                  <ErrorIcon className={`${classes.statusIcon} ${classes.errorIcon}`} />
+                  <Typography className={classes.errorStatusText}>
+                    {status === 'FAILURE' || status === 'ERROR' ? 'ERROR' : 'FAILED'}
+                  </Typography>
+                  <IconButton 
+                    className={classes.infoButton}
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenErrorModal(resultId);
+                    }}
+                  >
+                    <InfoIcon fontSize="small" />
+                  </IconButton>
+                </div>
+                {result?.errorMessage && (
+                  <Typography className={classes.statusErrorMessage}>
+                    {result.errorMessage}
+                  </Typography>
+                )}
+              </div>
+            );
+          } else {
+            // Default display for other statuses
+            return (
+              <Typography className={classes.statusText}>
+                {status}
+              </Typography>
+            );
+          }
         },
       },
     },
@@ -370,6 +499,13 @@ const ComputePage = () => {
           setSelectedResultIdToDelete(null);
           setIsDeleteConfirmationDialogOpen(false);
         }}
+      />
+      {/* Error details modal */}
+      <ErrorDetailModal
+        open={errorModalOpen}
+        onClose={() => setErrorModalOpen(false)}
+        errorResult={selectedErrorResult}
+        onRetry={handleRetryComputation}
       />
     </>
   );

@@ -6,6 +6,12 @@ import datetime
 import json
 import subprocess
 import pipes
+import traceback
+from error_handling import (
+    capture_exception, MetricalTreeException, InputValidationException,
+    LinguisticProcessingException, SystemException, ComputationalException,
+    ErrorCode, format_error_for_user
+)
 
 ONE_HOUR = 1 * 60 * 60  # seconds
 ONE_DAY = ONE_HOUR * 24
@@ -108,23 +114,131 @@ def get_metrical_tree_optional_args(unstressed_words, unstressed_tags, unstresse
     return args_string
 
 
+@capture_exception
 def call_metrical_tree(input_file_path, output_path, unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words):
+    """
+    Execute the metrical tree script with the provided parameters.
+    
+    This function is wrapped with the capture_exception decorator to standardize error handling.
+    """
+    # Validate input file exists
+    if not os.path.exists(input_file_path):
+        raise SystemException(
+            message="Input file not found: {}".format(input_file_path),
+            error_code=ErrorCode.FILE_NOT_FOUND,
+            suggestion="Ensure the uploaded file was saved correctly."
+        )
+    
+    # Check if output directory exists, create if not
+    output_dir = os.path.dirname(output_path)
+    if not os.path.exists(output_dir):
+        try:
+            os.makedirs(output_dir)
+        except OSError as e:
+            raise SystemException(
+                message="Failed to create output directory: {}".format(str(e)),
+                error_code=ErrorCode.PERMISSION_DENIED,
+                suggestion="Check system permissions for creating directories."
+            )
+    
+    # Check input file size
+    try:
+        file_size = os.path.getsize(input_file_path)
+        # Set a reasonable limit, e.g., 10MB
+        if file_size > 10 * 1024 * 1024:  
+            raise InputValidationException(
+                message="Input file is too large",
+                error_code=ErrorCode.INPUT_TOO_LARGE,
+                suggestion="Please use a smaller text file (under 10MB)."
+            )
+    except OSError as e:
+        raise SystemException(
+            message="Could not check file size: {}".format(str(e)),
+            error_code=ErrorCode.FILE_NOT_FOUND,
+            suggestion="Ensure the file exists and is accessible."
+        )
+    
+    # Check if the file is empty
+    try:
+        if file_size == 0:
+            raise InputValidationException(
+                message="Input file is empty",
+                error_code=ErrorCode.EMPTY_INPUT,
+                suggestion="Please provide a non-empty text file."
+            )
+    except OSError:
+        pass  # Already handled above
+    
+    # Build and execute command
     optional_args = get_metrical_tree_optional_args(
-        unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words)
+        unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, 
+        ambiguous_tags, ambiguous_deps, stressed_words)
+    
     metrical_tree_command = 'python metrical-tree/metricaltree.py ' + '--input-file ' + pipes.quote(input_file_path) + \
         ' --output ' + pipes.quote(output_path) + ' ' + optional_args
-    print ('Command: ', metrical_tree_command)
+    
+    print('Command: ', metrical_tree_command)
+    
     try:
+        # Python 2.7 doesn't support timeout parameter in subprocess.check_output
+        # We'll need to implement our own timeout mechanism if needed
         output = subprocess.check_output(
-            metrical_tree_command, shell=True, stderr=subprocess.STDOUT)
+            metrical_tree_command, shell=True, stderr=subprocess.STDOUT
+        )
         print('SCRIPT OUTPUT:', output)
+    # Python 2.7 doesn't have TimeoutExpired exception
+    # except subprocess.TimeoutExpired:
+    #     raise ComputationalException(
+    #         message="The metrical tree processing timed out",
+    #         error_code=ErrorCode.TIMEOUT,
+    #         suggestion="Try processing a smaller text sample or check for syntax issues in your text."
+    #     )
     except subprocess.CalledProcessError as err:
-        output = err.output
-        return_code = err.returncode
+        output = err.output if hasattr(err, 'output') else "No output captured"
+        return_code = err.returncode if hasattr(err, 'returncode') else "Unknown"
+        
         print('error message:', output)
         print('returned value:', return_code)
-        raise ValueError(
-            'Something went wrong while metrical tree was trying to process your file.', output)
+        
+        # Try to analyze the error output for more specific error reporting
+        error_output = output.decode('utf-8', errors='replace') if isinstance(output, bytes) else str(output)
+        
+        if "MemoryError" in error_output:
+            raise ComputationalException(
+                message="The system ran out of memory while processing your text",
+                error_code=ErrorCode.MEMORY_LIMIT_EXCEEDED,
+                details={"error_output": error_output, "return_code": return_code},
+                suggestion="Try processing a smaller text sample."
+            )
+        elif "syllabus_lookup_failure" in error_output or "KeyError" in error_output:
+            raise LinguisticProcessingException(
+                message="Failed to process some words in your text",
+                error_code=ErrorCode.SYLLABUS_LOOKUP_FAILURE,
+                details={"error_output": error_output, "return_code": return_code},
+                suggestion="Check your text for unusual words or non-English content."
+            )
+        elif "UnicodeDecodeError" in error_output:
+            raise InputValidationException(
+                message="Text encoding issue detected",
+                error_code=ErrorCode.ENCODING_ERROR,
+                details={"error_output": error_output, "return_code": return_code},
+                suggestion="Make sure your text file uses UTF-8 encoding."
+            )
+        elif "ValueError" in error_output and "ambiguity" in error_output:
+            raise LinguisticProcessingException(
+                message="Ambiguity resolution error",
+                error_code=ErrorCode.AMBIGUITY_RESOLUTION_FAILURE,
+                details={"error_output": error_output, "return_code": return_code},
+                suggestion="Check your ambiguous words, tags, and dependencies configuration."
+            )
+        else:
+            # Generic error handling
+            raise LinguisticProcessingException(
+                message="Error processing metrical tree",
+                error_code=ErrorCode.PARSER_FAILURE,
+                details={"error_output": error_output, "return_code": return_code},
+                suggestion="Check your input text for syntax issues or try a different sample."
+            )
 
 
 def get_task_results_path(folder_id):
@@ -221,18 +335,87 @@ def compute_metrical_tree(self, input_file_path,
                           ambiguous_tags,
                           ambiguous_deps,
                           stressed_words):
+    """
+    Celery task to process metrical tree computations.
+    
+    This task handles input validation, calls the metrical tree processing script,
+    and properly formats any errors that occur during processing.
+    """
     self.update_state(state='RUNNING')
     folder_id = self.request.id
-    call_metrical_tree(input_file_path, get_output_path(folder_id), unstressed_words,
-                       unstressed_tags,
-                       unstressed_deps,
-                       ambiguous_words,
-                       ambiguous_tags,
-                       ambiguous_deps,
-                       stressed_words)
-    copy_results_to_json(folder_id)
-    zip_results(input_filename, folder_id)
-    result = Result(get_download_url(folder_id),
-                    FOLDER_TTL, get_expiration_on())
-    clean_results(folder_id)
-    return result.toJSON()
+    
+    try:
+        # Validate input parameters
+        if input_file_path is None or not input_file_path.strip():
+            raise InputValidationException(
+                message="No input file specified",
+                error_code=ErrorCode.MISSING_REQUIRED_FIELD,
+                suggestion="Please provide a valid input file."
+            )
+            
+        # Process the metrical tree
+        call_metrical_tree(input_file_path, 
+                           get_output_path(folder_id), 
+                           unstressed_words,
+                           unstressed_tags,
+                           unstressed_deps,
+                           ambiguous_words,
+                           ambiguous_tags,
+                           ambiguous_deps,
+                           stressed_words)
+                           
+        # Process successful results
+        copy_results_to_json(folder_id)
+        zip_results(input_filename, folder_id)
+        result = Result(get_download_url(folder_id), FOLDER_TTL, get_expiration_on())
+        clean_results(folder_id)
+        return result.toJSON()
+        
+    except MetricalTreeException as e:
+        # For our custom exceptions, create a detailed error response
+        self.update_state(state='FAILURE')
+        error_info = format_error_for_user(e)
+        
+        # Log the error with details
+        print("MetricalTreeException: {}".format(e.message))
+        print("Error details: {}".format(json.dumps(error_info)))
+        
+        # Return error info in a structured format that matches our Result class
+        error_result = {
+            "download_url": None,
+            "expires_in": None,
+            "expires_on": None,
+            "error": True,
+            "errorMessage": e.message,
+            "errorDetails": error_info
+        }
+        return json.dumps(error_result)
+        
+    except Exception as e:
+        # For unexpected errors, provide a generic error message
+        self.update_state(state='FAILURE')
+        
+        # Convert to our custom exception format for consistent handling
+        generic_error = MetricalTreeException(
+            message="An unexpected error occurred during processing",
+            error_code=ErrorCode.UNEXPECTED_ERROR,
+            details={"original_error": str(e), "traceback": traceback.format_exc()},
+            suggestion="Please try again or contact support if the problem persists."
+        )
+        
+        error_info = format_error_for_user(generic_error)
+        
+        # Log the error
+        print("Unexpected error in compute_metrical_tree: {}".format(str(e)))
+        print("Traceback: {}".format(traceback.format_exc()))
+        
+        # Return error info
+        error_result = {
+            "download_url": None,
+            "expires_in": None,
+            "expires_on": None,
+            "error": True,
+            "errorMessage": generic_error.message,
+            "errorDetails": error_info
+        }
+        return json.dumps(error_result)

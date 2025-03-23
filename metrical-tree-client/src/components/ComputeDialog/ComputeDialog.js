@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CloseIcon from '@material-ui/icons/Close';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { makeStyles } from '@material-ui/core/styles';
 import {
   LinearProgress,
@@ -19,9 +19,14 @@ import {
   FormControlLabel,
   TextField,
   Tooltip,
+  Checkbox,
+  Box,
 } from '@material-ui/core';
+import WarningIcon from '@material-ui/icons/Warning';
 import ComputeOptionalConfigForm from 'components/ComputeOptionalConfigForm';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary';
+import ErrorDisplay from 'components/ErrorDisplay/ErrorDisplay';
+import { validateRawText, validateMetricalTreeParams, formatValidationMessages } from 'utils/validationUtils';
 import { 
   SHORT_SAMPLE_TEXT, 
   MEDIUM_SAMPLE_TEXT, 
@@ -154,7 +159,8 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
 
   const isLoading = uploadLoading || computeLoading;
 
-  const defaultValues = {
+  // Memoize defaultValues to prevent recreation on every render
+  const defaultValues = React.useMemo(() => ({
     name: '',
     rawText: '',
     unstressedWords: settings.unstressedWords,
@@ -164,7 +170,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     ambiguousTags: settings.ambiguousTags,
     ambiguousDeps: settings.ambiguousDeps,
     stressedWords: settings.stressedWords,
-  };
+  }), [settings]);
 
   const {
     watch,
@@ -176,12 +182,131 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     reset,
   } = useForm({ defaultValues });
 
-  const { isValid } = formState;
+  // eslint-disable-next-line
+  const { isValid, errors: formErrors } = formState;
 
   const selectedFile = watch('file');
   const currentRawText = watch('rawText');
+  
+  // Create state for validation messages, override, and form interaction tracking
+  const [validationMessages, setValidationMessages] = useState([]);
+  const [performedValidation, setPerformedValidation] = useState(false);
+  const [overrideValidation, setOverrideValidation] = useState(false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
+  
+  // Watch form values for validation
+  const formValues = useWatch({
+    control,
+    defaultValue: defaultValues,
+  });
+  
+  // Track when user has interacted with the form
+  useEffect(() => {
+    // Only set user interaction if form values change and dialog is open
+    if (isOpen && JSON.stringify(formValues) !== JSON.stringify(defaultValues)) {
+      setUserHasInteracted(true);
+    }
+  }, [formValues, isOpen, defaultValues]);
 
+  // Perform validation when form values or override changes - but only after user interaction
+  useEffect(() => {
+    // Skip validation if user hasn't interacted with the form
+    if (!userHasInteracted) return;
+    
+    if (selectedInputMethod === 'rawText') {
+      // Validate raw text input
+      const textValidation = validateRawText(formValues.rawText || '', overrideValidation);
+      
+      // Create validation result for all parameters
+      const paramsValidation = validateMetricalTreeParams({
+        unstressedWords: formValues.unstressedWords,
+        unstressedTags: formValues.unstressedTags,
+        unstressedDeps: formValues.unstressedDeps,
+        ambiguousWords: formValues.ambiguousWords,
+        ambiguousTags: formValues.ambiguousTags,
+        ambiguousDeps: formValues.ambiguousDeps,
+        stressedWords: formValues.stressedWords,
+      });
+      
+      // Combine validation results
+      const combinedMessages = [
+        ...formatValidationMessages(textValidation),
+        ...formatValidationMessages(paramsValidation),
+      ];
+      
+      setValidationMessages(combinedMessages);
+      setPerformedValidation(true);
+      
+    } else if (selectedInputMethod === 'file' && selectedFile && selectedFile.length > 0) {
+      // File validation
+      const file = selectedFile[0];
+      const messages = [];
+      
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        messages.push({
+          type: 'error',
+          message: 'File is too large',
+          suggestion: 'Please use a smaller file (under 10MB)'
+        });
+      }
+      
+      // Check file type
+      if (!file.name.toLowerCase().endsWith('.txt')) {
+        messages.push({
+          type: 'error',
+          message: 'Invalid file type',
+          suggestion: 'Only .txt files are supported'
+        });
+      }
+      
+      // Create validation result for all parameters
+      const paramsValidation = validateMetricalTreeParams({
+        unstressedWords: formValues.unstressedWords,
+        unstressedTags: formValues.unstressedTags,
+        unstressedDeps: formValues.unstressedDeps,
+        ambiguousWords: formValues.ambiguousWords,
+        ambiguousTags: formValues.ambiguousTags,
+        ambiguousDeps: formValues.ambiguousDeps,
+        stressedWords: formValues.stressedWords,
+      });
+      
+      // Combine validation results
+      const combinedMessages = [
+        ...messages,
+        ...formatValidationMessages(paramsValidation),
+      ];
+      
+      setValidationMessages(combinedMessages);
+      setPerformedValidation(true);
+    }
+  }, [formValues, selectedInputMethod, selectedFile, overrideValidation, userHasInteracted]);
+
+  // Update input method selection to clear validation messages
+  // We intentionally don't include userHasInteracted in the dependency array
+  // since we're resetting it and don't want to create a loop
+  // eslint-disable-next-line
+  useEffect(() => {
+    setValidationMessages([]);
+    setPerformedValidation(false);
+    setUserHasInteracted(false); // Also reset user interaction on method change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInputMethod]);
+  
+  // Only show validation errors when user has interacted with the form
+  const errorCount = validationMessages.filter(m => m.type === 'error').length;
+  // const canSubmit = isValid && errorCount === 0;
+  
   const onSubmit = (data) => {
+    // Perform final validation before submission
+    if (selectedInputMethod === 'rawText') {
+      const textValidation = validateRawText(data.rawText || '', overrideValidation);
+      if (!textValidation.isValid) {
+        // Display errors and prevent submission
+        setValidationMessages(formatValidationMessages(textValidation));
+        return;
+      }
+    }
 
     const getFileFromRawText = () => {
       const blob = new Blob([data.rawText], { type: 'text/plain' });
@@ -248,12 +373,28 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     }
   };
 
+  // Reset all validation states to clean state
+  const resetValidationState = () => {
+    setValidationMessages([]);
+    setPerformedValidation(false);
+    setOverrideValidation(false);
+    setUserHasInteracted(false);
+  };
+
+  // Effect to reset validation state when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      resetValidationState();
+    }
+  }, [isOpen]);
+
   const handleClose = () => {
     setShouldShowConfigOptions(false);
     setSelectedInputMethod('rawText');
     setIsOpen(false);
     setConfirmDialogOpen(false);
     reset(defaultValues);
+    resetValidationState();
   };
 
   return (
@@ -513,6 +654,49 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                 </section>
               </Grid>
             )}
+            {/* Display validation errors and warnings */}
+            {performedValidation && validationMessages.length > 0 && (
+              <Grid item xs={12}>
+                <ErrorDisplay 
+                  messages={validationMessages}
+                  showSuccessWhenNoMessages={false}
+                />
+                
+                {/* Add override checkbox if there are warnings but no errors */}
+                {validationMessages.some(m => m.type === 'warning') && 
+                 !validationMessages.some(m => m.type === 'error') && (
+                  <Box 
+                    display="flex" 
+                    alignItems="center" 
+                    mt={1} 
+                    mb={1}
+                    p={1} 
+                    bgcolor="rgba(255, 152, 0, 0.08)"
+                    borderRadius={4}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={overrideValidation}
+                          onChange={(e) => setOverrideValidation(e.target.checked)}
+                          color="primary"
+                          size="small"
+                        />
+                      }
+                      label={
+                        <Box display="flex" alignItems="center">
+                          <WarningIcon style={{ fontSize: '0.9rem', marginRight: 8, color: '#FF9800' }} />
+                          <Typography variant="body2">
+                            Process anyway (override warnings)
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </Box>
+                )}
+              </Grid>
+            )}
+            
             <Grid item>
               <Grid
                 container
@@ -563,7 +747,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
             <Grid item>
               <StyledButtonPrimary
                 type={'submit'}
-                disabled={!isValid || isLoading}
+                disabled={!isValid || isLoading || (errorCount > 0 && !overrideValidation)}
                 label={'Submit'}
               />
             </Grid>

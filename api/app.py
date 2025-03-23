@@ -2,6 +2,7 @@ import os
 from flask import Flask, Blueprint
 from flask_cors import CORS
 from routes import *
+from routes.test_errors import register_test_routes
 
 # Constants
 RESULTS_FOLDER = '/results'
@@ -19,3 +20,6 @@ app.config['OUTPUT_FILE_EXTENSION'] = OUTPUT_FILE_EXTENSION
 app.config['ALLOWED_EXTENSIONS'] = ALLOWED_EXTENSIONS
 app.config['METRICAL_TREE_ALLOWED_EXTENSIONS'] = METRICAL_TREE_ALLOWED_EXTENSIONS
 app.register_blueprint(routes)
+
+# Register test routes
+register_test_routes(app)

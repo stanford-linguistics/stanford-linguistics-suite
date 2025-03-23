@@ -56,6 +56,16 @@ export const GET_RESULT_FOR_SINGLE_COMPUTE = gql`
       @rest(type: "Result", path: "/results/{args.id}") {
       id
       errorMessage
+      errorDetails {
+        message
+        error_code
+        category
+        category_description
+        severity
+        suggestion
+        details
+      }
+      error
       link
       status
       data
