@@ -35,7 +35,7 @@
     "web-vitals": "^1.1.1"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "BROWSER=none WDS_SOCKET_PATH=/ws react-scripts start",
     "now-start": "serve -s ./build",
     "build": "react-scripts build",
     "build:local": "env-cmd -f .env.local react-scripts build",

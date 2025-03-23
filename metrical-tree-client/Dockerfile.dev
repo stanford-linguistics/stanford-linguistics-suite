@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 # Install dependencies using npm ci for exact versions
 RUN npm config set ignore-optional true
 RUN npm ci && \
+    npm install --save-dev http-proxy-middleware && \
     # Create cache directory with proper permissions
     mkdir -p /app/node_modules/.cache && \
     chmod -R 777 /app/node_modules
@@ -18,7 +19,11 @@ EXPOSE 3000
 
 # Set environment variables for development
 ENV NODE_ENV=development
-ENV WDS_SOCKET_PORT=0
+ENV WDS_SOCKET_HOST=localhost
+ENV WDS_SOCKET_PORT=3000
+ENV WDS_SOCKET_PATH=/ws
+ENV DANGEROUSLY_DISABLE_HOST_CHECK=true
+ENV PUBLIC_URL=http://localhost:3000
 ENV CHOKIDAR_USEPOLLING=true
 ENV WATCHPACK_POLLING=true
 
