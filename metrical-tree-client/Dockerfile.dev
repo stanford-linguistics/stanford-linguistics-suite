@@ -1,0 +1,26 @@
+FROM node:16
+
+WORKDIR /app
+
+
+# Copy package files
+COPY package.json package-lock.json ./
+
+# Install dependencies using npm ci for exact versions
+RUN npm config set ignore-optional true
+RUN npm ci && \
+    # Create cache directory with proper permissions
+    mkdir -p /app/node_modules/.cache && \
+    chmod -R 777 /app/node_modules
+
+# Expose the dev server port
+EXPOSE 3000
+
+# Set environment variables for development
+ENV NODE_ENV=development
+ENV WDS_SOCKET_PORT=0
+ENV CHOKIDAR_USEPOLLING=true
+ENV WATCHPACK_POLLING=true
+
+# Start the development server
+CMD ["sh", "-c", "echo 'Starting React development server...' && npm start || (echo 'Failed to start server:' && cat npm-debug.log 2>/dev/null || echo 'No error log found')"]
