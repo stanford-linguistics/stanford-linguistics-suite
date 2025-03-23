@@ -5,7 +5,7 @@ import { StylesProvider } from '@material-ui/styles';
 
 import { METRICAL_TREE_THEME } from 'constants/theme';
 
-const SoteriaThemeWrapper = (props) => {
+const MetricalTreeThemeWrapper = (props) => {
   return (
     <StylesProvider>
       <MuiThemeProvider theme={METRICAL_TREE_THEME}>
@@ -15,8 +15,8 @@ const SoteriaThemeWrapper = (props) => {
   );
 };
 
-SoteriaThemeWrapper.propTypes = {
+MetricalTreeThemeWrapper.propTypes = {
   children: PropTypes.node,
 };
 
-export default SoteriaThemeWrapper;
+export default MetricalTreeThemeWrapper;
