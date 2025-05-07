@@ -12,15 +12,22 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    command: ["flask", "run", "--host=0.0.0.0", "--port=5001", "--debugger"]
     restart: always
     volumes:
+      - ./api:/api:cached
       - ./results:/results
       - ./public:/public
     depends_on:
       - redis
       - nginx-proxy
+    ports:
+      - "5001:5001"
     environment:
-      VIRTUAL_HOST: api.local
+      VIRTUAL_HOST: localhost
       VIRTUAL_PORT: 5001
   
   worker:
@@ -46,7 +53,7 @@ services:
       - redis
       - nginx-proxy
     environment:
-      VIRTUAL_HOST: monitor.local
+      VIRTUAL_HOST: localhost
       VIRTUAL_PORT: 5555
   
   cogeto-client:
@@ -55,7 +62,7 @@ services:
       dockerfile: Dockerfile.local
     restart: always
     environment:
-      VIRTUAL_HOST: cogeto.local
+      VIRTUAL_HOST: localhost
       VIRTUAL_PORT: 80
     depends_on:
       - nginx-proxy
@@ -76,7 +83,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - VIRTUAL_HOST=metricaltree.local
       - VIRTUAL_PORT=3000
-      - REACT_APP_API_URL=http://api.local
+      - REACT_APP_API_URL=http://localhost:5001
       - WDS_SOCKET_HOST=localhost
       - WDS_SOCKET_PORT=3000
       - WDS_SOCKET_PATH=/ws

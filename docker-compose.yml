@@ -90,5 +90,5 @@ services:
     depends_on:
       - nginx-proxy
   redis:
-    image: redis
+    image: redis:7.0.10
     restart: always
