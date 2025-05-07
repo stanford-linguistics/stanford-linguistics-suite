@@ -45,10 +45,12 @@ const useStyles = makeStyles((theme) => ({
   },
   message: {
     marginBottom: theme.spacing(1),
+    color: theme.palette.error.contrastText,
   },
   suggestion: {
     fontStyle: 'italic',
     marginBottom: theme.spacing(1),
+    color: theme.palette.error.contrastText,
   },
   details: {
     marginTop: theme.spacing(2),
@@ -80,7 +82,7 @@ const useStyles = makeStyles((theme) => ({
     textTransform: 'uppercase',
     fontWeight: 'bold',
     fontSize: '0.75rem',
-    color: theme.palette.error.main,
+    color: theme.palette.error.dark,
     marginBottom: theme.spacing(1),
   },
   retryLink: {

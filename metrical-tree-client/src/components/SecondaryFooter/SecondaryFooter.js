@@ -46,7 +46,7 @@ const SecondaryFooter = () => {
           Contact Us
         </Typography>
         <Typography className={classes.contactName}>
-          Arto Antilla
+          Arto Anttila
         </Typography>
         <Link
           href="mailto:anttila@stanford.edu"

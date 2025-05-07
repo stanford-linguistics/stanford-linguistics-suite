@@ -1,7 +1,4 @@
 import { 
-  TextFormat as TextFormatIcon,
-  BarChart as BarChartIcon,
-  FormatQuote as FormatQuoteIcon,
   TableChart as TableChartIcon
 } from '@material-ui/icons';
 
@@ -23,24 +20,6 @@ export const VIRTUALIZATION_BUFFER = 5;
 // Tab configuration for the enhanced results table
 export const TABLE_TABS = [
   {
-    id: 'word-focused',
-    label: 'Word-Focused',
-    icon: FormatQuoteIcon,
-    description: 'Focus on individual words and their properties'
-  },
-  {
-    id: 'metric-analysis',
-    label: 'Metric Analysis',
-    icon: BarChartIcon,
-    description: 'Compare and analyze different metrics'
-  },
-  {
-    id: 'sentence-context',
-    label: 'Sentence Context',
-    icon: TextFormatIcon,
-    description: 'View words in their sentence context'
-  },
-  {
     id: 'raw-data',
     label: 'Raw Data',
     icon: TableChartIcon,
@@ -55,6 +34,9 @@ export const RAW_DATA_COLUMNS = [
   { id: 'widx', label: 'Word Index', width: 90 },
   { id: 'sidx', label: 'Sent Index', width: 90 },
   { id: 'word', label: 'Word', width: 120 },
+  { id: 'wordFrequency', label: 'Word Frequency', width: 100 },
+  { id: 'prevWord', label: 'Previous Word', width: 120 },
+  { id: 'prevWordFrequency', label: 'Prev Word Freq', width: 110 },
   { id: 'pos', label: 'POS', width: 80 },
   { id: 'lexstress', label: 'Stress', width: 80 },
   { id: 'seg', label: 'Segmentation', width: 150 },
@@ -68,9 +50,7 @@ export const RAW_DATA_COLUMNS = [
   { id: 'norm_m1', label: 'Norm M1', width: 90 },
   { id: 'norm_m2a', label: 'Norm M2a', width: 90 },
   { id: 'norm_m2b', label: 'Norm M2b', width: 90 },
-  { id: 'norm_mean', label: 'Norm Mean', width: 90 },
-  { id: 'contour', label: 'Contour', width: 200, flexGrow: 1 },
-  { id: 'sent', label: 'Sentence', width: 300, flexGrow: 1 },
+  { id: 'norm_mean', label: 'Norm Mean', width: 90 }
 ];
 
 /**
@@ -79,11 +59,11 @@ export const RAW_DATA_COLUMNS = [
 export const COLUMN_GROUPS = [
   {
     name: 'Basic Info',
-    columns: ['widx', 'sidx', 'word', 'pos', 'lexstress'],
+    columns: ['widx', 'sidx', 'word', 'wordFrequency', 'prevWord', 'prevWordFrequency'],
   },
   {
     name: 'Linguistic Properties',
-    columns: ['seg', 'dep', 'nsyll', 'nstress'],
+    columns: ['pos', 'lexstress', 'seg', 'dep', 'nsyll', 'nstress'],
   },
   {
     name: 'Raw Metrics',
@@ -92,11 +72,7 @@ export const COLUMN_GROUPS = [
   {
     name: 'Normalized Metrics',
     columns: ['norm_m1', 'norm_m2a', 'norm_m2b', 'norm_mean'],
-  },
-  {
-    name: 'Context',
-    columns: ['contour', 'sent'],
-  },
+  }
 ];
 
 /**
@@ -132,7 +108,7 @@ export const POS_COLORS = {
   
   // Pronouns
   PRP: '#9C27B0', // Personal pronoun
-  PRP$: '#9C27B0', // Possessive pronoun
+  'PRP$': '#9C27B0', // Possessive pronoun
   WP: '#AB47BC', // Wh-pronoun
   
   // Prepositions
@@ -164,6 +140,45 @@ export const POS_COLORS = {
 /**
  * Color scheme for different stress statuses
  */
+// POS tag descriptions based on Penn Treebank tagset
+export const POS_DESCRIPTIONS = {
+  CC: 'Coordinating conjunction (e.g., and, but, or)',
+  CD: 'Cardinal number',
+  DT: 'Determiner (e.g., the, this, that)',
+  EX: 'Existential there',
+  FW: 'Foreign word',
+  IN: 'Preposition or subordinating conjunction',
+  JJ: 'Adjective',
+  JJR: 'Adjective, comparative',
+  JJS: 'Adjective, superlative',
+  LS: 'List item marker',
+  MD: 'Modal (e.g., can, could, should)',
+  NN: 'Noun, singular or mass',
+  NNS: 'Noun, plural',
+  NNP: 'Proper noun, singular',
+  NNPS: 'Proper noun, plural',
+  PDT: 'Predeterminer (e.g., all, both)',
+  POS: 'Possessive ending',
+  PRP: 'Personal pronoun',
+  'PRP$': 'Possessive pronoun',
+  RB: 'Adverb',
+  RBR: 'Adverb, comparative',
+  RBS: 'Adverb, superlative',
+  RP: 'Particle',
+  TO: 'to',
+  UH: 'Interjection',
+  VB: 'Verb, base form',
+  VBD: 'Verb, past tense',
+  VBG: 'Verb, gerund or present participle',
+  VBN: 'Verb, past participle',
+  VBP: 'Verb, non-3rd person singular present',
+  VBZ: 'Verb, 3rd person singular present',
+  WDT: 'Wh-determiner (e.g., which, that)',
+  WP: 'Wh-pronoun (e.g., who, what)',
+  'WP$': 'Possessive wh-pronoun (whose)',
+  WRB: 'Wh-adverb (e.g., where, when)'
+};
+
 export const STRESS_COLORS = {
   yes: '#4CAF50', // Green for stressed
   no: '#F44336', // Red for unstressed
@@ -171,31 +186,10 @@ export const STRESS_COLORS = {
   default: '#9E9E9E' // Grey for unknown
 };
 
-// Define custom export formats
-export const EXPORT_FORMATS = [
-  { 
-    id: 'psycholinguistic', 
-    label: 'Psycholinguistic Format',
-    description: 'Export data in a format suitable for psycholinguistic research'
-  },
-  { 
-    id: 'tei-xml', 
-    label: 'TEI XML',
-    description: 'Export as Text Encoding Initiative (TEI) XML format'
-  },
-  { 
-    id: 'prosegen', 
-    label: 'ProseGen Format',
-    description: 'Export in a format compatible with ProseGen tools'
-  },
-  { 
-    id: 'csv', 
-    label: 'CSV',
-    description: 'Export as comma-separated values'
-  },
-  { 
-    id: 'json', 
-    label: 'JSON',
-    description: 'Export as JSON data'
-  }
-];
+// Lexical stress descriptions
+export const STRESS_DESCRIPTIONS = {
+  yes: 'Primary stress - the syllable receives the main stress in the word',
+  no: 'Unstressed - the syllable does not receive stress',
+  ambig: 'Ambiguous stress - the syllable may be stressed or unstressed depending on context',
+  default: 'Unknown stress pattern'
+};

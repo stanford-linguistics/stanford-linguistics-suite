@@ -5,10 +5,9 @@
 /**
  * Calculates comprehensive statistics for a chunk of linguistic data
  * @param {Array} chunkData - The current chunk of linguistic data
- * @param {Object} posCategories - Categories of POS tags
  * @returns {Object} Object containing various statistics
  */
-export const calculateChunkStats = (chunkData, posCategories) => {
+export const calculateChunkStats = (chunkData) => {
 
   if (!chunkData || !chunkData.length) {
     return {
@@ -128,17 +127,7 @@ export const calculateChunkStats = (chunkData, posCategories) => {
     
     // Process POS distribution if available
     if (item.pos !== undefined && item.pos !== null) {
-      // Group into categories for easier reading
-      let category = 'Other';
-      
-      for (const [catName, tags] of Object.entries(posCategories)) {
-        if (tags.includes(item.pos)) {
-          category = catName;
-          break;
-        }
-      }
-      
-      posDistribution[category] = (posDistribution[category] || 0) + 1;
+      posDistribution[item.pos] = (posDistribution[item.pos] || 0) + 1;
     }
     
     // Process syllables if available
@@ -182,6 +171,65 @@ export const calculateChunkStats = (chunkData, posCategories) => {
     };
   });
   
+  // Determine contour pattern
+  let contourPattern = 'Complex';
+  
+  // Extract stress values for pattern detection
+  const stressValues = [];
+  chunkData.forEach(item => {
+    let value;
+    if (!isResultPageFormat) {
+      value = parseFloat(item.m1 || item.mean || 0);
+    } else {
+      value = parseFloat(item.secondary || 0);
+    }
+    if (!isNaN(value)) {
+      stressValues.push(value);
+    }
+  });
+  
+  if (stressValues.length > 0) {
+    // Find min and max values
+    const min = Math.min(...stressValues);
+    const max = Math.max(...stressValues);
+    
+    // Find positions of min and max
+    const minIndex = stressValues.indexOf(min);
+    const maxIndex = stressValues.indexOf(max);
+    
+    // Calculate differences between consecutive values
+    const differences = [];
+    for (let i = 0; i < stressValues.length - 1; i++) {
+      differences.push(stressValues[i+1] - stressValues[i]);
+    }
+    
+    // Count rising and falling segments
+    let risingCount = 0;
+    let fallingCount = 0;
+    
+    for (const diff of differences) {
+      if (diff > 0) risingCount++;
+      if (diff < 0) fallingCount++;
+    }
+    
+    // Determine pattern based on positions and counts
+    if (maxIndex === 0 && minIndex === stressValues.length - 1) {
+      contourPattern = 'Falling';
+    } else if (minIndex === 0 && maxIndex === stressValues.length - 1) {
+      contourPattern = 'Rising';
+    } else if (maxIndex > 0 && maxIndex < stressValues.length - 1) {
+      contourPattern = 'Peak';
+    } else if (minIndex > 0 && minIndex < stressValues.length - 1) {
+      contourPattern = 'Valley';
+    } else if (risingCount > fallingCount * 2) {
+      contourPattern = 'Rising';
+    } else if (fallingCount > risingCount * 2) {
+      contourPattern = 'Falling';
+    } else if (Math.abs(max - min) < 1.0) {
+      contourPattern = 'Level';
+    }
+  }
+  
   // Return compiled statistics
   return {
     averageStress: {
@@ -193,7 +241,8 @@ export const calculateChunkStats = (chunkData, posCategories) => {
     posDistribution,
     syllableCounts,
     stressDistribution,
-    totalWords
+    totalWords,
+    contourPattern
   };
 };
 

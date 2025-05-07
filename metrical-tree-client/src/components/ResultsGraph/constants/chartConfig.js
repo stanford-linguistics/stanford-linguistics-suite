@@ -58,18 +58,6 @@ export const STRESS_COLORS = {
   'default': '#9E9E9E' // Default gray
 };
 
-// Group POS tags into categories for filtering
-export const POS_CATEGORIES = {
-  'Nouns': ['NN', 'NNS', 'NNP', 'NNPS'],
-  'Verbs': ['VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ'],
-  'Adjectives': ['JJ', 'JJR', 'JJS'],
-  'Adverbs': ['RB', 'RBR', 'RBS'],
-  'Prepositions': ['IN'],
-  'Conjunctions': ['CC'],
-  'Determiners': ['DT'],
-  'Pronouns': ['PRP', 'PRP$', 'WP', 'WP$']
-};
-
 // Available chunk sizes
 export const CHUNK_SIZES = [5, 8, 12, 20];
 

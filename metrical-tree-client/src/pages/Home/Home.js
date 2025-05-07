@@ -90,7 +90,7 @@ const Home = () => {
             </Typography>
             <Link
               className={classes.link}
-              onClick={() => history.push('/my-results')}>
+              onClick={() => history.push('/about')}>
               <Grid container>
                 <Grid item>
                   <Typography className={classes.linkLabel}>

@@ -13,7 +13,8 @@ import {
   Tooltip,
   Collapse,
   IconButton,
-  Divider
+  Divider,
+  LinearProgress
 } from '@material-ui/core';
 import {
   Tune as TuneIcon,
@@ -29,6 +30,7 @@ import AddGraphDialog from '../../components/AddGraphDialog';
 import { GET_RESULT_FOR_SINGLE_COMPUTE } from 'graphql/metricalTree';
 import { useQuery } from '@apollo/client';
 import { useComputeResults } from 'recoil/results';
+import { mapBackendStatus, getStatusDisplay } from 'utils/statusMapping';
 import Moment from 'react-moment';
 import 'moment-timezone';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
@@ -98,28 +100,11 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 600,
     display: 'inline-flex',
     alignItems: 'center',
-    position: 'relative',
     textDecoration: 'none',
     '&:hover': { 
       cursor: 'pointer', 
       color: theme.palette.primary.dark,
       textDecoration: 'underline',
-    },
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      width: '100%',
-      transform: 'scaleX(0)',
-      height: '1px',
-      bottom: 0,
-      left: 0,
-      backgroundColor: theme.palette.primary.main,
-      transformOrigin: 'bottom right',
-      transition: 'transform 0.25s ease-out',
-    },
-    '&:hover::after': {
-      transform: 'scaleX(1)',
-      transformOrigin: 'bottom left',
     },
   },
   linkText: { 
@@ -247,6 +232,13 @@ const useStyles = makeStyles((theme) => ({
   divider: {
     margin: theme.spacing(2, 0),
   },
+  headerActions: {
+    display: 'flex',
+    justifyContent: 'flex-start',
+    [theme.breakpoints.up('sm')]: {
+      justifyContent: 'flex-end',
+    },
+  },
 }));
 
 const selectableModels = [
@@ -344,7 +336,7 @@ const ResultPage = () => {
   const graphResultToPrintRef = useRef();
   const [selectedModel, setSelectedModel] = useState(null);
   const [parametersExpanded, setParametersExpanded] = useState(false);
-  
+
   const handleExpandClick = () => {
     setParametersExpanded(!parametersExpanded);
   };
@@ -352,14 +344,15 @@ const ResultPage = () => {
   const [resultsState] = useComputeResults();
 
   const {
-    // loading,
-    //  error,
+    loading,
+    // error is unused
     data,
   } = useQuery(GET_RESULT_FOR_SINGLE_COMPUTE, {
     variables: { id: resultId },
     skip: !resultId,
     fetchPolicy: 'network-only',
   });
+  
   const cachedResult = resultId
     ? resultsState?.results?.find((result) => result.id === resultId)
     : {};
@@ -368,29 +361,110 @@ const ResultPage = () => {
     ...cachedResult,
     ...(data?.result ? data.result : {}),
   };
-
-
+  
+  // Use the data array directly from the response
   const graphOptions = getGraphOptions(mergedResult.data);
+  
 
   useEffect(() => {
-    if (!selectedModel && graphOptions.length > 0) {
+    // Only set the default model when:
+    // 1. No model is currently selected
+    // 2. GraphQL query has completed (not loading)
+    // 3. We have graph options available
+    // 4. The data is actually available
+    if (!selectedModel && !loading && graphOptions.length > 0 && data?.result?.data) {
       const defaultModel = graphOptions.find(
         (option) => option.value[0].label === 'm2a'
       );
-      setSelectedModel(defaultModel);
+      
+      // Verify the model has actual data before setting it
+      if (defaultModel && defaultModel.value[0]?.data?.length > 0) {
+        setSelectedModel(defaultModel);
+      }
     }
-  }, [graphOptions, selectedModel]);
+  }, [graphOptions, selectedModel, loading, data]);
 
   // Enhanced results table has replaced the previous MUIDataTable
 
   // Check if the result contains an error
   const hasError = mergedResult?.errorMessage || mergedResult?.error;
 
+  // Map backend status to canonical frontend status
+  const mappedStatus = mapBackendStatus(mergedResult?.status);
+  const statusDisplay = getStatusDisplay(mappedStatus);
+
   // Handler for retry button
   const handleRetry = () => {
     history.push('/compute');
   };
-  
+
+  // UI for status
+  let statusUI = null;
+  if (mappedStatus === 'pending' || mappedStatus === 'running') {
+    statusUI = (
+      <Grid item xs={12}>
+        <Card className={classes.card}>
+          <Typography variant="h6" className={classes.cardTitle}>
+            {statusDisplay.label}
+          </Typography>
+          <Typography>
+            Your analysis is {mappedStatus === 'pending' ? 'queued and waiting to start.' : 'currently running.'}
+          </Typography>
+          <LinearProgress color="primary" style={{ marginTop: 16 }} />
+        </Card>
+      </Grid>
+    );
+  } else if (mappedStatus === 'expired') {
+    statusUI = (
+      <Grid item xs={12}>
+        <Card className={classes.card}>
+          <Typography variant="h6" className={classes.cardTitle}>
+            {statusDisplay.label}
+          </Typography>
+          <Typography>
+            Your results have expired. Please recompute to generate new results.
+          </Typography>
+          <StyledButtonPrimary
+            label={'Back to Compute'}
+            onClick={handleRetry}
+            className={classes.button}
+          />
+        </Card>
+      </Grid>
+    );
+  } else if (mappedStatus === 'retry') {
+    statusUI = (
+      <Grid item xs={12}>
+        <Card className={classes.card}>
+          <Typography variant="h6" className={classes.cardTitle}>
+            {statusDisplay.label}
+          </Typography>
+          <Typography>
+            The system is retrying your analysis after a failure. Please wait or try again later.
+          </Typography>
+        </Card>
+      </Grid>
+    );
+  } else if (mappedStatus === 'revoked') {
+    statusUI = (
+      <Grid item xs={12}>
+        <Card className={classes.card}>
+          <Typography variant="h6" className={classes.cardTitle}>
+            {statusDisplay.label}
+          </Typography>
+          <Typography>
+            This analysis was cancelled. Please recompute if you wish to try again.
+          </Typography>
+          <StyledButtonPrimary
+            label={'Back to Compute'}
+            onClick={handleRetry}
+            className={classes.button}
+          />
+        </Card>
+      </Grid>
+    );
+  }
+
   return (
     <>
       <IdentityBar />
@@ -428,21 +502,25 @@ const ResultPage = () => {
                     />
                   </Typography>
                 )}
-                {mergedResult?.status === 'SUCCESS' &&
+                {mappedStatus === 'success' &&
                   mergedResult?.link && (
-                    <Link
-                      className={classes.link}
-                      href={mergedResult.link.replace('https', 'http')} //TODO: Remove this for prod
-                      download>
-                      <Typography className={classes.linkText}>
-                        <i className="fas fa-download" style={{ marginRight: '4px', fontSize: '0.8rem' }}></i>
-                        Download Raw Results
-                      </Typography>
-                    </Link>
+                    <Tooltip title="Download results zip file (includes raw, enhanced, and analysis files)">
+                      <Link
+                        className={classes.link}
+                        href={mergedResult.link}
+                        target="_blank" // Optional: open in new tab
+                        rel="noopener noreferrer"
+                        style={{ cursor: 'pointer' }}>
+                        <Typography className={classes.linkText}>
+                          <i className="fas fa-file-archive" style={{ marginRight: '4px', fontSize: '0.8rem' }}></i>
+                          Download Results (.zip)
+                        </Typography>
+                      </Link>
+                    </Tooltip>
                   )}
               </div>
             </Grid>
-            <Grid item xs={12} sm={4} container justifyContent={{xs: 'flex-start', sm: 'flex-end'}}>
+            <Grid item xs={12} sm={4} container className={classes.headerActions}> 
               <StyledButtonPrimary
                 label={'Back'}
                 onClick={() => {
@@ -461,9 +539,10 @@ const ResultPage = () => {
               />
             </Grid>
           )}
-          
-          {/* Main content - only show if no error */}
-          {!hasError && (
+          {/* Show status UI for non-success, non-error states */}
+          {!hasError && mappedStatus !== 'success' && statusUI}
+          {/* Main content - only show if success and no error */}
+          {!hasError && mappedStatus === 'success' && (
             <Grid container>
               <Grid item xs={12} className={classes.section}>
                 <Card className={classes.card}>
@@ -475,13 +554,15 @@ const ResultPage = () => {
                   justifyContent="space-between"
                   className={classes.contentContainer}>
                   <Grid item xs={12} sm={6} md={6}>
-                    <Typography 
-                      variant="h6" 
-                      className={classes.cardTitle}
-                    >
-                      <AssessmentIcon className={classes.titleIcon} />
-                      Linguistic Analysis
-                    </Typography>
+                    <Tooltip title="SPE (Sound Pattern of English) numbers transformed to grid notation">
+                      <Typography 
+                        variant="h6" 
+                        className={classes.cardTitle}
+                      >
+                        <AssessmentIcon className={classes.titleIcon} />
+                        Sound Pattern of English (SPE) to Grids
+                      </Typography>
+                    </Tooltip>
                     {selectedModel && (
                       <Typography 
                         variant="subtitle1" 
@@ -562,6 +643,7 @@ const ResultPage = () => {
                     <ResultsGraph
                       ref={graphResultToPrintRef}
                       model={selectedModel}
+                      fullApiResponse={mergedResult} // Pass full API response to access sentences data
                     />
                   </Grid>
                 </Grid>

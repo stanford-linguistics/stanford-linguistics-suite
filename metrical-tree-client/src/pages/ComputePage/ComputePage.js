@@ -15,6 +15,7 @@ import {
   Typography,
   IconButton,
   LinearProgress,
+  Tooltip,
 } from '@material-ui/core';
 import Moment from 'react-moment';
 import 'moment-timezone';
@@ -27,6 +28,7 @@ import DeleteConfirmationDialog from '../../components/DeleteConfirmationDialog/
 import { useComputeResults } from 'recoil/results';
 import useLazyQueryPromise from 'hooks/useLazyQueryPromise';
 import { GET_RESULT_FOR_SINGLE_COMPUTE } from 'graphql/metricalTree';
+import { mapBackendStatus, getStatusDisplay } from 'utils/statusMapping';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
 import { useMediaQuery } from 'react-responsive';
 import { useSettings } from 'recoil/settings';
@@ -44,6 +46,39 @@ const useStyles = makeStyles((theme) => ({
     [theme.breakpoints.down('xs')]: {
       height: 'calc(100vh - 421px)',
     },
+  },
+  actionIcon: {
+    transition: 'color 0.2s ease',
+    '&:hover': {
+      color: '#3498DB',
+    },
+  },
+  downloadIcon: {
+    color: '#44AB77',
+  },
+  viewIcon: {
+    color: '#3498DB',
+  },
+  deleteIcon: {
+    color: '#E74C3C',
+  },
+  // Enhanced status indicators
+  runningAnimation: {
+    animation: '$pulse 2s infinite',
+  },
+  '@keyframes pulse': {
+    '0%': { opacity: 1 },
+    '50%': { opacity: 0.6 },
+    '100%': { opacity: 1 },
+  },
+  // Enhanced empty state
+  emptyStateContainer: {
+    textAlign: 'center',
+    animation: '$fadeIn 0.5s ease-in',
+  },
+  '@keyframes fadeIn': {
+    from: { opacity: 0 },
+    to: { opacity: 1 },
   },
   title: {
     fontWeight: 'bold',
@@ -73,27 +108,27 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '1.25rem',
   },
   errorIcon: {
-    color: theme.palette.error.main,
+    color: '#E74C3C',
   },
   successIcon: {
-    color: theme.palette.success.main,
+    color: '#44AB77',
   },
   pendingIcon: {
-    color: theme.palette.warning.main,
+    color: '#F39C12',
   },
   runningIcon: {
-    color: theme.palette.primary.main,
+    color: '#3498DB',
   },
   statusText: {
     fontWeight: 500,
   },
   errorStatusText: {
-    color: theme.palette.error.main,
+    color: '#E74C3C',
     fontWeight: 600,
   },
   statusErrorMessage: {
     fontSize: '0.75rem',
-    color: theme.palette.error.main,
+    color: '#E74C3C',
     marginTop: theme.spacing(0.5),
     display: '-webkit-box',
     '-webkit-line-clamp': 2,
@@ -148,8 +183,9 @@ const ComputePage = () => {
             }
           );
         }
+        const mappedStatus = mapBackendStatus(result.status);
         if (
-          result.status === 'EXPIRED' &&
+          mappedStatus === 'expired' &&
           settings.shouldDeleteExpiredResults
         ) {
           deleteComputeResult(result.id);
@@ -157,7 +193,8 @@ const ComputePage = () => {
       });
     }
     function shouldUpdate(result) {
-      if (result.status === 'SUCCESS') {
+      const mappedStatus = mapBackendStatus(result.status);
+      if (mappedStatus === 'success') {
         var utcSeconds = result.expiresOn;
         var d = new Date(0); // sets the date to the epoch
         d.setUTCSeconds(utcSeconds);
@@ -168,7 +205,7 @@ const ComputePage = () => {
         }
       }
       return (
-        result.status === 'PENDING' || result.status === 'RUNNING'
+        mappedStatus === 'pending' || mappedStatus === 'running'
       );
     }
   };
@@ -224,6 +261,54 @@ const ComputePage = () => {
     {
       name: 'name',
       label: 'Name',
+      options: {
+        customBodyRender: (name, rowData) => {
+          const resultId = rowData.rowData[0];
+          return (
+            <Typography
+              component="a"
+              href={`/result/${resultId}`}
+              style={{
+                color: '#3498DB',
+                fontWeight: 600,
+                textDecoration: 'none',
+                cursor: 'pointer'
+              }}
+              onClick={e => {
+                e.preventDefault();
+                history.push(`/result/${resultId}`);
+              }}
+              title="View result"
+            >
+              {name}
+            </Typography>
+          );
+        }
+      }
+    },
+    {
+      name: 'createdOn',
+      label: 'Created',
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (createdOn, rowData) => {
+          if (createdOn) {
+            const createdDate = new Date(createdOn * 1000).toLocaleString();
+            return (
+              <Typography variant="body2" color="textPrimary">
+                {createdDate}
+              </Typography>
+            );
+          } else {
+            return (
+              <Typography variant="body2" color="textSecondary">
+                N/A
+              </Typography>
+            );
+          }
+        },
+      },
     },
     {
       name: 'status',
@@ -235,42 +320,66 @@ const ComputePage = () => {
           const result = results.find(r => r.id === resultId);
           const hasError = result && (result.error || result.errorMessage);
           
-          // Status display with icons
-          if (status === 'SUCCESS') {
+          // Use status mapping utility for all status rendering
+          const mappedStatus = mapBackendStatus(status);
+          const statusDisplay = getStatusDisplay(mappedStatus);
+
+          if (mappedStatus === 'success') {
             return (
               <div className={classes.statusContainer}>
                 <CheckCircleIcon className={`${classes.statusIcon} ${classes.successIcon}`} />
-                <Typography className={classes.statusText}>SUCCESS</Typography>
+                <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
               </div>
             );
-          } else if (status === 'RUNNING') {
+          } else if (mappedStatus === 'running') {
             return (
               <div>
                 <div className={classes.statusContainer}>
-                  <HourglassEmptyIcon className={`${classes.statusIcon} ${classes.runningIcon}`} />
-                  <Typography className={classes.statusText}>RUNNING</Typography>
+                  <HourglassEmptyIcon className={`${classes.statusIcon} ${classes.runningIcon} ${classes.runningAnimation}`} />
+                  <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
                 </div>
                 <LinearProgress color="primary" />
               </div>
             );
-          } else if (status === 'PENDING') {
+          } else if (mappedStatus === 'pending') {
             return (
               <div>
                 <div className={classes.statusContainer}>
-                  <HourglassEmptyIcon className={`${classes.statusIcon} ${classes.pendingIcon}`} />
-                  <Typography className={classes.statusText}>PENDING</Typography>
+                  <HourglassEmptyIcon className={`${classes.statusIcon} ${classes.pendingIcon} ${classes.runningAnimation}`} />
+                  <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
                 </div>
                 <LinearProgress color="primary" variant="indeterminate" />
               </div>
             );
-          } else if (hasError || status === 'FAILURE' || status === 'ERROR') {
+          } else if (mappedStatus === 'expired') {
+            return (
+              <div className={classes.statusContainer}>
+                <ErrorIcon className={`${classes.statusIcon} ${classes.errorIcon}`} />
+                <Typography className={classes.errorStatusText}>{statusDisplay.label}</Typography>
+              </div>
+            );
+          } else if (mappedStatus === 'retry') {
+            return (
+              <div className={classes.statusContainer}>
+                <InfoIcon className={`${classes.statusIcon} ${classes.pendingIcon}`} />
+                <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
+              </div>
+            );
+          } else if (mappedStatus === 'revoked') {
+            return (
+              <div className={classes.statusContainer}>
+                <ErrorIcon className={`${classes.statusIcon} ${classes.errorIcon}`} />
+                <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
+              </div>
+            );
+          } else if (hasError || mappedStatus === 'failure' || mappedStatus === 'error') {
             // Format for error display
             return (
               <div>
                 <div className={classes.statusContainer}>
                   <ErrorIcon className={`${classes.statusIcon} ${classes.errorIcon}`} />
                   <Typography className={classes.errorStatusText}>
-                    {status === 'FAILURE' || status === 'ERROR' ? 'ERROR' : 'FAILED'}
+                    {statusDisplay.label}
                   </Typography>
                   <IconButton 
                     className={classes.infoButton}
@@ -294,7 +403,7 @@ const ComputePage = () => {
             // Default display for other statuses
             return (
               <Typography className={classes.statusText}>
-                {status}
+                {statusDisplay.label}
               </Typography>
             );
           }
@@ -338,47 +447,61 @@ const ComputePage = () => {
         searchable: false,
         sort: false,
         customBodyRender: (id, rowData) => {
-          const status = rowData.rowData[2];
-          const downloadUrl = rowData.rowData[4]
-            ? rowData.rowData[4].replace('https', 'http') //TODO: Remove this for prod
+          const status = rowData.rowData[3];
+          const mappedStatus = mapBackendStatus(status);
+          const downloadUrl = rowData.rowData[5]
+            ? rowData.rowData[5].replace('https', 'http')
             : null;
           return (
             <Grid container alignItems="center">
-              {status === 'SUCCESS' && downloadUrl && (
+              {mappedStatus === 'success' && downloadUrl && (
                 <Grid item>
-                  <a
-                    className={classes.downloadLink}
-                    title="Download"
-                    role="button"
-                    href={downloadUrl}
-                    download>
-                    <DownloadIcon style={{ marginTop: 4 }} />
-                  </a>
+                  <Tooltip title="Download result">
+                    <a
+                      className={classes.downloadLink}
+                      role="button"
+                      href={downloadUrl}
+                      download
+                      tabIndex={0}
+                    >
+                      <DownloadIcon
+                        style={{ marginTop: 4 }}
+                        className={`${classes.actionIcon} ${classes.downloadIcon}`}
+                      />
+                    </a>
+                  </Tooltip>
                 </Grid>
               )}
-              {status === 'SUCCESS' && (
+              {mappedStatus === 'success' && (
                 <Grid item>
+                  <Tooltip title="View result">
+                    <IconButton
+                      size="small"
+                      onClick={() => history.push(`/result/${id}`)}
+                      className={classes.actionIcon}
+                    >
+                      <ViewIcon className={classes.viewIcon} />
+                    </IconButton>
+                  </Tooltip>
+                </Grid>
+              )}
+              <Grid item>
+                <Tooltip title="Delete computation">
                   <IconButton
                     size="small"
-                    onClick={() => history.push(`/result/${id}`)}>
-                    <ViewIcon />
+                    onClick={() => {
+                      setSelectedResultIdToDelete(id);
+                      if (mappedStatus !== 'expired') {
+                        setIsDeleteConfirmationDialogOpen(true);
+                      } else {
+                        deleteComputeResult(id);
+                      }
+                    }}
+                    className={classes.actionIcon}
+                  >
+                    <DeleteIcon className={classes.deleteIcon} />
                   </IconButton>
-                </Grid>
-              )}
-
-              <Grid item>
-                <IconButton
-                  size="small"
-                  onClick={() => {
-                    setSelectedResultIdToDelete(id);
-                    if (status !== 'EXPIRED') {
-                      setIsDeleteConfirmationDialogOpen(true);
-                    } else {
-                      deleteComputeResult(id);
-                    }
-                  }}>
-                  <DeleteIcon />
-                </IconButton>
+                </Tooltip>
               </Grid>
             </Grid>
           );
@@ -418,6 +541,18 @@ const ComputePage = () => {
     serverSide: false,
     onPageChange: handleChangePage,
     onRowsPerPageChange: handleChangeRowsPerPage,
+    setRowProps: () => ({
+      style: {
+        cursor: 'pointer',
+        transition: 'background 0.2s',
+      },
+      onMouseOver: e => {
+        e.currentTarget.style.background = 'rgba(52, 152, 219, 0.08)';
+      },
+      onMouseOut: e => {
+        e.currentTarget.style.background = '';
+      },
+    }),
   };
 
   return (
@@ -443,6 +578,7 @@ const ComputePage = () => {
               <StyledButtonPrimary
                 label={'Compute'}
                 onClick={handleComputeClick}
+                className={classes.computeButton}
               />
             </Grid>
           </Grid>
@@ -461,7 +597,7 @@ const ComputePage = () => {
             </>
           )}
           {results.length < 1 && (
-            <Grid container justifyContent="center">
+            <Grid container justifyContent="center" className={classes.emptyStateContainer}>
               <img
                 className={classes.noFilesImage}
                 src={noFilesImage}

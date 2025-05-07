@@ -10,7 +10,8 @@ import {
   makeStyles,
   useMediaQuery,
   useTheme,
-  IconButton
+  IconButton,
+  Typography
 } from '@material-ui/core';
 import {
   Image as ImageIcon,
@@ -22,21 +23,40 @@ import {
   PhotoLibrary as GalleryIcon,
   Print as PrintIcon,
   GetApp as DownloadIcon,
+  AssessmentOutlined as AssessmentIcon,
 } from '@material-ui/icons';
 
 const useStyles = makeStyles((theme) => ({
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    '& > svg': {
+      marginRight: theme.spacing(1),
+      color: theme.palette.primary.main,
+      fontSize: '1.25rem',
+    },
+  },
   exportContainer: {
     display: 'flex',
-    justifyContent: 'flex-end',
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(1),
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing(2, 3),
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: theme.shadows[1],
     flexWrap: 'wrap',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(3),
     [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(2),
       justifyContent: 'center',
+      flexDirection: 'column',
+      alignItems: 'stretch',
     },
   },
   exportButton: {
-    fontSize: '0.75rem',
+    fontSize: '0.8rem',
+    textTransform: 'none',
   },
   splitButton: {
     marginLeft: -1,
@@ -57,18 +77,28 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '1rem',
   },
   mobileExportButton: {
-    margin: theme.spacing(1),
     backgroundColor: theme.palette.primary.main,
     color: theme.palette.primary.contrastText,
+    padding: theme.spacing(1),
     '&:hover': {
       backgroundColor: theme.palette.primary.dark,
     },
   },
   mobileMenuContainer: {
     display: 'flex',
-    justifyContent: 'center',
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(1),
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    padding: theme.spacing(1),
+  },
+  mobileHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    '& > svg': {
+      marginRight: theme.spacing(1),
+      color: theme.palette.primary.main,
+      fontSize: '1.25rem',
+    },
   }
 }));
 
@@ -92,7 +122,8 @@ const ExportControls = ({
   handleExportPdf,
   handleExportAllImages,
   handleExportAllPdf,
-  totalPages = 1
+  totalPages = 1,
+  modelName = "m2a (raw)"
 }) => {
   const classes = useStyles();
   const theme = useTheme();
@@ -214,50 +245,14 @@ const ExportControls = ({
     }
   }
   
-  // CSV Export
-  desktopButtons.push(
-    <Tooltip key="csv-btn" title="Export complete dataset as CSV for analysis in Excel/R/etc.">
-      <Button 
-        className={classes.exportButton}
-        onClick={handleExportCsv}
-        startIcon={<TableChartIcon />}
-      >
-        CSV
-      </Button>
-    </Tooltip>
-  );
-  
-  // JSON Export
-  desktopButtons.push(
-    <Tooltip key="json-btn" title="Export complete state as JSON (for sharing/archiving)">
-      <Button 
-        className={classes.exportButton}
-        onClick={handleExportState}
-        startIcon={<CodeIcon />}
-      >
-        JSON
-      </Button>
-    </Tooltip>
-  );
-  
-  // Print Function
-  if (handleExportPdf) {
-    desktopButtons.push(
-      <Tooltip key="print-btn" title="Print the visualization">
-        <Button 
-          className={classes.exportButton}
-          onClick={handlePdfExport}
-          startIcon={<PrintIcon />}
-        >
-          Print
-        </Button>
-      </Tooltip>
-    );
-  }
   
   // Mobile View
   const renderMobileMenu = () => (
     <div className={classes.mobileMenuContainer}>
+      <div className={classes.mobileHeader}>
+        <AssessmentIcon />
+        <Typography variant="h6">{modelName}</Typography>
+      </div>
       <Tooltip title="Export Options">
         <IconButton
           className={classes.mobileExportButton}
@@ -344,9 +339,15 @@ const ExportControls = ({
         renderMobileMenu()
       ) : (
         <div className={classes.exportContainer}>
-          <ButtonGroup size="small" variant="outlined" color="primary">
+          <div className={classes.header}>
+            <AssessmentIcon />
+            <Typography variant="h6" style={{ marginRight: '2rem' }}>{modelName}</Typography>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <ButtonGroup size="small" variant="outlined" color="primary">
             {desktopButtons}
-          </ButtonGroup>
+            </ButtonGroup>
+          </div>
           
           {/* Menus (outside ButtonGroup) */}
           <Menu

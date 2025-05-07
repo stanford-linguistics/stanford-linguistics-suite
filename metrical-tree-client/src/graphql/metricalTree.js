@@ -53,7 +53,7 @@ export const COMPUTE_METRICAL_TREE_FILE = gql`
 export const GET_RESULT_FOR_SINGLE_COMPUTE = gql`
   query GetSingleComputeResult($id: string!) {
     result(id: $id)
-      @rest(type: "Result", path: "/results/{args.id}") {
+      @rest(type: "Result", path: "/metrical-tree-results/{args.id}") {
       id
       errorMessage
       errorDetails {
@@ -69,9 +69,12 @@ export const GET_RESULT_FOR_SINGLE_COMPUTE = gql`
       link
       status
       data
+      analysis
+      sentences
       dataUrl
       expiresIn
       expiresOn
+      createdOn
     }
   }
 `;

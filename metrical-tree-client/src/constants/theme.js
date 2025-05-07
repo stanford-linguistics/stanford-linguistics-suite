@@ -21,6 +21,12 @@ export const METRICAL_TREE_THEME = createTheme({
     background: {
       default: '#f2f2f2',
     },
+    error: {
+      main: '#d32f2f',
+      light: '#ffebee',
+      dark: '#9a0007',
+      contrastText: '#000000'
+    },
   },
   overrides: {
     //MUIDataTableToolbar: { root: { display: 'none' } },

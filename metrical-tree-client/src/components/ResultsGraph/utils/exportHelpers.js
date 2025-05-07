@@ -3,14 +3,238 @@
  */
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+
+/**
+ * Captures the color legend as a canvas
+ * @param {Array} colorLegendData - Array of {label, color} objects for the legend
+ * @returns {Promise<HTMLCanvasElement|null>} Canvas element or null if failed
+ */
+const captureColorLegend = async (colorLegendData) => {
+  if (!colorLegendData || !colorLegendData.length) return null;
+  
+  try {
+    // Create a temporary div to render the legend
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = `
+      position: fixed;
+      left: -9999px;
+      background: white;
+      padding: 16px;
+      border-radius: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    `;
+    
+    // Create legend title
+    const title = document.createElement('div');
+    title.textContent = 'Color Legend';
+    title.style.cssText = `
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.6);
+      margin-bottom: 12px;
+      font-weight: 400;
+    `;
+    tempDiv.appendChild(title);
+    
+    // Create legend items container
+    const container = document.createElement('div');
+    container.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    `;
+
+    // Define groups based on color scheme
+    const groups = colorLegendData[0]?.label === 'yes' || colorLegendData[0]?.label === 'no' || colorLegendData[0]?.label === 'ambig'
+      ? {
+          // Stress groups
+          stress: {
+            title: 'Stress Patterns',
+            items: ['yes', 'no', 'ambig'],
+            labels: {
+              'yes': 'Stressed',
+              'no': 'Unstressed',
+              'ambig': 'Ambiguous'
+            }
+          }
+        }
+      : {
+          // POS groups
+          nouns: {
+            title: 'Nouns',
+            items: ['NN', 'NNS', 'NNP', 'NNPS']
+          },
+          verbs: {
+            title: 'Verbs',
+            items: ['VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ']
+          },
+          adjectives: {
+            title: 'Adjectives',
+            items: ['JJ', 'JJR', 'JJS']
+          },
+          adverbs: {
+            title: 'Adverbs',
+            items: ['RB', 'RBR', 'RBS']
+          },
+          others: {
+            title: 'Other',
+            items: ['IN', 'CC', 'DT', 'PRP', 'PRP$', 'WP', 'WP$', 'MD', 'TO']
+          }
+        };
+
+    // Create rows container
+    const rowsContainer = document.createElement('div');
+    rowsContainer.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    `;
+
+    // Add legend items by group
+    colorLegendData.forEach(({ label, color }) => {
+      let added = false;
+      
+      // Find which group this item belongs to
+      for (const [groupName, { title, items }] of Object.entries(groups)) {
+        if (items.includes(label)) {
+          // Get or create group container
+          let groupContainer = rowsContainer.querySelector(`[data-group="${groupName}"]`);
+          if (!groupContainer) {
+            groupContainer = document.createElement('div');
+            groupContainer.setAttribute('data-group', groupName);
+            
+            // Add group title if not already added
+            if (!groupContainer.querySelector('.group-title')) {
+              const titleElem = document.createElement('div');
+              titleElem.className = 'group-title';
+              titleElem.textContent = title;
+              titleElem.style.cssText = `
+                font-size: 12px;
+                font-weight: 500;
+                color: rgba(0, 0, 0, 0.7);
+                margin-bottom: 4px;
+                padding-bottom: 4px;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+              `;
+              groupContainer.appendChild(titleElem);
+            }
+            
+            groupContainer.style.cssText = `
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              background: rgba(255, 255, 255, 0.7);
+              padding: 8px;
+              border-radius: 4px;
+              margin-bottom: 4px;
+            `;
+            rowsContainer.appendChild(groupContainer);
+          }
+          // Create item
+          const item = document.createElement('div');
+          item.style.cssText = `
+            display: flex;
+            align-items: center;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: white;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          `;
+      
+          const colorBox = document.createElement('div');
+          colorBox.style.cssText = `
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 4px;
+            background-color: ${color};
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          `;
+          
+          const labelElem = document.createElement('span');
+          labelElem.textContent = groups[groupName].labels?.[label] || label;
+          labelElem.style.cssText = `
+            font-size: 12px;
+            color: rgba(0, 0, 0, 0.87);
+          `;
+          
+          item.appendChild(colorBox);
+          item.appendChild(labelElem);
+          groupContainer.appendChild(item);
+          added = true;
+          break;
+        }
+      }
+
+      // If item doesn't belong to any group, add it directly
+      if (!added) {
+        const item = document.createElement('div');
+        item.style.cssText = `
+          display: flex;
+          align-items: center;
+          padding: 4px 6px;
+          border-radius: 4px;
+          background: white;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        `;
+        
+        const colorBox = document.createElement('div');
+        colorBox.style.cssText = `
+          width: 16px;
+          height: 16px;
+          margin-right: 8px;
+          border-radius: 4px;
+          background-color: ${color};
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        `;
+        
+        const labelElem = document.createElement('span');
+        labelElem.textContent = label;
+        labelElem.style.cssText = `
+          font-size: 12px;
+          color: rgba(0, 0, 0, 0.87);
+        `;
+        
+        item.appendChild(colorBox);
+        item.appendChild(labelElem);
+        rowsContainer.appendChild(item);
+      }
+    });
+    
+    container.appendChild(rowsContainer);
+    tempDiv.appendChild(container);
+    document.body.appendChild(tempDiv);
+    
+    // Capture the legend as canvas
+    const canvas = await html2canvas(tempDiv, {
+      backgroundColor: 'white',
+      scale: 2, // Higher resolution
+    });
+    
+    // Clean up
+    document.body.removeChild(tempDiv);
+    
+    return canvas;
+  } catch (error) {
+    console.error('Error capturing color legend:', error);
+    return null;
+  }
+};
 
 /**
  * Exports chart as a high-resolution image
  * @param {React.RefObject} chartRef - Reference to the chart container
+ * @param {Object} colorLegendData - Color legend data if color scheme is selected
  * @param {number} [scaleFactor=3] - Scale factor for higher resolution (3-4x recommended for quality)
  * @returns {Promise<boolean>} Success status
  */
-export const exportAsImage = async (chartRef, scaleFactor = 3) => {
+export const exportAsImage = async (chartRef, colorLegendData = null, scaleFactor = 3) => {
   if (!chartRef.current) return false;
   
   try {
@@ -20,14 +244,14 @@ export const exportAsImage = async (chartRef, scaleFactor = 3) => {
       console.error('Failed to capture chart');
       return false;
     }
-    
-    // Convert canvas to data URL and trigger download with high quality
-    const dataUrl = canvas.toDataURL('image/png', 1.0); // Use max quality (1.0)
+
+    // Export the chart directly without legend
+    const dataUrl = canvas.toDataURL('image/png', 1.0);
     const link = document.createElement('a');
     link.download = `linguistic-chart-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = dataUrl;
     link.click();
-    
+
     return true;
   } catch (error) {
     console.error('Error exporting image:', error);
@@ -45,42 +269,27 @@ export const captureChartAsCanvas = async (chartRef, scaleFactor = 3) => {
   if (!chartRef.current) return null;
   
   try {
-    // Try to find the SVG element
-    const svgElement = chartRef.current.querySelector('svg');
-    if (!svgElement) {
-      console.error('SVG element not found');
+    // Find the Chart.js canvas element
+    const originalCanvas = chartRef.current.querySelector('canvas');
+    if (!originalCanvas) {
+      console.error('Canvas element not found');
       return null;
     }
     
-    // Clone the SVG to avoid modifying the original
-    const svgClone = svgElement.cloneNode(true);
+    // Get canvas dimensions
+    const rect = originalCanvas.getBoundingClientRect();
     
-    // Add a white background rect to the SVG if not already there
-    const hasBackground = svgClone.querySelector('rect.chart-background');
-    if (!hasBackground) {
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('width', '100%');
-      rect.setAttribute('height', '100%');
-      rect.setAttribute('fill', 'white');
-      rect.setAttribute('class', 'chart-background');
-      // Insert at the beginning so it's behind all other elements
-      svgClone.insertBefore(rect, svgClone.firstChild);
-    }
-    
-    // Get SVG dimensions
-    const svgRect = svgElement.getBoundingClientRect();
-    
-    // Create a canvas with higher resolution
+    // Create a new high-resolution canvas
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
     // Set high-resolution canvas dimensions
-    canvas.width = svgRect.width * scaleFactor;
-    canvas.height = svgRect.height * scaleFactor;
+    canvas.width = rect.width * scaleFactor;
+    canvas.height = rect.height * scaleFactor;
     
-    // Set canvas CSS dimensions to match original SVG (important for proper rendering)
-    canvas.style.width = `${svgRect.width}px`;
-    canvas.style.height = `${svgRect.height}px`;
+    // Set canvas CSS dimensions to match original
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
     
     // Fill canvas with white background first
     ctx.fillStyle = 'white';
@@ -93,42 +302,38 @@ export const captureChartAsCanvas = async (chartRef, scaleFactor = 3) => {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
-    // Create an image from the SVG with enhanced attributes
-    const svgData = new XMLSerializer().serializeToString(svgClone);
-    // Process SVG to ensure it has proper dimensions for quality rendering
-    const processedSvgData = svgData.replace(/<svg/, `<svg width="${svgRect.width}" height="${svgRect.height}"`);
-    const img = new Image();
+    // Draw the original canvas onto our high-resolution canvas
+    ctx.drawImage(originalCanvas, 0, 0, rect.width, rect.height);
     
-    // Create a Promise to handle the async image loading
-    return new Promise((resolve) => {
-      // Set up image load handler
-      img.onload = () => {
-        // Draw the image to the canvas at original size (ctx is already scaled)
-        ctx.drawImage(img, 0, 0, svgRect.width, svgRect.height);
-        resolve(canvas);
-      };
-      
-      // Handle errors
-      img.onerror = (e) => {
-        console.error('Error generating image:', e);
-        resolve(null);
-      };
-      
-      // Load the SVG data
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(processedSvgData);
-    });
+    return canvas;
   } catch (error) {
     console.error('Error capturing chart:', error);
     return null;
   }
 };
 
+// Export type constants
+const ExportTypes = {
+  IMAGE: 'image',
+  PDF: 'pdf',
+  ZIP: 'zip'
+};
+
+// Loading messages for each export type
+const getLoadingMessage = (type) => ({
+  [ExportTypes.IMAGE]: 'Generating image export...',
+  [ExportTypes.PDF]: 'Creating PDF document...',
+  [ExportTypes.ZIP]: 'Preparing ZIP archive...',
+})[type] || 'Processing...';
+
 /**
  * Creates and displays a loading overlay for long operations
- * @param {string} [message='Processing...'] - Message to display in the loading overlay
+ * @param {string} type - Type of export operation (image, pdf, zip)
+ * @param {string} [customMessage] - Optional custom message to override default
  * @returns {Object} Loading overlay control object with start and stop methods
  */
-export const createLoadingOverlay = (message = 'Processing...') => {
+export const createLoadingOverlay = (type, customMessage = null) => {
+  const message = customMessage || getLoadingMessage(type);
   const overlayId = 'export-loading-overlay';
   const existingOverlay = document.getElementById(overlayId);
   
@@ -143,10 +348,10 @@ export const createLoadingOverlay = (message = 'Processing...') => {
         existingOverlay.style.display = 'none';
         document.body.style.pointerEvents = 'auto';
       },
-      updateProgress: (current, total) => {
+      updateProgress: (message) => {
         const progressElement = existingOverlay.querySelector('div:last-child');
         if (progressElement) {
-          progressElement.innerText = `Page ${current} of ${total}`;
+          progressElement.innerText = message;
         }
       }
     };
@@ -220,8 +425,8 @@ export const createLoadingOverlay = (message = 'Processing...') => {
       overlay.style.display = 'none';
       document.body.style.pointerEvents = 'auto';
     },
-    updateProgress: (current, total) => {
-      progressElement.innerText = `Page ${current} of ${total}`;
+    updateProgress: (message) => {
+      progressElement.innerText = message;
     }
   };
 };
@@ -233,6 +438,7 @@ export const createLoadingOverlay = (message = 'Processing...') => {
  * @param {function} setCurrentPage - Function to set the current page
  * @param {string} title - Title of the analysis
  * @param {Object} metadata - Additional metadata
+ * @param {Object} colorLegendData - Color legend data if color scheme is selected
  * @returns {Promise<boolean>} Success status
  */
 export const exportAllAsImages = async (
@@ -240,10 +446,11 @@ export const exportAllAsImages = async (
   totalPages,
   setCurrentPage,
   title = 'Linguistic Analysis',
-  metadata = {}
+  metadata = {},
+  colorLegendData = null
 ) => {
   // Create loading overlay
-  const loading = createLoadingOverlay('Exporting images to ZIP file...');
+  const loading = createLoadingOverlay(ExportTypes.ZIP);
   loading.start();
   
   try {
@@ -260,14 +467,48 @@ export const exportAllAsImages = async (
       `Generated: ${new Date().toLocaleString()}\n` +
       `Title: ${title}\n` +
       `Total Pages: ${totalPages}\n` +
-      `Filters applied: ${metadata.filters ? JSON.stringify(metadata.filters) : 'None'}\n\n` +
-      `These images represent the analysis broken down by chunks of words.`
+      `Color scheme: ${metadata.colorScheme || 'Default'}\n\n` +
+      `These images represent the analysis broken down by chunks of words.\n` +
+      (colorLegendData ? `\nA color_legend.png file is included showing the color scheme used for visualization.` : '')
     );
+
+    // Add color legend if present
+    if (colorLegendData && colorLegendData.length > 0) {
+      const legendCanvas = await captureColorLegend(colorLegendData);
+      if (legendCanvas) {
+        // Create a new canvas with white background and padding
+        const paddedCanvas = document.createElement('canvas');
+        const ctx = paddedCanvas.getContext('2d');
+        const padding = 20;
+        
+        paddedCanvas.width = legendCanvas.width + (padding * 2);
+        paddedCanvas.height = legendCanvas.height + (padding * 2);
+        
+        // Fill white background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, paddedCanvas.width, paddedCanvas.height);
+        
+        // Draw legend in the center
+        ctx.drawImage(legendCanvas, padding, padding);
+        
+        // Add border
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(padding/2, padding/2, paddedCanvas.width - padding, paddedCanvas.height - padding);
+        
+        // Convert to blob with high quality
+        const legendBlob = await new Promise(resolve => paddedCanvas.toBlob(resolve, 'image/png', 1.0));
+        zip.file('color_legend.png', legendBlob);
+      }
+    }
     
     // Capture each page
     for (let i = 0; i < totalPages; i++) {
       // Update progress indicator
-      loading.updateProgress(i + 1, totalPages);
+      loading.updateProgress(`Processing page ${i+1} of ${totalPages}...`);
+      
+      // Add delay for rendering
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Set the page
       setCurrentPage(i);
@@ -309,18 +550,18 @@ export const exportAllAsImages = async (
 /**
  * Export the chart as a PDF document
  * @param {React.RefObject} chartRef - Reference to the chart container
- * @param {Object} stats - Statistics for the current chart
  * @param {string} title - Title of the chart
  * @param {Object} metadata - Additional metadata
+ * @param {Object} colorLegendData - Color legend data if color scheme is selected
  * @returns {Promise<boolean>} Success status
  */
 export const exportAsPdf = async (
   chartRef,
-  stats,
   title = 'Linguistic Analysis',
-  metadata = {}
+  metadata = {},
+  colorLegendData = null
 ) => {
-  const loading = createLoadingOverlay('Generating PDF...');
+  const loading = createLoadingOverlay(ExportTypes.PDF);
   loading.start();
   
   try {
@@ -392,91 +633,12 @@ export const exportAsPdf = async (
     // Convert chart canvas to image data with high quality
     const chartImgData = canvas.toDataURL('image/png', 1.0);
     
-    // Calculate dimensions for larger chart - using the same side-by-side layout as multi-page export
-    const chartImgWidth = (pageWidth - (margin * 2)) * 0.65; // 65% of page width
+    // Calculate dimensions for chart
+    const chartImgWidth = pageWidth - (margin * 2); // Use full width
     const chartImgHeight = (canvas.height * chartImgWidth) / canvas.width;
     
-    // Add chart image to left side
+    // Add chart image centered
     doc.addImage(chartImgData, 'PNG', margin, margin + 18, chartImgWidth, chartImgHeight);
-    
-    // Add text-based stats on the right side
-    const statsX = margin + chartImgWidth + margin;
-    let statsY = margin + 18;
-    
-    doc.setFontSize(12);
-    doc.text('Statistical Analysis', statsX, statsY);
-    statsY += 7;
-    
-    doc.setFontSize(10);
-    
-    // Add average stress metrics
-    if (stats && stats.averageStress) {
-      doc.text('Stress Metrics:', statsX, statsY);
-      statsY += 5;
-      
-      const stressMetrics = [
-        `m1 (position): ${stats.averageStress.m1 || 'N/A'}`,
-        `m2a (prosody): ${stats.averageStress.m2a || 'N/A'}`,
-        `m2b (lexical): ${stats.averageStress.m2b || 'N/A'}`,
-        `mean: ${stats.averageStress.mean || 'N/A'}`
-      ];
-      
-      stressMetrics.forEach(metric => {
-        doc.text(metric, statsX + 5, statsY);
-        statsY += 5;
-      });
-    }
-    
-    // Add POS distribution if available
-    if (stats && stats.posDistribution) {
-      statsY += 2;
-      doc.text('Part of Speech Distribution:', statsX, statsY);
-      statsY += 5;
-      
-      Object.entries(stats.posDistribution)
-        .sort((a, b) => b[1].percentage - a[1].percentage)
-        .forEach(([pos, data]) => {
-          doc.text(`${pos}: ${data.percentage}% (${data.count})`, statsX + 5, statsY);
-          statsY += 5;
-        });
-    }
-    
-    // Add syllable counts
-    if (stats && stats.syllableCounts) {
-      statsY += 5;
-      doc.text('Syllable Counts:', statsX, statsY);
-      statsY += 5;
-      
-      doc.text(`Monosyllabic: ${stats.syllableCounts['1']}`, statsX + 5, statsY);
-      statsY += 5;
-      doc.text(`Disyllabic: ${stats.syllableCounts['2']}`, statsX + 5, statsY);
-      statsY += 5;
-      doc.text(`3+ Syllables: ${stats.syllableCounts['3+']}`, statsX + 5, statsY);
-    }
-    
-    // Add stress distribution
-    if (stats && stats.stressDistribution) {
-      statsY += 5;
-      doc.text('Stress Distribution:', statsX, statsY);
-      statsY += 5;
-      
-      if (stats.stressDistribution.yes) {
-        doc.text(`Stressed: ${stats.stressDistribution.yes.percentage}% (${stats.stressDistribution.yes.count})`, 
-          statsX + 5, statsY);
-        statsY += 5;
-      }
-      
-      if (stats.stressDistribution.no) {
-        doc.text(`Unstressed: ${stats.stressDistribution.no.percentage}% (${stats.stressDistribution.no.count})`, 
-          statsX + 5, statsY);
-        statsY += 5;
-      }
-      
-      if (stats.stressDistribution.ambig) {
-        doc.text(`Ambiguous: ${stats.stressDistribution.ambig.percentage}% (${stats.stressDistribution.ambig.count})`, 
-          statsX + 5, statsY);
-      }
-    }
     
     // Save PDF
     doc.save(`linguistic-analysis-${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -495,21 +657,21 @@ export const exportAsPdf = async (
  * @param {React.RefObject} chartRef - Reference to the chart container
  * @param {number} totalPages - Total number of pages
  * @param {function} setCurrentPage - Function to set the current page
- * @param {function} calculateStats - Function to calculate stats for current page
  * @param {string} title - Title of the analysis
  * @param {Object} metadata - Additional metadata
+ * @param {Object} colorLegendData - Color legend data if color scheme is selected
  * @returns {Promise<boolean>} Success status
  */
 export const exportAllAsPdf = async (
   chartRef,
   totalPages,
   setCurrentPage,
-  calculateStats,
   title = 'Linguistic Analysis',
-  metadata = {}
+  metadata = {},
+  colorLegendData = null
 ) => {
   // Create and show loading overlay
-  const loading = createLoadingOverlay('Generating Multi-Page PDF...');
+  const loading = createLoadingOverlay(ExportTypes.PDF, 'Generating Multi-Page PDF...');
   loading.start();
   
   try {
@@ -624,50 +786,11 @@ export const exportAllAsPdf = async (
     doc.setFont(undefined, 'normal');
     doc.setFontSize(11);
     
-    // Add methodology description
-    if (metadata.filters && (
-      (metadata.filters.posFilter && metadata.filters.posFilter !== 'all') ||
-      (metadata.filters.stressFilter && metadata.filters.stressFilter !== 'all') ||
-      (metadata.filters.syllableFilter && metadata.filters.syllableFilter !== 'all')
-    )) {
-      doc.text('This analysis was performed with the following filters:', margin + 5, currentY);
-      currentY += 10;
-      
-      if (metadata.filters.posFilter && metadata.filters.posFilter !== 'all') {
-        doc.text(`• Part of Speech: ${metadata.filters.posFilter}`, margin + 10, currentY);
-        currentY += 6;
-        doc.setFontSize(9);
-        doc.text('Part of Speech filtering focuses the analysis on specific grammatical categories.', 
-          margin + 15, currentY);
-        currentY += 10;
-        doc.setFontSize(11);
-      }
-      
-      if (metadata.filters.stressFilter && metadata.filters.stressFilter !== 'all') {
-        doc.text(`• Stress: ${metadata.filters.stressFilter}`, margin + 10, currentY);
-        currentY += 6;
-        doc.setFontSize(9);
-        doc.text('Stress filtering allows analysis of syllabic emphasis patterns in the text.', 
-          margin + 15, currentY);
-        currentY += 10;
-        doc.setFontSize(11);
-      }
-      
-      if (metadata.filters.syllableFilter && metadata.filters.syllableFilter !== 'all') {
-        doc.text(`• Syllable Count: ${metadata.filters.syllableFilter}`, margin + 10, currentY);
-        currentY += 6;
-        doc.setFontSize(9);
-        doc.text('Syllable filtering focuses the analysis on words with specific syllable counts.', 
-          margin + 15, currentY);
-        currentY += 10;
-        doc.setFontSize(11);
-      }
-    } else {
-      doc.text('This analysis was performed on the complete dataset with no filters applied.', margin + 5, currentY);
-      currentY += 10;
-      doc.text('The results represent the full linguistic properties of the text without selective filtering.', 
-        margin + 5, currentY);
-    }
+    // Add color scheme information
+    doc.text(`Color scheme: ${metadata.colorScheme || 'Default'}`, margin + 5, currentY);
+    currentY += 10;
+    doc.text('The visualization uses color coding to highlight linguistic properties of the text.', 
+      margin + 5, currentY);
     
     // Abstract section
     currentY = 210;
@@ -719,7 +842,7 @@ export const exportAllAsPdf = async (
     // Process each page - starting from 0 for the actual content
     for (let i = 0; i < totalPages; i++) {
       // Update progress indicator
-      loading.updateProgress(i + 1, totalPages);
+      loading.updateProgress(`Processing page ${i+1} of ${totalPages}...`);
       
       // Add a new page after the cover
       if (i > 0) {
@@ -734,12 +857,6 @@ export const exportAllAsPdf = async (
       
       // Wait a bit for rendering
       await new Promise(resolve => setTimeout(resolve, 300)); // Longer delay for more reliable rendering
-      
-      // Get stats if the function is available
-      let pageStats = null;
-      if (typeof calculateStats === 'function') {
-        pageStats = calculateStats();
-      }
       
       // Add header and footer to match cover page style
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -781,93 +898,13 @@ export const exportAllAsPdf = async (
         // Convert canvas to image data with maximum quality
         const imgData = canvas.toDataURL('image/png', 1.0);
         
-        // Calculate dimensions for larger chart
-        const chartImgWidth = (pageWidth - (margin * 2)) * 0.65; // 65% of page width
+        // Calculate dimensions for chart
+        const chartImgWidth = pageWidth - (margin * 2); // Use full width
         const chartImgHeight = (canvas.height * chartImgWidth) / canvas.width;
         
-        // Add chart image to left side
+        // Add chart image centered
         doc.addImage(imgData, 'PNG', margin, margin + 18, chartImgWidth, chartImgHeight);
-        
-        // Add text-based stats on the right side for better appearance
-        if (pageStats) {
-          const statsX = margin + chartImgWidth + margin;
-          let statsY = margin + 18;
-          
-          doc.setFontSize(12);
-          doc.text('Statistical Analysis', statsX, statsY);
-          statsY += 7;
-          
-          doc.setFontSize(10);
-          
-          // Add average stress metrics
-          if (pageStats.averageStress) {
-            doc.text('Stress Metrics:', statsX, statsY);
-            statsY += 5;
-            
-            const stressMetrics = [
-              `m1 (position): ${pageStats.averageStress.m1 || 'N/A'}`,
-              `m2a (prosody): ${pageStats.averageStress.m2a || 'N/A'}`,
-              `m2b (lexical): ${pageStats.averageStress.m2b || 'N/A'}`,
-              `mean: ${pageStats.averageStress.mean || 'N/A'}`
-            ];
-            
-            stressMetrics.forEach(metric => {
-              doc.text(metric, statsX + 5, statsY);
-              statsY += 5;
-            });
-          }
-          
-          // Add POS distribution
-          if (pageStats.posDistribution && Object.keys(pageStats.posDistribution).length > 0) {
-            statsY += 5;
-            doc.text('Part of Speech Distribution:', statsX, statsY);
-            statsY += 5;
-            
-            Object.entries(pageStats.posDistribution)
-              .sort((a, b) => b[1].percentage - a[1].percentage)
-              .forEach(([pos, data]) => {
-                doc.text(`${pos}: ${data.percentage}% (${data.count})`, statsX + 5, statsY);
-                statsY += 5;
-              });
-          }
-          
-          // Add syllable counts
-          if (pageStats.syllableCounts) {
-            statsY += 5;
-            doc.text('Syllable Counts:', statsX, statsY);
-            statsY += 5;
-            
-            doc.text(`Monosyllabic: ${pageStats.syllableCounts['1']}`, statsX + 5, statsY);
-            statsY += 5;
-            doc.text(`Disyllabic: ${pageStats.syllableCounts['2']}`, statsX + 5, statsY);
-            statsY += 5;
-            doc.text(`3+ Syllables: ${pageStats.syllableCounts['3+']}`, statsX + 5, statsY);
-          }
-          
-          // Add stress distribution
-          if (pageStats.stressDistribution && Object.keys(pageStats.stressDistribution).length > 0) {
-            statsY += 5;
-            doc.text('Stress Distribution:', statsX, statsY);
-            statsY += 5;
-            
-            if (pageStats.stressDistribution.yes) {
-              doc.text(`Stressed: ${pageStats.stressDistribution.yes.percentage}% (${pageStats.stressDistribution.yes.count})`, 
-                statsX + 5, statsY);
-              statsY += 5;
-            }
-            
-            if (pageStats.stressDistribution.no) {
-              doc.text(`Unstressed: ${pageStats.stressDistribution.no.percentage}% (${pageStats.stressDistribution.no.count})`, 
-                statsX + 5, statsY);
-              statsY += 5;
-            }
-            
-            if (pageStats.stressDistribution.ambig) {
-              doc.text(`Ambiguous: ${pageStats.stressDistribution.ambig.percentage}% (${pageStats.stressDistribution.ambig.count})`, 
-                statsX + 5, statsY);
-            }
-          }
-        }
+
       }
     }
     
@@ -931,15 +968,15 @@ export const exportAsCsv = (data, filename) => {
 /**
  * Exports current visualization state
  * @param {Object} model - The data model
- * @param {Object} filters - Current filter settings
+ * @param {Object} metadata - Current display settings (color scheme)
  * @param {number} currentPage - Current page index
  * @param {Object} stats - Current statistics
  * @returns {Object} The exported state
  */
-export const exportState = (model, filters, currentPage, stats) => {
+export const exportState = (model, metadata, currentPage, stats) => {
   const state = {
     data: model ? { ...model } : null,
-    filters: { ...filters },
+    colorScheme: metadata.colorScheme,
     currentPage,
     stats: { ...stats },
     exportDate: new Date().toISOString()

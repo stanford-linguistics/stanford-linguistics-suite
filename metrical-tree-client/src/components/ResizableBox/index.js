@@ -5,22 +5,41 @@ import 'react-resizable/css/styles.css';
 
 export default function ResizableBox({
   children,
-  width = 600,
+  width = '100%',
   height = 300,
   resizable = true,
   style = {},
   className = '',
 }) {
+  // Get the parent width for proper sizing
+  const containerRef = React.useRef(null);
+  const [containerWidth, setContainerWidth] = React.useState(0);
+
+  React.useEffect(() => {
+    if (containerRef.current) {
+      const updateWidth = () => {
+        setContainerWidth(containerRef.current.offsetWidth);
+      };
+      updateWidth();
+      window.addEventListener('resize', updateWidth);
+      return () => window.removeEventListener('resize', updateWidth);
+    }
+  }, []);
+
+  const internalWidth = containerWidth || 600;
+
   return (
-    <div style={{ marginLeft: 20 }}>
+    <div ref={containerRef} style={{ width: '100%', overflow: 'hidden' }}>
       {resizable ? (
-        <ReactResizableBox width={width} height={height}>
+        <ReactResizableBox width={internalWidth} height={height}>
           <div
             style={{
-              boxShadow: '0 20px 40px rgba(0,0,0,.1)',
+              boxShadow: '0 4px 12px rgba(0,0,0,.08)',
+              borderRadius: '4px',
               ...style,
               width: '100%',
               height: '100%',
+              minWidth: '100%',
             }}
             className={className}>
             {children}
@@ -29,9 +48,10 @@ export default function ResizableBox({
       ) : (
         <div
           style={{
-            width: `${width}px`,
+            width: '100%',
             height: `${height}px`,
-            boxShadow: '0 20px 40px rgba(0,0,0,.1)',
+            boxShadow: '0 4px 12px rgba(0,0,0,.08)',
+            borderRadius: '4px',
             ...style,
           }}
           className={className}>

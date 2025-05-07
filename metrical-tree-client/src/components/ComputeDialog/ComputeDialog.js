@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CloseIcon from '@material-ui/icons/Close';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { makeStyles } from '@material-ui/core/styles';
@@ -41,6 +41,7 @@ import {
 import { useMutation } from '@apollo/client';
 import { useComputeResults } from 'recoil/results';
 import { useSettings } from 'recoil/settings';
+import { useMemo } from 'react';
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: { padding: '8px 8px 0 16px' },
@@ -131,33 +132,13 @@ const useStyles = makeStyles((theme) => ({
 
 const ComputeDialog = ({ isOpen, setIsOpen }) => {
   const classes = useStyles();
-  const [selectedInputMethod, setSelectedInputMethod] =
-    useState('rawText');
-  const [shouldShowConfigOptions, setShouldShowConfigOptions] =
-    useState(false);
+  const [selectedInputMethod, setSelectedInputMethod] = useState('rawText');
+  const [shouldShowConfigOptions, setShouldShowConfigOptions] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingSampleText, setPendingSampleText] = useState(null);
   const [pendingSampleType, setPendingSampleType] = useState(null);
-  const [, { addComputeResult }] = useComputeResults();
+  const [computeResultsState, { addComputeResult }] = useComputeResults();
   const [settings] = useSettings();
-
-  const [
-    uploadMetricalTreeFile,
-    {
-      loading: uploadLoading,
-      //error: uploadError
-    },
-  ] = useMutation(UPLOAD_METRICAL_TREE_FILE);
-
-  const [
-    computeMetricalTreeFile,
-    {
-      loading: computeLoading,
-      //error: computeError
-    },
-  ] = useMutation(COMPUTE_METRICAL_TREE_FILE);
-
-  const isLoading = uploadLoading || computeLoading;
 
   // Memoize defaultValues to prevent recreation on every render
   const defaultValues = React.useMemo(() => ({
@@ -182,11 +163,73 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     reset,
   } = useForm({ defaultValues });
 
-  // eslint-disable-next-line
-  const { isValid, errors: formErrors } = formState;
-
   const selectedFile = watch('file');
   const currentRawText = watch('rawText');
+
+  const getNameFromText = (text) => {
+    if (!text || text.trim() === '') return 'Computation';
+    
+    if (text === SHORT_SAMPLE_TEXT) return SAMPLE_TEXT_DESCRIPTIONS.short.name;
+    if (text === MEDIUM_SAMPLE_TEXT) return SAMPLE_TEXT_DESCRIPTIONS.medium.name;
+    if (text === LONG_SAMPLE_TEXT) return SAMPLE_TEXT_DESCRIPTIONS.long.name;
+    if (text === BOOK_SAMPLE_TEXT) return SAMPLE_TEXT_DESCRIPTIONS.book.name;
+    
+    // For custom text, take first few words (max 5)
+    const words = text.trim().split(/\s+/).slice(0, 5);
+    if (words.length === 0) return 'Computation';
+    
+    // Use first 30 characters of the words joined
+    const name = words.join(' ').slice(0, 30);
+    return name.length < 3 ? 'Computation' : name;
+  };
+
+  const getNextAvailableName = useCallback((baseName) => {
+    const existingNames = computeResultsState.results.map(r => r.name);
+    if (!existingNames.includes(baseName)) return baseName;
+
+    let counter = 2;
+    while (existingNames.includes(`${baseName} (${counter})`)) {
+      counter++;
+    }
+    return `${baseName} (${counter})`;
+  }, [computeResultsState.results]);
+
+  // Generate placeholder text based on current state
+  const placeholderText = useMemo(() => {
+    if (selectedInputMethod === 'file' && selectedFile?.[0]) {
+      const fileName = selectedFile[0].name.replace('.txt', '');
+      return getNextAvailableName(fileName);
+    }
+    
+    // For raw text input, always show a suggested name
+    if (selectedInputMethod === 'rawText') {
+      const suggestedName = getNameFromText(currentRawText);
+      return getNextAvailableName(suggestedName);
+    }
+    
+    return 'Enter a name for this computation';
+  }, [selectedInputMethod, selectedFile, currentRawText, getNextAvailableName]);
+
+  const [
+    uploadMetricalTreeFile,
+    {
+      loading: uploadLoading,
+      //error: uploadError
+    },
+  ] = useMutation(UPLOAD_METRICAL_TREE_FILE);
+
+  const [
+    computeMetricalTreeFile,
+    {
+      loading: computeLoading,
+      //error: computeError
+    },
+  ] = useMutation(COMPUTE_METRICAL_TREE_FILE);
+
+  const isLoading = uploadLoading || computeLoading;
+
+  // eslint-disable-next-line
+  const { isValid, errors: formErrors } = formState;
   
   // Create state for validation messages, override, and form interaction tracking
   const [validationMessages, setValidationMessages] = useState([]);
@@ -295,7 +338,6 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
   
   // Only show validation errors when user has interacted with the form
   const errorCount = validationMessages.filter(m => m.type === 'error').length;
-  // const canSubmit = isValid && errorCount === 0;
   
   const onSubmit = (data) => {
     // Perform final validation before submission
@@ -306,6 +348,15 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
         setValidationMessages(formatValidationMessages(textValidation));
         return;
       }
+    }
+
+    // Handle automatic naming if name field is empty
+    if (!data.name || data.name.trim() === '') {
+      const suggestedName = selectedInputMethod === 'file' && data.file?.[0]
+        ? data.file[0].name.replace('.txt', '')
+        : getNameFromText(data.rawText);
+      
+      data.name = getNextAvailableName(suggestedName);
     }
 
     const getFileFromRawText = () => {
@@ -370,6 +421,9 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
     } else {
       // If there's no existing text or it's just a sample text, replace without confirmation
       setValue('rawText', text, { shouldDirty: true });
+      // Set the name field to the sample text name
+      const sampleName = getNextAvailableName(type);
+      setValue('name', sampleName, { shouldDirty: true });
     }
   };
 
@@ -416,6 +470,8 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
           <Button 
             onClick={() => {
               setValue('rawText', pendingSampleText, { shouldDirty: true });
+              const sampleName = getNextAvailableName(pendingSampleType);
+              setValue('name', sampleName, { shouldDirty: true });
               setConfirmDialogOpen(false);
             }} 
             color="primary">
@@ -424,6 +480,8 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
           <Button 
             onClick={() => {
               setValue('rawText', currentRawText + pendingSampleText, { shouldDirty: true });
+              const sampleName = getNextAvailableName(pendingSampleType);
+              setValue('name', sampleName, { shouldDirty: true });
               setConfirmDialogOpen(false);
             }} 
             color="primary">
@@ -466,6 +524,7 @@ const ComputeDialog = ({ isOpen, setIsOpen }) => {
                       variant="outlined"
                       margin="dense"
                       fullWidth
+                      placeholder={placeholderText}
                     />
                   )}
                   name="name"

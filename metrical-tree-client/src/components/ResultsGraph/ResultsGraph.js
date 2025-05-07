@@ -1,14 +1,12 @@
 import React, { forwardRef, useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { Typography, Popper, makeStyles, Tooltip, Paper } from '@material-ui/core';
-import { Chart } from 'react-charts';
+import { Typography, Popper, makeStyles } from '@material-ui/core';
+import { Bar } from 'react-chartjs-2';
 import ResizableBox from 'components/ResizableBox';
-import { 
-  AssessmentOutlined as AssessmentIcon,
-  TuneOutlined as TuneIcon 
-} from '@material-ui/icons';
+import './utils/chartJsSetup';
 
 import usePagination from './hooks/usePagination';
-import useFiltering from './hooks/useFiltering';
+import useChartDisplay from './hooks/useChartDisplay';
+import { createChartOptions } from './utils/chartJsAdapter';
 import useChartData from './hooks/useChartData';
 import useKeyboardNavigation from './hooks/useKeyboardNavigation';
 
@@ -26,73 +24,42 @@ import {
 import SentencePreview from './components/SentencePreview';
 import NavigationControls from './components/NavigationControls';
 import DataTooltip from './components/DataTooltip';
-import LinguisticFilters from './components/LinguisticFilters';
-import StatsPanel from './components/StatsPanel';
-import ColorLegend from './components/ColorLegend';
+import ChartDisplayOptions from './components/ChartDisplayOptions';
 import ExportControls from './components/ExportControls';
 
-import { DEFAULT_CHUNK_SIZE, POS_CATEGORIES } from './constants/chartConfig';
+import { DEFAULT_CHUNK_SIZE } from './constants/chartConfig';
 
 const useStyles = makeStyles((theme) => ({
   resultsGraph: {
     padding: theme.spacing(2),
     position: 'relative',
-  },
-  titleContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: theme.spacing(1),
-  },
-  titleIcon: {
-    marginRight: theme.spacing(1),
-    color: theme.palette.primary.main,
-  },
-  chartOuterContainer: {
-    marginTop: theme.spacing(2),
-    marginBottom: theme.spacing(6),
-    position: 'relative',
-  },
-  modelTitleContainer: {
-    position: 'absolute',
-    top: -8,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 10,
-    padding: theme.spacing(0.5, 2),
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)',
-    border: `1px solid ${theme.palette.primary.light}`,
-    backdropFilter: 'blur(8px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)',
-      transform: 'translateX(-50%) translateY(-2px)',
+    '& > * + *': {
+      marginTop: theme.spacing(3),
     },
   },
-  modelTitle: {
-    fontWeight: 500,
-    fontSize: '1rem',
-    color: theme.palette.primary.main,
-    textAlign: 'center',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  modelIcon: {
-    fontSize: '1rem',
-    marginRight: theme.spacing(0.75),
-    color: theme.palette.primary.main,
+  chartOuterContainer: {
+    position: 'relative',
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: theme.shape.borderRadius,
+    padding: theme.spacing(4, 2),
+    boxShadow: theme.shadows[1],
+    marginTop: theme.spacing(3),
+    '& > div': {
+      width: '100%',
+      maxWidth: '100%',
+    },
   },
   chartContainer: {
     height: '100%',
     width: '100%',
     borderRadius: theme.shape.borderRadius,
     backgroundColor: theme.palette.background.paper,
-    boxShadow: theme.shadows[1],
     overflow: 'hidden',
+    '& > div': {
+      height: '100%',
+      width: '100% !important', // Force full width
+      minWidth: '100%',
+    },
   },
   emptyData: {
     display: 'flex',
@@ -111,60 +78,48 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-/**
- * Enhanced ResultsGraph component with pagination, filtering, tooltips and export
- * 
- * @param {Object} props - Component props
- * @param {Object} props.model - The data model
- * @param {React.Ref} ref - Forwarded ref
- * @returns {JSX.Element} The enhanced ResultsGraph component
- */
-export const ResultsGraph = forwardRef(({ model }, ref) => {
+export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
   const classes = useStyles();
   const chartRef = useRef(null);
   const containerRef = useRef(null);
   
   // Extract raw data from the model for initialization
-  const rawData = useMemo(() => {
-    const extractedData = extractDataFromModel(model);
-    return extractedData;
-  }, [model]);
+  const extractedData = useMemo(() => extractDataFromModel(model), [model]);
   
-  // Set up filtering state and handlers
-  const filteringState = useFiltering(rawData);
-  const { 
-    filteredData,
-    colorScheme
-  } = filteringState;
+  // Set up chart display state and handlers
+  const chartDisplayState = useChartDisplay(extractedData);
+  const { showContourLine } = chartDisplayState;
   
   // Set up pagination state and handlers
-  const paginationState = usePagination(filteredData, DEFAULT_CHUNK_SIZE);
+  const paginationState = usePagination(extractedData, DEFAULT_CHUNK_SIZE);
   const {
     currentPage,
     chunkSize,
     needsChunking,
     totalPages,
     currentChunkData,
-    resetPagination
   } = paginationState;
   
-  // Process chart data from filtered and paginated data
-  const chartDataState = useChartData(model, filteringState, paginationState);
+  // Process chart data from paginated data
+  const chartDataState = useChartData(model, chartDisplayState, paginationState, fullApiResponse);
   const {
-    extractedData,
     isVeryLongInput,
     fullSentence,
-    chartData
+    chartData,
+    chartJsData
   } = chartDataState;
+  
+
+  const { colorLegendData } = chartDisplayState;
   
   // Calculate statistics for the current chunk
   const chunkStats = useMemo(() => {
-    const stats = calculateChunkStats(currentChunkData, POS_CATEGORIES);
+    const stats = calculateChunkStats(currentChunkData);
     return stats;
   }, [currentChunkData]);
   
-  // Detect patterns in the current chunk
-  const patterns = useMemo(() => {
+  // Detect patterns in the current chunk - result is not used
+  useMemo(() => {
     return detectPatterns(currentChunkData);
   }, [currentChunkData]);
   
@@ -173,15 +128,9 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
     containerRef,
     {
       ...paginationState,
-      toggleFilters: filteringState.toggleFilters
     },
     [totalPages, needsChunking]
   );
-  
-  // Reset pagination when filters change
-  useEffect(() => {
-    resetPagination();
-  }, [filteringState.posFilter, filteringState.stressFilter, filteringState.syllableFilter, resetPagination]);
   
   // Tooltip state management
   const [tooltipData, setTooltipData] = useState(null);
@@ -215,52 +164,40 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
   
   // Export handlers
   const handleExportImage = useCallback(() => {
-    exportAsImage(chartRef);
-  }, []);
+    exportAsImage(chartRef, colorLegendData);
+  }, [colorLegendData]);
   
   const handleExportCsv = useCallback(() => {
-    exportAsCsv(rawData, `linguistic-data-${new Date().toISOString().split('T')[0]}.csv`);
-  }, [rawData]);
+    exportAsCsv(extractedData, `linguistic-data-${new Date().toISOString().split('T')[0]}.csv`);
+  }, [extractedData]);
   
   const handleExportState = useCallback(() => {
     exportState(
       model,
       {
-        posFilter: filteringState.posFilter,
-        stressFilter: filteringState.stressFilter,
-        syllableFilter: filteringState.syllableFilter,
-        colorScheme: filteringState.colorScheme
+        colorScheme: chartDisplayState.colorScheme
       },
       currentPage,
       chunkStats
     );
-  }, [model, filteringState, currentPage, chunkStats]);
+  }, [model, chartDisplayState, currentPage, chunkStats]);
   
   const handleExportPdf = useCallback(() => {
-    // Get the model name if available
     const modelName = model?.value?.[0]?.label || "Linguistic Analysis";
-    
     exportAsPdf(
       chartRef,
-      chunkStats,
       modelName,
       {
         modelName,
-        filters: {
-          posFilter: filteringState.posFilter,
-          stressFilter: filteringState.stressFilter,
-          syllableFilter: filteringState.syllableFilter
-        },
+        colorScheme: chartDisplayState.colorScheme,
         currentPage
-      }
+      },
+      colorLegendData
     );
-  }, [model, chartRef, chunkStats, filteringState, currentPage]);
+  }, [model, chartRef, chartDisplayState, currentPage, colorLegendData]);
   
-  // Export all pages as images
   const handleExportAllImages = useCallback(() => {
-    // Get the model name if available
     const modelName = model?.value?.[0]?.label || "Linguistic Analysis";
-    
     exportAllAsImages(
       chartRef,
       totalPages,
@@ -268,68 +205,47 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
       modelName,
       {
         modelName,
-        filters: {
-          posFilter: filteringState.posFilter,
-          stressFilter: filteringState.stressFilter,
-          syllableFilter: filteringState.syllableFilter
-        },
+        colorScheme: chartDisplayState.colorScheme,
         currentPage
-      }
+      },
+      colorLegendData
     );
-  }, [model, chartRef, totalPages, paginationState.setCurrentPage, filteringState, currentPage]);
+  }, [model, chartRef, totalPages, paginationState.setCurrentPage, chartDisplayState, currentPage, colorLegendData]);
   
-  // Export all pages as PDF
   const handleExportAllPdf = useCallback(() => {
-    // Get the model name if available
     const modelName = model?.value?.[0]?.label || "Linguistic Analysis";
-    
-    // Function to calculate stats for current page
-    const getCurrentPageStats = () => chunkStats;
-    
     exportAllAsPdf(
       chartRef,
       totalPages,
       paginationState.setCurrentPage,
-      getCurrentPageStats,
       modelName,
       {
         modelName,
-        filters: {
-          posFilter: filteringState.posFilter,
-          stressFilter: filteringState.stressFilter,
-          syllableFilter: filteringState.syllableFilter
-        },
+        colorScheme: chartDisplayState.colorScheme,
         currentPage
-      }
-    );
-  }, [model, chartRef, totalPages, paginationState.setCurrentPage, chunkStats, filteringState, currentPage]);
-  
-  // Chart configuration
-  const primaryAxis = useMemo(
-    () => ({
-      getValue: (datum) => {
-        // Prioritize text labels (primary/word) over numeric indices (widx)
-        // This prevents labels from switching to numbers when filters are applied
-        return datum.primary || datum.word || datum.widx;
       },
-      elementType: 'bar'
-    }),
-    []
-  );
+      colorLegendData
+    );
+  }, [model, chartRef, totalPages, paginationState.setCurrentPage, chartDisplayState, currentPage, colorLegendData]);
   
-  const secondaryAxes = useMemo(
-    () => [
-      {
-        getValue: (datum) => parseFloat(datum.m1 || datum.mean || datum.secondary),
-        elementType: 'bar',
-        valueFormat: value => Number(value).toFixed(1)
-      }
-    ],
-    []
-  );
+  const chartOptions = useMemo(() => {
+    return createChartOptions(handleTooltip, closeTooltip);
+  }, [handleTooltip, closeTooltip]);
   
   const renderChart = () => {
-    if (!model || !chartData || !chartData.length || !chartData[0].data || !chartData[0].data.length) {
+    const isLoading = model && !model?.value?.[0]?.data?.length;
+    
+    if (isLoading) {
+      return (
+        <div className={classes.emptyData}>
+          <Typography variant="body2" color="textSecondary">
+            Loading chart data...
+          </Typography>
+        </div>
+      );
+    }
+    
+    if (!model?.value?.[0]?.data || !chartData || !chartData.length || !chartData[0]?.data?.length) {
       return (
         <div className={classes.emptyData}>
           <Typography variant="body2" color="textSecondary">
@@ -339,59 +255,42 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
       );
     }
     
-    return (
-      <div className={classes.chartOuterContainer}>
-        {/* Prominent Model Title */}
-        {model?.value?.[0]?.label && (
-          <div>
-            <Tooltip title="Currently selected model">
-              <div>
-                <Paper className={classes.modelTitleContainer} elevation={3}>
-                  <Typography className={classes.modelTitle}>
-                    <TuneIcon className={classes.modelIcon} />
-                    {model.value[0].label}
-                  </Typography>
-                </Paper>
-              </div>
-            </Tooltip>
-          </div>
-        )}
-        
-        <ResizableBox 
-          width="100%" 
-          height={350}
-          style={{
-            marginLeft: 0,
-            marginBottom: 0,
-            maxWidth: '100%',
-            overflowX: 'hidden'
-          }}
-        >
+  console.log('[DEBUG-CONTOUR] Chart.js data before rendering:', {
+    chartJsData,
+    hasChartData: !!chartJsData,
+    datasetCount: chartJsData?.datasets?.length || 0,
+    hasLineDataset: chartJsData?.datasets?.some(d => d.type === 'line'),
+    showContourLine
+  });
+  
+  return (
+    <>
+      <ResizableBox 
+        width="100%" 
+        height={400}
+        style={{
+          width: '100%',
+          minWidth: '100%'
+        }}
+      >
           <div
             className={classes.chartContainer}
             ref={chartRef}
             onMouseLeave={closeTooltip}
           >
-            <Chart
+            <Bar
+              data={chartJsData}
               options={{
-                data: chartData,
-                primaryAxis,
-                secondaryAxes,
-                tooltip: {
-                  render: ({ datum }, e) => {
-                    handleTooltip(datum, e);
-                    return <></>;
+                ...chartOptions,
+                plugins: {
+                  ...chartOptions.plugins,
+                },
+                scales: {
+                  ...chartOptions.scales,
+                  y: {
+                    ...chartOptions.scales?.y,
+                    type: 'linear'
                   }
-                },
-                getSeriesStyle: (series) => {
-                  return {
-                    color: series?.color,
-                  };
-                },
-                getDatumStyle: (datum) => {
-                  return {
-                    color: datum.originalDatum?.color,
-                  };
                 }
               }}
             />
@@ -414,20 +313,13 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
             <DataTooltip data={tooltipData} />
           </div>
         </Popper>
-      </div>
+      </>
     );
   };
   
   return (
     <div className={classes.resultsGraph} ref={ref}>
       <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }}>
-        {/* Graph Title */}
-        <div className={classes.titleContainer}>
-          <AssessmentIcon className={classes.titleIcon} />
-          <Typography variant="h6">{model?.value?.[0]?.label && model.value[0].label}</Typography>
-        </div>
-        
-        {/* Export Controls */}
         <ExportControls
           handleExportImage={handleExportImage}
           handleExportCsv={handleExportCsv}
@@ -436,12 +328,8 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
           handleExportAllImages={needsChunking ? handleExportAllImages : undefined}
           handleExportAllPdf={needsChunking ? handleExportAllPdf : undefined}
           totalPages={totalPages}
+          modelName={model?.value?.[0]?.label || "m2a (raw)"}
         />
-        
-        <LinguisticFilters
-          {...filteringState}
-        />
-        
         <SentencePreview
           fullSentence={fullSentence}
           needsChunking={needsChunking}
@@ -450,22 +338,27 @@ export const ResultsGraph = forwardRef(({ model }, ref) => {
           chunkSize={chunkSize}
           totalWords={extractedData.length}
         />
-        
+
         {needsChunking && (
-          <NavigationControls
-            {...paginationState}
-            isVeryLongInput={isVeryLongInput}
-          />
+          <div style={{ marginTop: '1rem', marginBottom: '2rem' }}>
+            <NavigationControls
+              {...paginationState}
+              isVeryLongInput={isVeryLongInput}
+            />
+          </div>
         )}
-        
-        <ColorLegend colorScheme={colorScheme} />
-        
-        {renderChart()}
-        
-        <StatsPanel 
-          stats={chunkStats} 
-          patterns={patterns}
-          totalWords={extractedData.length}
+
+        <div className={classes.chartOuterContainer}>
+          {renderChart()}
+        </div>
+
+        <ChartDisplayOptions
+          colorScheme={chartDisplayState.colorScheme}
+          handleColorSchemeChange={chartDisplayState.handleColorSchemeChange}
+          colorOptions={chartDisplayState.colorOptions}
+          colorLegendData={colorLegendData}
+          showContourLine={showContourLine}
+          handleContourLineToggle={chartDisplayState.handleContourLineToggle}
         />
       </div>
     </div>
