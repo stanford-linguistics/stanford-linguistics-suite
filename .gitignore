@@ -118,3 +118,4 @@ coverage*
 .vscode
 memory-bank/
 docs/
+local-scripts/
