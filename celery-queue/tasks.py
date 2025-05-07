@@ -1,17 +1,32 @@
+from __future__ import division
 import os
-import time
+import logging
 from celery import Celery
-import results_helper
 import datetime
 import json
 import subprocess
 import pipes
-import traceback
-from error_handling import (
-    capture_exception, MetricalTreeException, InputValidationException,
-    LinguisticProcessingException, SystemException, ComputationalException,
-    ErrorCode, format_error_for_user
+
+from shared.results_helper import (
+    get_task_results_path,
+    get_graphs_path,
+    get_output_path,
+    copy_results_to_json as results_helper_copy_results_to_json,
+    zip_all,
+    clean_directory,
+    copy_graphs as results_helper_copy_graphs,
 )
+from metrical_tree_helpers.helpers import (
+    call_metrical_tree,
+    ensure_directory,
+    verify_metrical_tree_results
+)
+from shared.error_handling import (
+    TaskException, InputValidationException, ErrorCode, format_error_for_user
+)
+from metrical_tree_helpers.results_enhancer import enhance_metrical_tree_results
+logger = logging.getLogger(__name__)
+
 
 ONE_HOUR = 1 * 60 * 60  # seconds
 ONE_DAY = ONE_HOUR * 24
@@ -27,24 +42,19 @@ CELERY_RESULT_BACKEND = os.environ.get(
 celery = Celery('tasks', broker=CELERY_BROKER_URL,
                 backend=CELERY_RESULT_BACKEND)
 
-
 class Result:
-    def __init__(self, download_url, expires_in, expires_on):
+    def __init__(self, download_url, expires_in, expires_on, created_on):
         self.download_url = download_url
         self.expires_in = expires_in
         self.expires_on = expires_on
+        self.created_on = created_on
 
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
-def get_output_path(folder_id):
-    return os.path.join(RESULTS_FOLDER, folder_id, 'output')
-
-
 def get_safe_string(unsafe_string):
     return pipes.quote(unsafe_string)
-
 
 def get_optional_args(hg_feasible_mappings_only, optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows):
     args_string = ''
@@ -65,7 +75,6 @@ def get_optional_args(hg_feasible_mappings_only, optimization_method, bound_on_n
         args_string += '--include-arrows'
     return args_string
 
-
 def call_t_order(input_file_path, output_path, hg_feasible_mappings_only, optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows):
     optional_args = get_optional_args(hg_feasible_mappings_only, optimization_method,
                                       bound_on_number_of_candidates, num_trials, weight_bound, include_arrows)
@@ -84,212 +93,40 @@ def call_t_order(input_file_path, output_path, hg_feasible_mappings_only, optimi
             'Something went wrong while trying to process your file.', output)
 
 
-def get_safe_list(unsafe_list):
-    return map(get_safe_string, unsafe_list)
-
-
-def get_metrical_tree_optional_args(unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words):
-    args_string = ''
-    if unstressed_words is not None:
-        args_string += '--unstressed_words ' + \
-            ' '.join(get_safe_list(unstressed_words)) + ' '
-    if unstressed_tags is not None:
-        args_string += '--unstressed_tags ' + \
-            ' '.join(get_safe_list(unstressed_tags)) + ' '
-    if unstressed_deps is not None:
-        args_string += '--unstressed_deps ' + \
-            ' '.join(get_safe_list(unstressed_deps)) + ' '
-    if ambiguous_words is not None:
-        args_string += '--ambiguous_words ' + \
-            ' '.join(get_safe_list(ambiguous_words)) + ' '
-    if ambiguous_tags is not None:
-        args_string += '--ambiguous_tags ' + \
-            ' '.join(get_safe_list(ambiguous_tags)) + ' '
-    if ambiguous_deps is not None:
-        args_string += '--ambiguous_deps ' + \
-            ' '.join(get_safe_list(ambiguous_deps)) + ' '
-    if stressed_words is not None:
-        args_string += '--stressed_words ' + \
-            ' '.join(get_safe_list(stressed_words)) + ' '
-    return args_string
-
-
-@capture_exception
-def call_metrical_tree(input_file_path, output_path, unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, ambiguous_tags, ambiguous_deps, stressed_words):
-    """
-    Execute the metrical tree script with the provided parameters.
-    
-    This function is wrapped with the capture_exception decorator to standardize error handling.
-    """
-    # Validate input file exists
-    if not os.path.exists(input_file_path):
-        raise SystemException(
-            message="Input file not found: {}".format(input_file_path),
-            error_code=ErrorCode.FILE_NOT_FOUND,
-            suggestion="Ensure the uploaded file was saved correctly."
-        )
-    
-    # Check if output directory exists, create if not
-    output_dir = os.path.dirname(output_path)
-    if not os.path.exists(output_dir):
-        try:
-            os.makedirs(output_dir)
-        except OSError as e:
-            raise SystemException(
-                message="Failed to create output directory: {}".format(str(e)),
-                error_code=ErrorCode.PERMISSION_DENIED,
-                suggestion="Check system permissions for creating directories."
-            )
-    
-    # Check input file size
-    try:
-        file_size = os.path.getsize(input_file_path)
-        # Set a reasonable limit, e.g., 10MB
-        if file_size > 10 * 1024 * 1024:  
-            raise InputValidationException(
-                message="Input file is too large",
-                error_code=ErrorCode.INPUT_TOO_LARGE,
-                suggestion="Please use a smaller text file (under 10MB)."
-            )
-    except OSError as e:
-        raise SystemException(
-            message="Could not check file size: {}".format(str(e)),
-            error_code=ErrorCode.FILE_NOT_FOUND,
-            suggestion="Ensure the file exists and is accessible."
-        )
-    
-    # Check if the file is empty
-    try:
-        if file_size == 0:
-            raise InputValidationException(
-                message="Input file is empty",
-                error_code=ErrorCode.EMPTY_INPUT,
-                suggestion="Please provide a non-empty text file."
-            )
-    except OSError:
-        pass  # Already handled above
-    
-    # Build and execute command
-    optional_args = get_metrical_tree_optional_args(
-        unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words, 
-        ambiguous_tags, ambiguous_deps, stressed_words)
-    
-    metrical_tree_command = 'python metrical-tree/metricaltree.py ' + '--input-file ' + pipes.quote(input_file_path) + \
-        ' --output ' + pipes.quote(output_path) + ' ' + optional_args
-    
-    print('Command: ', metrical_tree_command)
-    
-    try:
-        # Python 2.7 doesn't support timeout parameter in subprocess.check_output
-        # We'll need to implement our own timeout mechanism if needed
-        output = subprocess.check_output(
-            metrical_tree_command, shell=True, stderr=subprocess.STDOUT
-        )
-        print('SCRIPT OUTPUT:', output)
-    # Python 2.7 doesn't have TimeoutExpired exception
-    # except subprocess.TimeoutExpired:
-    #     raise ComputationalException(
-    #         message="The metrical tree processing timed out",
-    #         error_code=ErrorCode.TIMEOUT,
-    #         suggestion="Try processing a smaller text sample or check for syntax issues in your text."
-    #     )
-    except subprocess.CalledProcessError as err:
-        output = err.output if hasattr(err, 'output') else "No output captured"
-        return_code = err.returncode if hasattr(err, 'returncode') else "Unknown"
-        
-        print('error message:', output)
-        print('returned value:', return_code)
-        
-        # Try to analyze the error output for more specific error reporting
-        error_output = output.decode('utf-8', errors='replace') if isinstance(output, bytes) else str(output)
-        
-        if "MemoryError" in error_output:
-            raise ComputationalException(
-                message="The system ran out of memory while processing your text",
-                error_code=ErrorCode.MEMORY_LIMIT_EXCEEDED,
-                details={"error_output": error_output, "return_code": return_code},
-                suggestion="Try processing a smaller text sample."
-            )
-        elif "syllabus_lookup_failure" in error_output or "KeyError" in error_output:
-            raise LinguisticProcessingException(
-                message="Failed to process some words in your text",
-                error_code=ErrorCode.SYLLABUS_LOOKUP_FAILURE,
-                details={"error_output": error_output, "return_code": return_code},
-                suggestion="Check your text for unusual words or non-English content."
-            )
-        elif "UnicodeDecodeError" in error_output:
-            raise InputValidationException(
-                message="Text encoding issue detected",
-                error_code=ErrorCode.ENCODING_ERROR,
-                details={"error_output": error_output, "return_code": return_code},
-                suggestion="Make sure your text file uses UTF-8 encoding."
-            )
-        elif "ValueError" in error_output and "ambiguity" in error_output:
-            raise LinguisticProcessingException(
-                message="Ambiguity resolution error",
-                error_code=ErrorCode.AMBIGUITY_RESOLUTION_FAILURE,
-                details={"error_output": error_output, "return_code": return_code},
-                suggestion="Check your ambiguous words, tags, and dependencies configuration."
-            )
-        else:
-            # Generic error handling
-            raise LinguisticProcessingException(
-                message="Error processing metrical tree",
-                error_code=ErrorCode.PARSER_FAILURE,
-                details={"error_output": error_output, "return_code": return_code},
-                suggestion="Check your input text for syntax issues or try a different sample."
-            )
-
-
-def get_task_results_path(folder_id):
-    return os.path.join(RESULTS_FOLDER, folder_id)
-
-
-def get_graphs_path(folder_id):
-    return os.path.join(PUBLIC_FOLDER, folder_id)
-
-
 def copy_graphs(folder_id):
     results_directory = os.path.join(
         get_task_results_path(folder_id), 'output')
-    results_helper.copy_graphs(results_directory, folder_id)
-
+    results_helper_copy_graphs(results_directory, folder_id)
 
 def copy_results_to_json(folder_id):
     results_directory = os.path.join(
         get_task_results_path(folder_id), 'output')
-    results_helper.copy_results_to_json(results_directory, folder_id)
-
+    results_helper_copy_results_to_json(results_directory, folder_id)
 
 def zip_results(input_filename, folder_id):
     directory_to_zip = get_task_results_path(folder_id)
-    zip_name = os.path.splitext(input_filename)[0] + '.zip'
-    results_helper.zip_all(directory_to_zip, zip_name)
-
+    zip_name = 'results.zip'
+    zip_all(directory_to_zip, zip_name)
 
 def queue_delete_results_folder(folder_id):
     directory_to_delete = get_task_results_path(folder_id)
     celery.send_task("tasks.delete_folder", args=[
                      directory_to_delete], kwargs={}, countdown=FOLDER_TTL)
 
-
 def queue_delete_graphs_folder(folder_id):
     directory_to_delete = get_graphs_path(folder_id)
     celery.send_task("tasks.delete_folder", args=[
                      directory_to_delete], kwargs={}, countdown=FOLDER_TTL)
 
-
 def clean_results(folder_id):
     directory_to_clean = get_task_results_path(folder_id)
-    results_helper.clean_directory(os.path.join(directory_to_clean, 'input'))
-    results_helper.clean_directory(os.path.join(directory_to_clean, 'output'))
+    clean_directory(os.path.join(directory_to_clean, 'input'))
+    clean_directory(os.path.join(directory_to_clean, 'output'))
     queue_delete_results_folder(folder_id)
     queue_delete_graphs_folder(folder_id)
 
-
 def get_download_url(folder_id):
     return '/results/' + folder_id + '/$value?external=True'
-
 
 def get_expiration_on():
     current_datetime = datetime.datetime.now()
@@ -310,7 +147,9 @@ def compute_t_orders(self, input_file_path,
                      include_arrows):
     self.update_state(state='RUNNING')
     folder_id = self.request.id
-    call_t_order(input_file_path, get_output_path(folder_id), hg_feasible_mappings_only,
+
+    output_path = get_output_path(folder_id)
+    call_t_order(input_file_path, output_path, hg_feasible_mappings_only,
                  optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows)
     copy_graphs(folder_id)
     zip_results(input_filename, folder_id)
@@ -319,10 +158,6 @@ def compute_t_orders(self, input_file_path,
     clean_results(folder_id)
     return result.toJSON()
 
-
-@celery.task(name='tasks.delete_folder')
-def delete_folder(directory_to_delete):
-    results_helper.clean_directory(directory_to_delete)
 
 
 @celery.task(name='tasks.compute_metrical_tree', bind=True)
@@ -337,25 +172,34 @@ def compute_metrical_tree(self, input_file_path,
                           stressed_words):
     """
     Celery task to process metrical tree computations.
-    
+
     This task handles input validation, calls the metrical tree processing script,
-    and properly formats any errors that occur during processing.
+    performs enhancement, and manages results.
     """
+    logger = logging.getLogger(__name__)
     self.update_state(state='RUNNING')
     folder_id = self.request.id
-    
     try:
-        # Validate input parameters
         if input_file_path is None or not input_file_path.strip():
             raise InputValidationException(
                 message="No input file specified",
                 error_code=ErrorCode.MISSING_REQUIRED_FIELD,
                 suggestion="Please provide a valid input file."
             )
-            
-        # Process the metrical tree
-        call_metrical_tree(input_file_path, 
-                           get_output_path(folder_id), 
+
+        # Ensure all required directories exist and are writable
+        output_path = get_output_path(folder_id)
+        ensure_directory(os.path.dirname(output_path))
+        ensure_directory(os.path.join(get_task_results_path(folder_id), 'input'))
+
+        # Execute metrical tree computation
+        logger.info("Processing metrical tree for task {}".format(folder_id), extra={
+            'input_file': input_file_path,
+            'output_path': output_path
+        })
+
+        call_metrical_tree(input_file_path,
+                           output_path,
                            unstressed_words,
                            unstressed_tags,
                            unstressed_deps,
@@ -363,24 +207,34 @@ def compute_metrical_tree(self, input_file_path,
                            ambiguous_tags,
                            ambiguous_deps,
                            stressed_words)
-                           
-        # Process successful results
-        copy_results_to_json(folder_id)
+
+        verify_metrical_tree_results(folder_id)
+        enhance_metrical_tree_results(folder_id)
         zip_results(input_filename, folder_id)
-        result = Result(get_download_url(folder_id), FOLDER_TTL, get_expiration_on())
-        clean_results(folder_id)
-        return result.toJSON()
+
+        created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
+        result = Result(
+            get_download_url(folder_id),
+            FOLDER_TTL,
+            get_expiration_on(),
+            created_on
+        )
         
-    except MetricalTreeException as e:
-        # For our custom exceptions, create a detailed error response
+
+        clean_results(folder_id)
+        
+        logger.info("Successfully completed metrical tree computation for task {}".format(folder_id))
+        return result.toJSON()
+
+    except TaskException as e:
         self.update_state(state='FAILURE')
         error_info = format_error_for_user(e)
-        
-        # Log the error with details
-        print("MetricalTreeException: {}".format(e.message))
-        print("Error details: {}".format(json.dumps(error_info)))
-        
-        # Return error info in a structured format that matches our Result class
+
+        logger.error("Task error in task {}: {}".format(folder_id, e.message), extra={
+            'error_info': error_info,
+            'task_id': folder_id
+        })
+
         error_result = {
             "download_url": None,
             "expires_in": None,
@@ -389,33 +243,29 @@ def compute_metrical_tree(self, input_file_path,
             "errorMessage": e.message,
             "errorDetails": error_info
         }
-        return json.dumps(error_result)
-        
+        raise TaskException(e.message, e.error_code, e.details, e.suggestion)
     except Exception as e:
-        # For unexpected errors, provide a generic error message
         self.update_state(state='FAILURE')
+        logger.exception("Unexpected error in task {}".format(folder_id))
         
-        # Convert to our custom exception format for consistent handling
-        generic_error = MetricalTreeException(
-            message="An unexpected error occurred during processing",
+        error_info = format_error_for_user(TaskException(
+            message="An unexpected error occurred",
             error_code=ErrorCode.UNEXPECTED_ERROR,
-            details={"original_error": str(e), "traceback": traceback.format_exc()},
+            details={'error': str(e)},
             suggestion="Please try again or contact support if the problem persists."
-        )
+        ))
         
-        error_info = format_error_for_user(generic_error)
-        
-        # Log the error
-        print("Unexpected error in compute_metrical_tree: {}".format(str(e)))
-        print("Traceback: {}".format(traceback.format_exc()))
-        
-        # Return error info
         error_result = {
             "download_url": None,
             "expires_in": None,
             "expires_on": None,
             "error": True,
-            "errorMessage": generic_error.message,
+            "errorMessage": "An unexpected error occurred",
             "errorDetails": error_info
         }
-        return json.dumps(error_result)
+        from celery.exceptions import Failure
+        raise Failure(json.dumps(error_result))
+
+@celery.task(name='tasks.delete_folder')
+def delete_folder(directory_to_delete):
+    clean_directory(directory_to_delete)

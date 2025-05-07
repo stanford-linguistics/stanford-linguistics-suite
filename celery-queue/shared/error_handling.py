@@ -1,82 +1,92 @@
 """
-Error handling module for the Metrical Tree processing
+Error handling module for task processing
 
 This module defines exception classes and utilities for classifying,
 categorizing, and providing meaningful error messages for the various
-types of errors that can occur during metrical tree processing.
+types of errors that can occur during task processing.
 """
 
-import enum
 import json
 import traceback
-from typing import Dict, Any, Optional, Union, Callable, TypeVar, cast
 from functools import wraps
 
+class _EnumValue(str):
+    """A string subclass that adds enum-like behavior"""
+    pass
 
-class ErrorSeverity(str, enum.Enum):
+
+# Error severity constants
+class ErrorSeverity(object):
     """Severity levels for errors"""
-    WARNING = "warning"     # User can continue but may get suboptimal results
-    ERROR = "error"         # Fatal error that prevents completion
-    CRITICAL = "critical"   # System-level error that needs urgent attention
+    WARNING = _EnumValue("warning")    # User can continue but may get suboptimal results
+    ERROR = _EnumValue("error")        # Fatal error that prevents completion 
+    CRITICAL = _EnumValue("critical")  # System-level error that needs urgent attention
 
 
-class ErrorCategory(str, enum.Enum):
+# Error category constants
+class ErrorCategory(object):
     """Categories of errors to help guide troubleshooting"""
-    INPUT_VALIDATION = "input_validation"      # Input data format errors
-    LINGUISTIC_PROCESSING = "linguistic_processing"  # Language processing errors
-    COMPUTATIONAL = "computational"    # Resource or computation errors
-    SYSTEM = "system"                  # System or environment errors
-    UNKNOWN = "unknown"                # Uncategorized/unexpected errors
+    INPUT_VALIDATION = _EnumValue("input_validation")          # Input data format errors
+    LINGUISTIC_PROCESSING = _EnumValue("linguistic_processing")  # Language processing errors
+    COMPUTATIONAL = _EnumValue("computational")                 # Resource or computation errors
+    SYSTEM = _EnumValue("system")                               # System or environment errors
+    UNKNOWN = _EnumValue("unknown")                             # Uncategorized/unexpected errors
 
 
-class ErrorCode(str, enum.Enum):
+# Error code constants
+class ErrorCode(object):
     """Specific error codes for detailed error classification"""
     # Input validation errors
-    INVALID_FORMAT = "invalid_format"
-    MISSING_REQUIRED_FIELD = "missing_required_field"
-    INVALID_VALUE = "invalid_value"
-    EMPTY_INPUT = "empty_input"
-    MALFORMED_TEXT = "malformed_text"
-    INPUT_TOO_LARGE = "input_too_large"
-    ENCODING_ERROR = "encoding_error"
+    INVALID_FORMAT = _EnumValue("invalid_format")
+    MISSING_REQUIRED_FIELD = _EnumValue("missing_required_field")
+    INVALID_VALUE = _EnumValue("invalid_value")
+    EMPTY_INPUT = _EnumValue("empty_input")
+    MALFORMED_TEXT = _EnumValue("malformed_text")
+    INPUT_TOO_LARGE = _EnumValue("input_too_large")
+    ENCODING_ERROR = _EnumValue("encoding_error")
     
     # Linguistic processing errors
-    PARSER_FAILURE = "parser_failure"
-    TOKENIZATION_ERROR = "tokenization_error"
-    DICTIONARY_LOOKUP_FAILURE = "dictionary_lookup_failure"
-    SYLLABIFICATION_ERROR = "syllabification_error"
-    AMBIGUOUS_WORD = "ambiguous_word"
-    SYLLABUS_LOOKUP_FAILURE = "syllabus_lookup_failure"
-    AMBIGUITY_RESOLUTION_FAILURE = "ambiguity_resolution_failure"
+    PARSER_FAILURE = _EnumValue("parser_failure")
+    TOKENIZATION_ERROR = _EnumValue("tokenization_error")
+    DICTIONARY_LOOKUP_FAILURE = _EnumValue("dictionary_lookup_failure")
+    SYLLABIFICATION_ERROR = _EnumValue("syllabification_error")
+    AMBIGUOUS_WORD = _EnumValue("ambiguous_word")
+    SYLLABUS_LOOKUP_FAILURE = _EnumValue("syllabus_lookup_failure")
+    AMBIGUITY_RESOLUTION_FAILURE = _EnumValue("ambiguity_resolution_failure")
     
     # Computational errors
-    TIMEOUT = "timeout"
-    MEMORY_LIMIT_EXCEEDED = "memory_limit_exceeded"
-    COMPUTATION_FAILED = "computation_failed"
+    TIMEOUT = _EnumValue("timeout")
+    MEMORY_LIMIT_EXCEEDED = _EnumValue("memory_limit_exceeded")
+    COMPUTATION_FAILED = _EnumValue("computation_failed")
     
     # System errors
-    FILE_SYSTEM_ERROR = "file_system_error"
-    FILE_NOT_FOUND = "file_not_found"
-    PERMISSION_DENIED = "permission_denied"
-    DEPENDENCY_MISSING = "dependency_missing"
-    CONFIGURATION_ERROR = "configuration_error"
-    DATABASE_ERROR = "database_error"
+    FILE_SYSTEM_ERROR = _EnumValue("file_system_error")
+    FILE_NOT_FOUND = _EnumValue("file_not_found")
+    PERMISSION_DENIED = _EnumValue("permission_denied")
+    DEPENDENCY_MISSING = _EnumValue("dependency_missing")
+    CONFIGURATION_ERROR = _EnumValue("configuration_error")
+    DATABASE_ERROR = _EnumValue("database_error")
+    
+    # CLI errors
+    CLI_EXECUTION_ERROR = _EnumValue("cli_execution_error")
+    CLI_OUTPUT_PARSING_ERROR = _EnumValue("cli_output_parsing_error")
+    CLI_TIMEOUT_ERROR = _EnumValue("cli_timeout_error")
     
     # Unknown errors
-    UNEXPECTED_ERROR = "unexpected_error"
+    UNEXPECTED_ERROR = _EnumValue("unexpected_error")
 
 
-class MetricalTreeException(Exception):
-    """Base exception class for Metrical Tree errors"""
+class TaskException(Exception):
+    """Base exception class for task processing errors"""
     
     def __init__(
         self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.UNEXPECTED_ERROR,
-        category: ErrorCategory = ErrorCategory.UNKNOWN,
-        severity: ErrorSeverity = ErrorSeverity.ERROR,
-        details: Optional[Dict[str, Any]] = None,
-        suggestion: Optional[str] = None,
+        message,
+        error_code=ErrorCode.UNEXPECTED_ERROR,
+        category=ErrorCategory.UNKNOWN,
+        severity=ErrorSeverity.ERROR,
+        details=None,
+        suggestion=None,
         **kwargs
     ):
         """
@@ -90,7 +100,7 @@ class MetricalTreeException(Exception):
             details: Additional details about the error (structured data)
             suggestion: Suggested action to resolve the error
         """
-        super().__init__(message)
+        super(TaskException, self).__init__(message)
         self.message = message
         self.error_code = error_code
         self.category = category
@@ -107,7 +117,7 @@ class MetricalTreeException(Exception):
         if 'exception' in kwargs and isinstance(kwargs['exception'], Exception):
             self.details['exception_traceback'] = traceback.format_exc()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self):
         """
         Convert the exception to a dictionary that can be serialized to JSON
         
@@ -124,7 +134,7 @@ class MetricalTreeException(Exception):
             'details': self.details
         }
     
-    def _get_category_description(self) -> str:
+    def _get_category_description(self):
         """Get a human-readable description of the error category"""
         descriptions = {
             ErrorCategory.INPUT_VALIDATION: "Input Validation Error",
@@ -135,7 +145,7 @@ class MetricalTreeException(Exception):
         }
         return descriptions.get(self.category, "Error")
     
-    def to_json(self) -> str:
+    def to_json(self):
         """
         Convert the exception to a JSON string
         
@@ -145,18 +155,18 @@ class MetricalTreeException(Exception):
         return json.dumps(self.to_dict())
 
 
-class InputValidationException(MetricalTreeException):
+class InputValidationException(TaskException):
     """Exception for input validation errors"""
     
     def __init__(
         self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.INVALID_FORMAT,
-        details: Optional[Dict[str, Any]] = None,
-        suggestion: Optional[str] = None,
+        message,
+        error_code=ErrorCode.INVALID_FORMAT,
+        details=None,
+        suggestion=None,
         **kwargs
     ):
-        super().__init__(
+        super(InputValidationException, self).__init__(
             message=message,
             error_code=error_code,
             category=ErrorCategory.INPUT_VALIDATION,
@@ -167,18 +177,18 @@ class InputValidationException(MetricalTreeException):
         )
 
 
-class LinguisticProcessingException(MetricalTreeException):
+class LinguisticProcessingException(TaskException):
     """Exception for linguistic processing errors"""
     
     def __init__(
         self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.PARSER_FAILURE,
-        details: Optional[Dict[str, Any]] = None,
-        suggestion: Optional[str] = None,
+        message,
+        error_code=ErrorCode.PARSER_FAILURE,
+        details=None,
+        suggestion=None,
         **kwargs
     ):
-        super().__init__(
+        super(LinguisticProcessingException, self).__init__(
             message=message,
             error_code=error_code,
             category=ErrorCategory.LINGUISTIC_PROCESSING,
@@ -189,18 +199,18 @@ class LinguisticProcessingException(MetricalTreeException):
         )
 
 
-class ComputationalException(MetricalTreeException):
+class ComputationalException(TaskException):
     """Exception for computational resource errors"""
     
     def __init__(
         self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.COMPUTATION_FAILED,
-        details: Optional[Dict[str, Any]] = None,
-        suggestion: Optional[str] = None,
+        message,
+        error_code=ErrorCode.COMPUTATION_FAILED,
+        details=None,
+        suggestion=None,
         **kwargs
     ):
-        super().__init__(
+        super(ComputationalException, self).__init__(
             message=message,
             error_code=error_code,
             category=ErrorCategory.COMPUTATIONAL,
@@ -211,18 +221,18 @@ class ComputationalException(MetricalTreeException):
         )
 
 
-class SystemException(MetricalTreeException):
+class SystemException(TaskException):
     """Exception for system-level errors"""
     
     def __init__(
         self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.CONFIGURATION_ERROR,
-        details: Optional[Dict[str, Any]] = None,
-        suggestion: Optional[str] = None,
+        message,
+        error_code=ErrorCode.CONFIGURATION_ERROR,
+        details=None,
+        suggestion=None,
         **kwargs
     ):
-        super().__init__(
+        super(SystemException, self).__init__(
             message=message,
             error_code=error_code,
             category=ErrorCategory.SYSTEM,
@@ -233,15 +243,34 @@ class SystemException(MetricalTreeException):
         )
 
 
-F = TypeVar('F', bound=Callable[..., Any])
+class CLIProcessingException(TaskException):
+    """Exception for CLI processing errors"""
+    
+    def __init__(
+        self,
+        message,
+        error_code=ErrorCode.CLI_EXECUTION_ERROR,
+        details=None,
+        suggestion=None,
+        **kwargs
+    ):
+        super(CLIProcessingException, self).__init__(
+            message=message,
+            error_code=error_code,
+            category=ErrorCategory.SYSTEM,
+            severity=ErrorSeverity.ERROR,
+            details=details,
+            suggestion=suggestion,
+            **kwargs
+        )
 
 
-def capture_exception(func: F) -> F:
+def capture_exception(func):
     """
     Decorator to capture exceptions in a function and convert them to our custom exception types
     
     This decorator will catch any exception raised in the decorated function and
-    convert it to a MetricalTreeException with the appropriate category and details.
+    convert it to a TaskException with the appropriate category and details.
     
     Args:
         func: The function to decorate
@@ -250,18 +279,18 @@ def capture_exception(func: F) -> F:
         The decorated function that handles exceptions
     """
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except MetricalTreeException:
+        except TaskException:
             # Our custom exceptions already have the right format, just reraise
             raise
         except Exception as e:
             # For other exceptions, convert to our format with traceback
-            context = f"In function: {func.__name__}"
-            error_message = f"An error occurred: {str(e)}"
+            context = "In function: {}".format(func.__name__)
+            error_message = "An error occurred: {}".format(str(e))
             
-            generic_error = MetricalTreeException(
+            generic_error = TaskException(
                 message=error_message,
                 error_code=ErrorCode.UNEXPECTED_ERROR,
                 category=ErrorCategory.UNKNOWN,
@@ -274,15 +303,15 @@ def capture_exception(func: F) -> F:
                 suggestion="Please try again or contact support if the problem persists."
             )
             
-            raise generic_error from e
+            raise generic_error
     
-    return cast(F, wrapper)
+    return wrapper
 
 
 def handle_exception(
-    exception: Exception, 
-    context: str = "Unknown context"
-) -> Dict[str, Any]:
+    exception, 
+    context="Unknown context"
+):
     """
     Handle an exception and convert it to a standardized error format
     
@@ -294,11 +323,11 @@ def handle_exception(
         Dictionary with the error information
     """
     # If it's already our custom exception, just return its dict representation
-    if isinstance(exception, MetricalTreeException):
+    if isinstance(exception, TaskException):
         return exception.to_dict()
     
     # Otherwise, wrap the generic exception
-    error = MetricalTreeException(
+    error = TaskException(
         message=str(exception),
         error_code=ErrorCode.UNEXPECTED_ERROR,
         category=ErrorCategory.UNKNOWN,
@@ -314,7 +343,7 @@ def handle_exception(
     return error.to_dict()
 
 
-def format_error_for_user(exception: Union[Exception, Dict[str, Any]]) -> Dict[str, Any]:
+def format_error_for_user(exception):
     """
     Format an error for user display
     
@@ -329,7 +358,7 @@ def format_error_for_user(exception: Union[Exception, Dict[str, Any]]) -> Dict[s
         Dictionary with user-friendly error information
     """
     # Convert exception to dictionary if needed
-    error_dict = exception.to_dict() if isinstance(exception, MetricalTreeException) else exception
+    error_dict = exception.to_dict() if isinstance(exception, TaskException) else exception
     
     if isinstance(error_dict, dict):
         # Create a copy to avoid modifying the original
@@ -356,9 +385,9 @@ def format_error_for_user(exception: Union[Exception, Dict[str, Any]]) -> Dict[s
         }
 
 
-def validate_input_text(text: str) -> None:
+def validate_input_text(text):
     """
-    Validate input text for metrical tree processing
+    Validate input text for processing
     
     Args:
         text: The input text to validate
@@ -373,8 +402,6 @@ def validate_input_text(text: str) -> None:
             suggestion="Please provide non-empty text for analysis"
         )
     
-    # Add more validation rules as needed
-    # For example, check for minimum length, valid characters, etc.
     if len(text.strip()) < 5:
         raise InputValidationException(
             message="Input text too short",
@@ -385,9 +412,9 @@ def validate_input_text(text: str) -> None:
 
 
 def process_error_for_api_response(
-    error: Union[Exception, Dict[str, Any]],
-    context: str = "Unknown context"
-) -> Dict[str, Any]:
+    error,
+    context="Unknown context"
+):
     """
     Process an error for API response format
     
@@ -398,10 +425,8 @@ def process_error_for_api_response(
     Returns:
         Dictionary formatted for API response
     """
-    # Get the error details
     error_details = handle_exception(error, context) if isinstance(error, Exception) else error
     
-    # Format for API response
     response = {
         'status': 'FAILURE',
         'error': True,
