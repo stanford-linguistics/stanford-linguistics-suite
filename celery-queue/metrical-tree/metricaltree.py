@@ -1,6 +1,7 @@
 #!/usr/bin/env python # -*- coding: utf-8 -*-
 
 import os
+import re  # Added missing import for the pause_splitter function
 from collections import defaultdict
 import cPickle as pkl
 import numpy as np
@@ -8,6 +9,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import codecs
 import nltk
+import sys  # Added missing import for sys.stderr.write
+import traceback
+import time
+
+# Create a compatibility layer for Python 2/3
+try:
+    # Python 2
+    xrange
+except NameError:
+    # Python 3
+    xrange = range
 from nltk import compat
 from nltk.tree import Tree
 import nltk.data
@@ -93,7 +105,7 @@ args = Validate_arguments()
 # =================================================================================================
 # Optional parameters
 # =================================================================================================
-output_prefix = Set_output_directory(args.output_directory) + "/"
+output_prefix = Set_output_directory(args.output_directory)
 unstressed_words = args.unstressed_words
 unstressed_tags = args.unstressed_tags
 unstressed_deps = args.unstressed_deps
@@ -115,20 +127,139 @@ print('7', stressed_words)
 
 
 def parse_worker(q):
-    """"""
-
-    parser = DependencyTreeParser(
-        model_path=os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz' % DATE))
-    parser = MetricalTreeParser(parser)
-    for filename in iter(q.get, 'STOP'):
-        sents = []
-        with codecs.open(filename, encoding='utf-8') as f:
-            for line in f:
-                sents.extend(pause_splitter(line))
-        df = parser.stats_raw_parse_sents(sents, arto=True)
-        output_path = os.path.join(output_prefix, 'results.csv')
-        df.to_csv(codecs.open(output_path, 'w', encoding='utf-8'), index=False)
-    return True
+    """Process input files and generate metrical tree results"""
+    # Create a debug log file
+    debug_log_path = os.path.join(output_prefix, 'debug_log.txt')
+    with open(debug_log_path, 'w') as debug_file:
+        debug_file.write("Starting metrical tree parse worker\n")
+        debug_file.write("Python version: {}\n".format(sys.version))
+        debug_file.write("Output prefix: {}\n".format(output_prefix))
+        
+        try:
+            debug_file.write("Loading DependencyTreeParser...\n")
+            model_path = os.path.join(script_dir, 'stanford-library/stanford-parser-full-%s/edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz' % DATE)
+            debug_file.write("Model path: {}\n".format(model_path))
+            
+            parser = DependencyTreeParser(model_path=model_path)
+            debug_file.write("Creating MetricalTreeParser...\n")
+            parser = MetricalTreeParser(parser)
+            debug_file.write("Parser initialization complete\n")
+            
+            for filename in iter(q.get, 'STOP'):
+                try:
+                    debug_file.write("\n===== Processing file: {} =====\n".format(filename))
+                    debug_file.write("Reading file content...\n")
+                    sents = []
+                    with codecs.open(filename, encoding='utf-8') as f:
+                        content = f.read()
+                        debug_file.write("File size: {} bytes\n".format(len(content)))
+                        for line in content.splitlines():
+                            sents.extend(pause_splitter(line))
+                    
+                    print("Processing {} sentences from {}".format(len(sents), filename))
+                    debug_file.write("Sentences to process: {}\n".format(len(sents)))
+                    debug_file.write("Starting parsing with stats_raw_parse_sents...\n")
+                    
+                    start_time = time.time()
+                    df = parser.stats_raw_parse_sents(sents, arto=True)
+                    parse_time = time.time() - start_time
+                    debug_file.write("Parsing completed in {:.2f} seconds\n".format(parse_time))
+                    debug_file.write("DataFrame shape: {} rows x {} columns\n".format(
+                        df.shape[0] if hasattr(df, 'shape') else 'unknown', 
+                        df.shape[1] if hasattr(df, 'shape') else 'unknown'))
+                    
+                    # Write DataFrame sample
+                    if hasattr(df, 'head'):
+                        debug_file.write("DataFrame head:\n{}\n".format(str(df.head())))
+                    
+                    # Critical path fix - ensure we write to the expected location
+                    # First check if output_prefix already ends with '/output' 
+                    if output_prefix.endswith('/output'):
+                        output_path = os.path.join(output_prefix, 'results.csv')
+                    else:
+                        # Handle both paths with and without trailing slash
+                        output_path = os.path.join(output_prefix, 'results.csv')
+                    
+                    debug_file.write("Writing results to: {}\n".format(output_path))
+                    print("Writing results to {}".format(output_path))
+                    
+                    # Verify the directory exists
+                    output_dir = os.path.dirname(output_path)
+                    if not os.path.exists(output_dir):
+                        os.makedirs(output_dir)
+                        debug_file.write("Created output directory: {}\n".format(output_dir))
+                        
+                    # Also ensure any parent directories in output path exist
+                    if not os.path.exists(os.path.dirname(output_path)):
+                        os.makedirs(os.path.dirname(output_path))
+                        debug_file.write("Created parent directories for: {}\n".format(output_path))
+                    
+                    # Use direct path approach to avoid file handle encoding issues
+                    try:
+                        df.to_csv(output_path, index=False, encoding='utf-8')
+                        debug_file.write("Results successfully written to file\n")
+                    except (IOError, OSError) as e:
+                        debug_file.write("Error writing to file: {}\n".format(str(e)))
+                        raise
+                    
+                    # Explicitly verify the file was created
+                    if os.path.exists(output_path):
+                        file_size = os.path.getsize(output_path)
+                        print("Successfully wrote results.csv ({} bytes)".format(file_size))
+                        debug_file.write("Verified file exists: {} ({} bytes)\n".format(
+                            output_path, file_size))
+                            
+                        # Add extra verification paths to debug potential issues
+                        debug_file.write("Directory listing of {}:\n".format(output_dir))
+                        try:
+                            files_in_dir = os.listdir(output_dir)
+                            for file_name in files_in_dir:
+                                file_path = os.path.join(output_dir, file_name)
+                                file_size = os.path.getsize(file_path)
+                                debug_file.write("  {} ({} bytes)\n".format(file_name, file_size))
+                        except Exception as e:
+                            debug_file.write("  Error listing directory: {}\n".format(str(e)))
+                    else:
+                        error_msg = "File write appeared to succeed but results.csv not found!"
+                        print(error_msg)
+                        debug_file.write(error_msg + "\n")
+                        
+                        # Try to identify any similar files in the directory
+                        debug_file.write("Searching for any CSV files in {}:\n".format(output_dir))
+                        try:
+                            for root, dirs, files in os.walk(output_dir):
+                                for file in files:
+                                    if file.endswith('.csv'):
+                                        file_path = os.path.join(root, file)
+                                        debug_file.write("  Found: {} ({} bytes)\n".format(
+                                            file_path, os.path.getsize(file_path)))
+                        except Exception as e:
+                            debug_file.write("  Error walking directory: {}\n".format(str(e)))
+                            
+                        raise IOError(error_msg)
+                        
+                except Exception as e:
+                    error_msg = "Error processing file {}: {}".format(filename, str(e))
+                    sys.stderr.write(error_msg + "\n")
+                    debug_file.write("ERROR: " + error_msg + "\n")
+                    debug_file.write("Traceback:\n")
+                    traceback.print_exc(file=debug_file)
+                    traceback.print_exc(file=sys.stderr)
+                    # Re-raise to ensure the parent process knows there was an error
+                    raise
+            
+            debug_file.write("\nAll processing completed successfully\n")
+            return True
+            
+        except Exception as e:
+            error_msg = "Fatal error in parse_worker: {}".format(str(e))
+            sys.stderr.write(error_msg + "\n")
+            debug_file.write("FATAL ERROR: " + error_msg + "\n") 
+            debug_file.write("Traceback:\n")
+            traceback.print_exc(file=debug_file)
+            traceback.print_exc(file=sys.stderr)
+            # Re-raise to ensure the parent process knows there was an error
+            raise
 
 # ***********************************************************************
 # Split a text on certain punctuation
@@ -465,7 +596,7 @@ class MetricalTree(DependencyTree):
     # =====================================================================
     # Generate all possible trees
     # Syll=True sets all polysyllabic words to stressed
-    def ambiguate(self, stress_polysyll=False):
+    def disambiguate(self, stress_polysyll=False):
         """"""
 
         if self._preterm:
@@ -483,7 +614,7 @@ class MetricalTree(DependencyTree):
         else:
             alts = [[]]
             for child in self:
-                child_alts = child.disambiguate(syll)
+                child_alts = child.disambiguate(stress_polysyll)
                 for i in xrange(len(alts)):
                     alt = alts.pop(0)
                     for child_alt in child_alts:
@@ -801,11 +932,28 @@ class MetricalTreeParser:
                     data['m2b'].append(preterm2b.stress())
                     data['mean'].append(
                         np.mean([preterm1.stress(), preterm2a.stress(), preterm2b.stress()]))
-                data['norm_m1'].append((preterm1.stress()-min1)/max1)
-                data['norm_m2a'].append((preterm2a.stress()-min2a)/max2a)
-                data['norm_m2b'].append((preterm2b.stress()-min2b)/max2b)
-                data['norm_mean'].append((np.mean(
-                    [preterm1.stress(), preterm2a.stress(), preterm2b.stress()])-minmean)/maxmean)
+                # Handle normalization edge cases to prevent division by zero
+                if max1 == 0:
+                    # When all words have the same stress, use 0.5 as normalized value
+                    data['norm_m1'].append(0.5)
+                else:
+                    data['norm_m1'].append((preterm1.stress()-min1)/max1)
+                    
+                if max2a == 0:
+                    data['norm_m2a'].append(0.5)
+                else:
+                    data['norm_m2a'].append((preterm2a.stress()-min2a)/max2a)
+                    
+                if max2b == 0:
+                    data['norm_m2b'].append(0.5)
+                else:
+                    data['norm_m2b'].append((preterm2b.stress()-min2b)/max2b)
+                    
+                mean_stress = np.mean([preterm1.stress(), preterm2a.stress(), preterm2b.stress()])
+                if maxmean == 0:
+                    data['norm_mean'].append(0.5)
+                else:
+                    data['norm_mean'].append((mean_stress-minmean)/maxmean)
                 data['sidx'].append(i)
                 data['sent'].append(sent)
                 data['ambig_words'].append(ambig1)

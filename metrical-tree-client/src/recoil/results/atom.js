@@ -14,8 +14,70 @@ const getStoredResults = () => {
 };
 
 const saveResultsToLocalStorage = (results) => {
-  const serializedResults = JSON.stringify(results);
-  localStorage.setItem(LOCAL_STORAGE_RESULTS_KEY, serializedResults);
+  try {
+    // First try to save the full results
+    const serializedResults = JSON.stringify(results);
+    
+    // Check if the size is approaching localStorage limits (typically 5-10MB)
+    // Using 2MB as a conservative threshold to prevent browser performance issues
+    const SIZE_THRESHOLD = 2 * 1024 * 1024; // 2MB in bytes
+    
+    // Also consider row count as an indicator of large results
+    const ROW_COUNT_THRESHOLD = 5000; // Number of rows that would cause rendering issues
+    
+    // Check if ANY result in the array is too large (either by size or row count)
+    const hasLargeResults = serializedResults.length > SIZE_THRESHOLD || 
+                           results.some(result => {
+                             // Check data array length if it exists
+                             if (result.data && Array.isArray(result.data)) {
+                               return result.data.length > ROW_COUNT_THRESHOLD;
+                             }
+                             // If data is not an array but status is success, assume it's a large result
+                             // This handles cases where the backend marked it as success but data isn't loaded yet
+                             return result.status === 'success' && !result.data;
+                           });
+    
+    if (hasLargeResults) {
+      console.warn('Results too large for localStorage or display, saving metadata only');
+      
+      // Create lite versions of the results without the large data arrays
+      const liteResults = results.map(result => {
+        // Keep all metadata but replace data with a flag
+        const { data, ...metadata } = result;
+        // Mark as large if this specific result's data exceeds the row threshold
+        const isLarge = !data ? false : (data.length > ROW_COUNT_THRESHOLD);
+        return {
+          ...metadata,
+          isLargeResult: isLarge,
+          dataSize: data ? data.length : 0
+        };
+      });
+      
+      localStorage.setItem(LOCAL_STORAGE_RESULTS_KEY, JSON.stringify(liteResults));
+    } else {
+      // Results are small enough to store completely
+      localStorage.setItem(LOCAL_STORAGE_RESULTS_KEY, serializedResults);
+    }
+  } catch (error) {
+    console.error('Failed to save results to localStorage:', error);
+    
+    // If we get a quota error, try saving minimal data
+    if (error.name === 'QuotaExceededError') {
+      try {
+        const minimalResults = results.map(result => {
+          const { data, ...metadata } = result;
+          return {
+            ...metadata,
+            isLargeResult: true,
+            dataSize: data ? data.length : 0
+          };
+        });
+        localStorage.setItem(LOCAL_STORAGE_RESULTS_KEY, JSON.stringify(minimalResults));
+      } catch (fallbackError) {
+        console.error('Failed to save minimal results to localStorage:', fallbackError);
+      }
+    }
+  }
 };
 
 const defaultState = {

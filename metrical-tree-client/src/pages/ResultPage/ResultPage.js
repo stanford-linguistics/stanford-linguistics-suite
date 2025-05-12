@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ResultErrorDisplay from 'components/ResultErrorDisplay/ResultErrorDisplay';
 import { useHistory, useParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
+import LargeResultNotice from './components/LargeResultNotice';
 import {
   Grid,
   Typography,
@@ -10,12 +11,12 @@ import {
   Select,
   MenuItem,
   Chip,
-  Tooltip,
   Collapse,
   IconButton,
   Divider,
   LinearProgress
 } from '@material-ui/core';
+import CrispTooltip from '../../components/CrispTooltip';
 import {
   Tune as TuneIcon,
   AssessmentOutlined as AssessmentIcon,
@@ -116,6 +117,16 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '1rem',
     marginRight: theme.spacing(0.5),
   },
+  exportLinksContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1),
+    [theme.breakpoints.up('sm')]: {
+      flexDirection: 'row',
+      gap: theme.spacing(2),
+    },
+  },
   card: { 
     padding: theme.spacing(3),
     marginBottom: theme.spacing(3),
@@ -127,6 +138,13 @@ const useStyles = makeStyles((theme) => ({
     '&:hover': {
       boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
     },
+    [theme.breakpoints.down('sm')]: {
+      padding: theme.spacing(2),
+    },
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1.5),
+      marginBottom: theme.spacing(2),
+    },
   },
   cardTitle: { 
     fontWeight: 600,
@@ -135,6 +153,10 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(2),
     display: 'flex',
     alignItems: 'center',
+    [theme.breakpoints.down('xs')]: {
+      fontSize: '1rem',
+      marginBottom: theme.spacing(1.5),
+    },
   },
   titleIcon: {
     marginRight: theme.spacing(1.5),
@@ -142,6 +164,11 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: 'rgba(68, 171, 119, 0.08)',
     padding: theme.spacing(0.75),
     borderRadius: '50%',
+    [theme.breakpoints.down('xs')]: {
+      marginRight: theme.spacing(1),
+      padding: theme.spacing(0.5),
+      fontSize: '1.2rem',
+    },
   },
   graphCard: { 
     margin: theme.spacing(2, 0, 1, 0) 
@@ -389,10 +416,16 @@ const ResultPage = () => {
   // Check if the result contains an error
   const hasError = mergedResult?.errorMessage || mergedResult?.error;
 
-  // Map backend status to canonical frontend status
-  const mappedStatus = mapBackendStatus(mergedResult?.status);
+  // Map backend status to canonical frontend status, with enhanced reliability info
+  const mappedStatus = mapBackendStatus(
+    mergedResult?.status,
+    {
+      isReliableState: mergedResult?.isReliableState,
+      stateDetails: mergedResult?.stateDetails
+    }
+  );
   const statusDisplay = getStatusDisplay(mappedStatus);
-
+  
   // Handler for retry button
   const handleRetry = () => {
     history.push('/compute');
@@ -504,7 +537,7 @@ const ResultPage = () => {
                 )}
                 {mappedStatus === 'success' &&
                   mergedResult?.link && (
-                    <Tooltip title="Download results zip file (includes raw, enhanced, and analysis files)">
+                    <CrispTooltip title="Download results zip file (includes raw, enhanced, and analysis files)">
                       <Link
                         className={classes.link}
                         href={mergedResult.link}
@@ -516,7 +549,7 @@ const ResultPage = () => {
                           Download Results (.zip)
                         </Typography>
                       </Link>
-                    </Tooltip>
+                    </CrispTooltip>
                   )}
               </div>
             </Grid>
@@ -542,7 +575,15 @@ const ResultPage = () => {
           {/* Show status UI for non-success, non-error states */}
           {!hasError && mappedStatus !== 'success' && statusUI}
           {/* Main content - only show if success and no error */}
-          {!hasError && mappedStatus === 'success' && (
+          {!hasError && mappedStatus === 'success' && mergedResult.isLargeDataset && (
+            <Grid container>
+              <Grid item xs={12}>
+                <LargeResultNotice result={mergedResult} />
+              </Grid>
+            </Grid>
+          )}
+          {/* Main content - only show if success, no error, and not a large result */}
+          {!hasError && mappedStatus === 'success' && !mergedResult.isLargeDataset && (
             <Grid container>
               <Grid item xs={12} className={classes.section}>
                 <Card className={classes.card}>
@@ -554,7 +595,7 @@ const ResultPage = () => {
                   justifyContent="space-between"
                   className={classes.contentContainer}>
                   <Grid item xs={12} sm={6} md={6}>
-                    <Tooltip title="SPE (Sound Pattern of English) numbers transformed to grid notation">
+                    <CrispTooltip title="SPE (Sound Pattern of English) numbers transformed to grid notation">
                       <Typography 
                         variant="h6" 
                         className={classes.cardTitle}
@@ -562,15 +603,15 @@ const ResultPage = () => {
                         <AssessmentIcon className={classes.titleIcon} />
                         Sound Pattern of English (SPE) to Grids
                       </Typography>
-                    </Tooltip>
+                    </CrispTooltip>
                     {selectedModel && (
                       <Typography 
                         variant="subtitle1" 
                         className={classes.modelLabel}
                       >
-                        <Tooltip title="Currently selected model">
+                        <CrispTooltip title="Currently selected model">
                           <TuneIcon className={classes.modelIcon} />
-                        </Tooltip>
+                        </CrispTooltip>
                         {selectedModel.label}
                       </Typography>
                     )}
@@ -639,11 +680,12 @@ const ResultPage = () => {
                   </Grid>
                 </Grid>
                 <Grid container justifyContent="center">
-                  <Grid item>
+                  <Grid item xs={12}>
                     <ResultsGraph
                       ref={graphResultToPrintRef}
                       model={selectedModel}
                       fullApiResponse={mergedResult} // Pass full API response to access sentences data
+                      downloadLink={mergedResult?.link} // Pass download link for CSV export
                     />
                   </Grid>
                 </Grid>

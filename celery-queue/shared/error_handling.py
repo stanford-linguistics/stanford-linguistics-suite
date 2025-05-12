@@ -300,7 +300,7 @@ def capture_exception(func):
                     'exception_type': e.__class__.__name__,
                     'traceback': traceback.format_exc()
                 },
-                suggestion="Please try again or contact support if the problem persists."
+                suggestion="Please try again or contact anttila@stanford.edu if the problem persists."
             )
             
             raise generic_error
@@ -337,7 +337,7 @@ def handle_exception(
             'exception_type': exception.__class__.__name__,
             'traceback': traceback.format_exc()
         },
-        suggestion="Please try again or contact support if the problem persists"
+        suggestion="Please try again or contact anttila@stanford.edu if the problem persists"
     )
     
     return error.to_dict()
@@ -381,7 +381,7 @@ def format_error_for_user(exception):
             'category': 'unknown',
             'category_description': 'Unknown Error',
             'severity': 'error',
-            'suggestion': 'Please try again or contact support if the problem persists.'
+            'suggestion': 'Please try again or contact anttila@stanford.edu if the problem persists.'
         }
 
 

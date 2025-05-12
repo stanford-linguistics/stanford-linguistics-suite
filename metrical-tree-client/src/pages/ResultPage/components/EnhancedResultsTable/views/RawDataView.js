@@ -3,7 +3,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import {
   Typography,
   Chip,
-  Tooltip,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -28,6 +27,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@material-ui/core';
+import CrispTooltip from '../../../../../components/CrispTooltip';
 import {
   FilterList as FilterListIcon,
   GetApp as GetAppIcon,
@@ -159,7 +159,17 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: theme.shape.borderRadius,
   },
   exportButton: {
-    marginRight: theme.spacing(1),
+    fontSize: '0.8rem',
+    textTransform: 'none',
+    fontWeight: 500,
+    padding: theme.spacing(0.5, 1.5),
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      transform: 'translateY(-1px)',
+    },
   },
   splitButton: {
     marginLeft: -1,
@@ -180,9 +190,9 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '1rem',
   },
   mobileExportButton: {
-    margin: theme.spacing(1),
     backgroundColor: theme.palette.primary.main,
     color: theme.palette.primary.contrastText,
+    padding: theme.spacing(1),
     '&:hover': {
       backgroundColor: theme.palette.primary.dark,
     },
@@ -349,7 +359,7 @@ const RawDataView = ({ data }) => {
               const indicatorWidth = `${Math.min(normalizedValue * 100, 100)}%`;
               
               return (
-                <Tooltip title={numValue.toString()} placement="top">
+                <CrispTooltip title={numValue.toString()} placement="top">
                   <div className={classes.metricValueContainer}>
                     <div 
                       className={classes.metricIndicator}
@@ -357,7 +367,7 @@ const RawDataView = ({ data }) => {
                     />
                     <span>{formattedValue}</span>
                   </div>
-                </Tooltip>
+                </CrispTooltip>
               );
             },
           };
@@ -472,6 +482,27 @@ const RawDataView = ({ data }) => {
   }, []);
 
  
+  // Calculate the maximum frequencies for scaling bar widths
+  const maxFrequencies = useMemo(() => {
+    if (!data || data.length === 0) {
+      return { wordFreq: 1, prevWordFreq: 1 };
+    }
+
+    // Find the max values for word_freq and prev_word_freq
+    let maxWordFreq = 1;
+    let maxPrevWordFreq = 1;
+
+    for (const item of data) {
+      const wordFreq = parseInt(item.word_freq, 10) || 0;
+      const prevWordFreq = parseInt(item.prev_word_freq, 10) || 0;
+      
+      if (wordFreq > maxWordFreq) maxWordFreq = wordFreq;
+      if (prevWordFreq > maxPrevWordFreq) maxPrevWordFreq = prevWordFreq;
+    }
+
+    return { wordFreq: maxWordFreq, prevWordFreq: maxPrevWordFreq };
+  }, [data]);
+
   // Get the filtered and sorted data
   const filteredAndSortedData = useMemo(() => {
     if (!data || data.length === 0) {
@@ -481,8 +512,14 @@ const RawDataView = ({ data }) => {
     const { key, direction } = sortConfig;
     const sortModifier = direction === 'asc' ? 1 : -1;
 
-    // Create a copy of the data
-    const dataToSort = [...data];
+    // Create a copy of the data and enhance with frequency information
+    const dataToSort = data.map(item => ({
+      ...item,
+      frequencies: {
+        maxWordFreq: maxFrequencies.wordFreq,
+        maxPrevWordFreq: maxFrequencies.prevWordFreq
+      }
+    }));
 
     dataToSort.sort((a, b) => {
       let valA = a[key];
@@ -497,7 +534,7 @@ const RawDataView = ({ data }) => {
 
       // Attempt numeric conversion for appropriate columns
       // Add more keys here if they are numeric but stored as strings
-      const numericKeys = ['sidx', 'widx', 'nsyll', 'm1', 'm2a', 'm2b', 'mean', 'norm_m1', 'norm_m2a', 'norm_m2b', 'norm_mean'];
+      const numericKeys = ['sidx', 'widx', 'nsyll', 'm1', 'm2a', 'm2b', 'mean', 'norm_m1', 'norm_m2a', 'norm_m2b', 'norm_mean', 'word_freq', 'prev_word_freq'];
       if (numericKeys.includes(key)) {
         valA = parseFloat(valA);
         valB = parseFloat(valB);
@@ -568,7 +605,9 @@ const RawDataView = ({ data }) => {
     filters, 
     quickFilters, 
     isPunctuation, 
-    isUnknown, 
+    isUnknown,
+    maxFrequencies.prevWordFreq,
+    maxFrequencies.wordFreq 
   ]);
 
 
@@ -687,7 +726,7 @@ const RawDataView = ({ data }) => {
         
         <div className={classes.toolbarActions}>
           
-          <Tooltip title="Toggle Filters">
+          <CrispTooltip title="Toggle Filters">
             <IconButton 
               size="small" 
               onClick={toggleFilters}
@@ -695,11 +734,11 @@ const RawDataView = ({ data }) => {
             >
               <FilterListIcon />
             </IconButton>
-          </Tooltip>
+          </CrispTooltip>
 
           {isMobile ? (
             <div className={classes.mobileExportContainer}>
-              <Tooltip title="Export Options">
+              <CrispTooltip title="Export Options">
                 <IconButton
                   className={classes.mobileExportButton}
                   onClick={openExportMenu}
@@ -709,11 +748,11 @@ const RawDataView = ({ data }) => {
                 >
                   <GetAppIcon />
                 </IconButton>
-              </Tooltip>
+              </CrispTooltip>
             </div>
           ) : (
-            <ButtonGroup size="small" variant="outlined" color="primary">
-              <Tooltip title="Export data">
+            <ButtonGroup size="small" variant="contained" color="primary">
+              <CrispTooltip title="Export data">
                 <Button 
                   className={classes.exportButton}
                   onClick={handleExportAll}
@@ -721,7 +760,7 @@ const RawDataView = ({ data }) => {
                 >
                   Export
                 </Button>
-              </Tooltip>
+              </CrispTooltip>
               <Button 
                 className={classes.splitButton}
                 onClick={openExportMenu}

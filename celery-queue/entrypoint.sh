@@ -11,4 +11,11 @@ jar xf stanford-parser-$VERSION-models.jar
 python -c "import nltk; nltk.download('punkt')"
 
 cd ../../..
+
+# Run state recovery script to handle container restart scenarios
+echo "Running task state recovery process..."
+python state_recovery.py
+
+# Start Celery worker
+echo "Starting Celery worker..."
 celery -A tasks worker --loglevel=info

@@ -8,15 +8,34 @@ import IdentityBar from 'components/IdentityBar';
 import PrimaryFooter from 'components/PrimaryFooter';
 import SecondaryFooter from 'components/SecondaryFooter';
 import Appbar from 'components/Appbar';
-import background from 'assets/images/homepageBg.jpg';
+import MetricalTreeBackground from 'components/MetricalTreeBackground';
 import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
 
 const useStyles = makeStyles((theme) => ({
-  container: {
+  root: {
+    position: 'relative',
+    overflow: 'hidden', // Prevent scrollbars
+  },
+  backgroundContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
     height: 'calc(100vh - 316px)',
-    backgroundImage: `url(${background})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
+    zIndex: 0,
+    overflow: 'hidden', // Prevent scrollbars
+    [theme.breakpoints.down('sm')]: {
+      height: 'calc(100vh - 402px)',
+    },
+    [theme.breakpoints.down('xs')]: {
+      height: 'calc(100vh - 421px)',
+    },
+  },
+  container: {
+    position: 'relative',
+    height: 'calc(100vh - 316px)',
+    zIndex: 1,
+    overflow: 'hidden', // Prevent scrollbars
     [theme.breakpoints.down('sm')]: {
       height: 'calc(100vh - 402px)',
     },
@@ -69,11 +88,31 @@ const Home = () => {
     <>
       <IdentityBar />
       <Appbar />
-      <Grid
-        container
-        justifyContent="flex-start"
-        alignContent="center"
-        className={classes.container}>
+      <div className={classes.root}>
+        <div className={classes.backgroundContainer}>
+          <MetricalTreeBackground 
+            showControls={false}
+            animation={{
+              autoRegenerate: true,
+              active: true,
+            }}
+            tree={{
+              maxDepth: 5,
+              pulseEnabled: true,
+              pulseMinOpacity: 0.7,
+              pulseMaxOpacity: 0.9,
+              pulseDuration: 5000,
+            }}
+            particles={{
+              count: 20,
+            }}
+          />
+        </div>
+        <Grid
+          container
+          justifyContent="flex-start"
+          alignContent="center"
+          className={classes.container}>
         <Grid item xs={1} sm={1} md={1} lg={2}></Grid>
         <Grid item xs={10} sm={10} md={6} lg={4}>
           <Card className={classes.card}>
@@ -110,7 +149,8 @@ const Home = () => {
             </Grid>
           </Card>
         </Grid>
-      </Grid>
+        </Grid>
+      </div>
       <SecondaryFooter />
       <PrimaryFooter />
     </>

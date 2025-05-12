@@ -279,7 +279,7 @@ def generate_error(error_type):
                     "error_type": "Unknown",
                     "traceback": "Simulated traceback:\n  File 'app.py', line 123\n  File 'worker.py', line 45\n  ..."
                 },
-                suggestion="Please try again or contact support if the problem persists"
+                suggestion="Please try again or contact anttila@stanford.edu if the problem persists"
             )
         
         # Create a structured response that mimics a real computation
@@ -314,7 +314,7 @@ def generate_error(error_type):
         error_response = {
             "error": "Internal Server Error",
             "message": "An unexpected error occurred while creating test error",
-            "suggestion": "Please try again or contact support if the problem persists"
+            "suggestion": "Please try again or contact anttila@stanford.edu if the problem persists"
         }
         
         return jsonify(error_response), 500

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
-import { Typography, Tooltip } from '@material-ui/core';
+import { Typography } from '@material-ui/core';
+import CrispTooltip from '../../../../../../components/CrispTooltip';
 import { 
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
@@ -69,7 +70,7 @@ const ContourPattern = React.memo(({ data, width = 180, height = 24 }) => {
   }
   
   return (
-    <Tooltip 
+    <CrispTooltip 
       title={
         <div>
           <div>Pattern: {pattern.replace('-', ' ')}</div>
@@ -84,7 +85,7 @@ const ContourPattern = React.memo(({ data, width = 180, height = 24 }) => {
           {pattern.replace('-', ' ')}
         </Typography>
       </div>
-    </Tooltip>
+    </CrispTooltip>
   );
 });
 
@@ -222,7 +223,7 @@ const TableRow = ({
   // Render cell content based on column type and data
   const renderCellContent = (column, value) => {
     // Special handling for frequency columns
-    if (column.id === 'wordFrequency' || column.id === 'prevWordFrequency') {
+    if (column.id === 'word_freq' || column.id === 'prev_word_freq') {
       // Handle null, undefined, empty string
       if (value === null || value === undefined || value === '') return '-';
       if (value === 'nan' || value === 0) return '-';
@@ -231,8 +232,10 @@ const TableRow = ({
       const numValue = parseInt(value, 10);
       if (isNaN(numValue) || numValue === 0) return '-';
       
-      // Get max frequency from the frequencies object
-      const maxFreq = data.frequencies?.maxFrequency || 1;
+      // Get appropriate max frequency from the frequencies object
+      const maxFreq = column.id === 'word_freq' 
+        ? data.frequencies?.maxWordFreq || 1 
+        : data.frequencies?.maxPrevWordFreq || 1;
       
       // Calculate normalized value for background
       const normalizedValue = numValue / maxFreq;
@@ -253,12 +256,12 @@ const TableRow = ({
       };
 
       return (
-        <Tooltip 
+        <CrispTooltip 
           title={
             <div>
               <Typography variant="body2">Frequency: {numValue}</Typography>
               <Typography variant="caption" color="textSecondary">
-                {(normalizedValue * 100).toFixed(1)}% of max ({maxFreq})
+                {(normalizedValue * 100).toFixed(1)}% of max {column.id === 'word_freq' ? `(${data.frequencies?.maxWordFreq})` : `(${data.frequencies?.maxPrevWordFreq})`}
               </Typography>
             </div>
           } 
@@ -268,12 +271,12 @@ const TableRow = ({
             <div style={metricStyle} />
             <span className={classes.metricValue}>{numValue}</span>
           </div>
-        </Tooltip>
+        </CrispTooltip>
       );
     }
 
     // Special handling for previous word
-    if (column.id === 'prevWord') {
+    if (column.id === 'prev_word') {
       // If the value is empty or a placeholder, show a dash
       if (!value || value === '—' || value === '-') {
         return (
@@ -319,7 +322,7 @@ const TableRow = ({
       };
 
       return (
-        <Tooltip 
+        <CrispTooltip 
           title={
             <div>
               <Typography variant="body2">Value: {formattedValue}</Typography>
@@ -339,7 +342,7 @@ const TableRow = ({
             <div style={metricStyle} />
             <span className={classes.metricValue}>{formattedValue}</span>
           </div>
-        </Tooltip>
+        </CrispTooltip>
       );
     }
     
@@ -370,7 +373,7 @@ const TableRow = ({
       };
 
       return (
-        <Tooltip 
+        <CrispTooltip 
           title={
             <div>
               <Typography variant="body2">Value: {displayValue}</Typography>
@@ -390,7 +393,7 @@ const TableRow = ({
             <div style={metricStyle} />
             <span className={classes.metricValue}>{displayValue}</span>
           </div>
-        </Tooltip>
+        </CrispTooltip>
       );
     }
     
@@ -415,11 +418,11 @@ const TableRow = ({
       if (value && value.length > maxLength) {
         const abbreviated = `${value.substring(0, maxLength)}...`;
         return (
-          <Tooltip title={value} placement="top">
+          <CrispTooltip title={value} placement="top">
             <Typography variant="body2" noWrap>
               {abbreviated}
             </Typography>
-          </Tooltip>
+          </CrispTooltip>
         );
       }
     }

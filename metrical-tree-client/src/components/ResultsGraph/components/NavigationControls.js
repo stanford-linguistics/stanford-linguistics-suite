@@ -3,9 +3,9 @@ import {
   Typography, 
   Button, 
   IconButton, 
-  Tooltip,
   makeStyles,
 } from '@material-ui/core';
+import CrispTooltip from '../../CrispTooltip';
 import { 
   ChevronLeft as ChevronLeftIcon, 
   ChevronRight as ChevronRightIcon,
@@ -15,14 +15,13 @@ import {
 import { CHUNK_SIZES } from '../constants/chartConfig';
 
 const useStyles = makeStyles((theme) => ({
-  navContainer: {
-    padding: theme.spacing(1.5),
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: theme.spacing(1),
-    boxShadow: theme.shadows[1],
-    marginBottom: theme.spacing(2),
+  navigationControls: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     [theme.breakpoints.down('xs')]: {
-      padding: theme.spacing(1),
+      flexWrap: 'wrap',
     },
   },
   controlsWrapper: {
@@ -100,6 +99,12 @@ const useStyles = makeStyles((theme) => ({
     minWidth: '40px',
     marginRight: theme.spacing(0.5),
     height: '28px',
+    borderRadius: theme.shape.borderRadius,
+    fontWeight: 500,
+    boxShadow: 'none',
+    '&.MuiButton-containedPrimary': {
+      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+    },
     [theme.breakpoints.down('xs')]: {
       height: '32px', // Larger touch target
       minWidth: '48px',
@@ -164,7 +169,7 @@ const NavigationControls = ({
   const classes = useStyles();
 
   return (
-    <div className={classes.navContainer}>
+    <div className={classes.controlsContainer}>
       <div className={classes.controlsWrapper}>
         {/* Words per page controls */}
         {showChunkSizeControls && (
@@ -189,7 +194,7 @@ const NavigationControls = ({
 
         {/* Navigation controls */}
         <div className={classes.buttonGroup}>
-          <Tooltip title="First page">
+          <CrispTooltip title="First page">
             <span> {/* Wrapper needed for disabled tooltips */}
               <IconButton 
                 size="small" 
@@ -200,8 +205,8 @@ const NavigationControls = ({
                 <FirstPageIcon />
               </IconButton>
             </span>
-          </Tooltip>
-          <Tooltip title="Previous page">
+          </CrispTooltip>
+          <CrispTooltip title="Previous page">
             <span>
               <IconButton 
                 size="small" 
@@ -212,11 +217,11 @@ const NavigationControls = ({
                 <ChevronLeftIcon />
               </IconButton>
             </span>
-          </Tooltip>
+          </CrispTooltip>
           <Typography variant="body2" className={classes.pageInfo}>
             Page {currentPage + 1} of {totalPages}
           </Typography>
-          <Tooltip title="Next page">
+          <CrispTooltip title="Next page">
             <span>
               <IconButton 
                 size="small" 
@@ -227,8 +232,8 @@ const NavigationControls = ({
                 <ChevronRightIcon />
               </IconButton>
             </span>
-          </Tooltip>
-          <Tooltip title="Last page">
+          </CrispTooltip>
+          <CrispTooltip title="Last page">
             <span>
               <IconButton 
                 size="small" 
@@ -239,7 +244,7 @@ const NavigationControls = ({
                 <LastPageIcon />
               </IconButton>
             </span>
-          </Tooltip>
+          </CrispTooltip>
         </div>
         
         {/* Jump to page controls */}

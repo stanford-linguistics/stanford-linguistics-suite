@@ -42,7 +42,6 @@ export const useChartDisplay = (data) => {
       item.mean !== 'nan'
     );
     
-    console.log('[DEBUG] useChartDisplay: Data has mean values:', hasMeanValues);
     return hasMeanValues;
   }, [data]);
   
@@ -71,17 +70,10 @@ export const useChartDisplay = (data) => {
   const handleContourLineToggle = useCallback(() => {
     setShowContourLine(prev => {
       const newValue = !prev;
-      console.log('[useChartDisplay] Toggling contour line to:', newValue);
-      console.log('[DEBUG-CONTOUR] Toggle state BEFORE change:', prev);
-      console.log('[DEBUG-CONTOUR] Toggle state AFTER change:', newValue);
       return newValue;
     });
   }, []);
   
-  // Debug contour line state on each render
-  useEffect(() => {
-    console.log('[useChartDisplay] Current showContourLine state:', showContourLine);
-  }, [showContourLine]);
   
   const colorOptions = useMemo(() => [
     { value: 'default', label: 'Default Colors' },

@@ -99,53 +99,54 @@ export const formatChartData = (
 ) => {
   if (!model) return [];
   
-  console.log('[formatChartData] Processing model:', model);
-  console.log('[formatChartData] currentChunkData:', currentChunkData);
-  
-  // DEBUG: Examine sentences structure in detail
-  console.log('[DEBUG-CONTOUR] Model has sentences:', !!model?.sentences);
-  if (model?.sentences) {
-    console.log('[DEBUG-CONTOUR] Sentences keys:', Object.keys(model.sentences));
-    // Log the first sentence object
-    const firstKey = Object.keys(model.sentences)[0];
-    if (firstKey) {
-      console.log(`[DEBUG-CONTOUR] First sentence (${firstKey}):`, model.sentences[firstKey]);
-      console.log(`[DEBUG-CONTOUR] Has contourValues:`, !!model.sentences[firstKey].contourValues);
-      if (model.sentences[firstKey].contourValues) {
-        console.log('[DEBUG-CONTOUR] contourValues sample:', model.sentences[firstKey].contourValues.substring(0, 30));
-      }
-    }
-  }
-  
+
   // Initialize result array for all cases
   let result = [];
-  
-  // Check if we have stress contour data from the API response
-  console.log('[formatChartData] contourData from API:', !!contourData);
   const hasContourValues = !!contourData;
   
   // For Series data format (multiple lines)
   if (Array.isArray(model.value) && model.value.length > 1) {
-    result = model.value.map(series => {
-      if (!needsChunking) return series;
+    result = model.value.map((series, seriesIndex) => {
+      if (!needsChunking) {
+        return {
+          ...series,
+          data: series.data.map((item, idx) => {
+            
+            return {
+              ...item,
+              // Explicitly preserve empty string values
+              secondary: item.secondary,
+              mean: item.mean,
+              // Add color based on selected scheme and series index
+              color: getItemColor ? getItemColor(item, seriesIndex) : undefined,
+            };
+          })
+        };
+      }
       
       const start = currentPage * chunkSize;
       const end = Math.min((currentPage + 1) * chunkSize, series.data.length);
       
       return {
         ...series,
-        data: series.data.slice(start, end).map(item => ({
-          ...item,
-          // Add color based on selected scheme
-          color: getItemColor ? getItemColor(item) : undefined,
-        }))
+        data: series.data.slice(start, end).map((item, idx) => {
+          
+          return {
+            ...item,
+            // Explicitly preserve empty string values
+            secondary: item.secondary,
+            mean: item.mean,
+            // Add color based on selected scheme and series index
+            color: getItemColor ? getItemColor(item, seriesIndex) : undefined,
+          };
+        })
       };
     });
   }
   // Special case for ResultPage.js where data is mapped to primary/secondary fields
   else if (model?.value && Array.isArray(model.value) && model.value[0]?.data) {
     // Apply pagination to ResultPage format
-    result = model.value.map(series => {
+    result = model.value.map((series, seriesIndex) => {
       let seriesData = series.data;
       
       // Apply chunking if needed
@@ -158,14 +159,19 @@ export const formatChartData = (
       // Format data with the proper chunk
       return {
         ...series,
-        data: seriesData.map(item => ({
-          ...item,
-          // Map ResultPage.js data fields to correct fields if needed
-          word: item.primary || item.word,
-          m1: item.secondary || item.m1,
-          // Add color based on selected scheme
-          color: getItemColor ? getItemColor(item) : undefined,
-        }))
+        data: seriesData.map(item => {
+          return {
+            ...item,
+            // Map ResultPage.js data fields to correct fields if needed
+            word: item.primary || item.word,
+            // Explicitly preserve empty string values
+            m1: item.secondary === "" ? "" : (item.secondary || item.m1),
+            secondary: item.secondary,
+            mean: item.mean,
+            // Add color based on selected scheme and series index
+            color: getItemColor ? getItemColor(item, seriesIndex) : undefined,
+          };
+        })
       };
     });
   }
@@ -175,11 +181,16 @@ export const formatChartData = (
     result = [{
       label: model.label || '',
       elementType: 'bar',
-      data: currentChunkData.map(item => ({
-        ...item,
-        // Add color based on selected scheme
-        color: getItemColor ? getItemColor(item) : undefined,
-      }))
+      data: currentChunkData.map(item => {
+        return {
+          ...item,
+          // Explicitly preserve empty string values
+          secondary: item.secondary,
+          mean: item.mean,
+          // Add color based on selected scheme
+          color: getItemColor ? getItemColor(item) : undefined,
+        };
+      })
     }];
   } 
   // Default case - for single series
@@ -187,40 +198,39 @@ export const formatChartData = (
     result = [{
       label: model.label || '',
       elementType: 'bar',
-      data: currentChunkData.map(item => ({
-        ...item,
-        // Add color based on selected scheme
-        color: getItemColor ? getItemColor(item) : undefined,
-      }))
+      data: currentChunkData.map(item => {
+        return {
+          ...item,
+          // Explicitly preserve empty string values
+          secondary: item.secondary,
+          mean: item.mean,
+          // Add color based on selected scheme
+          color: getItemColor ? getItemColor(item) : undefined,
+        };
+      })
     }];
   }
   
-  console.log('[DEBUG-CONTOUR] Base data result before adding contour:', 
-    result.map(series => ({
-      label: series.label,
-      type: series.elementType,
-      dataPoints: series.data?.length || 0
-    }))
-  );
   
   // Add stress contour data if available
   if (hasContourValues) {
-    console.log('[formatChartData] Processing ContourValues:', contourData);
     try {
-      const contourValuesArray = contourData.split(' ').map(v => {
+      
+      const contourValuesArray = contourData.split(' ').map((v, idx) => {
+        
         // Handle 'nan' values in the contour data
         if (v.toLowerCase() === 'nan') {
           return null;
         }
-        return parseFloat(v.trim());
+        
+        const parsed = parseFloat(v.trim());
+        return parsed;
       });
       
       if (contourValuesArray && contourValuesArray.length) {
-        console.log('[formatChartData] Processed contour values:', contourValuesArray);
         
         // Calculate the starting index for pagination
         const startIdx = needsChunking ? currentPage * chunkSize : 0;
-        console.log('[formatChartData] Contour pagination - startIdx:', startIdx, 'chunkSize:', chunkSize, 'currentPage:', currentPage);
         
         // Create a stress contour series
         const contourSeries = {
@@ -229,11 +239,22 @@ export const formatChartData = (
           data: currentChunkData.map((item, idx) => {
             // Calculate the actual index in the full dataset
             const valueIdx = startIdx + idx;
-            console.log(`[formatChartData] Mapping contour value at idx ${idx} (valueIdx ${valueIdx})`);
             
             // Handle index out of range and null values from nan
+            // Keep null values as null to allow Chart.js to use spanGaps
             const value = valueIdx < contourValuesArray.length ? 
-              (contourValuesArray[valueIdx] !== null ? contourValuesArray[valueIdx] : 0) : 0;
+              contourValuesArray[valueIdx] : null;
+            
+            
+            // For punctuation marks, use null values
+            if (item.secondary === "" || item.mean === "") {
+              return {
+                primary: item.primary || item.word,
+                secondary: null,
+                mean: null,
+                word: item.primary || item.word
+              };
+            }
             
             return {
               primary: item.primary || item.word,
@@ -244,46 +265,15 @@ export const formatChartData = (
           })
         };
         
-        // Debug the created contour series
-        console.log('[DEBUG-CONTOUR] Created contour series with data points:', contourSeries.data.length);
-        console.log('[DEBUG-CONTOUR] Sample contour data point:', contourSeries.data[0]);
-        console.log('[DEBUG-CONTOUR] Contour series object:', {
-          label: contourSeries.label,
-          elementType: contourSeries.elementType,
-          dataLength: contourSeries.data.length
-        });
         
         // Add the contour series to the result
         result.push(contourSeries);
-        console.log('[DEBUG-CONTOUR] Result array after adding contour series:', 
-          result.map(series => ({
-            label: series.label,
-            type: series.elementType,
-            isLine: series.elementType === 'line',
-            dataLength: series.data.length
-          }))
-        );
       }
     } catch (err) {
       console.error('[formatChartData] Error processing contour values:', err);
     }
   }
   
-  console.log('[formatChartData] Final result:', result);
-  console.log('[formatChartData] Final result structure:', 
-    result.map(series => ({
-      label: series.label,
-      type: series.elementType,
-      isLine: series.elementType === 'line',
-      dataPoints: series.data.length
-    }))
-  );
-  
-  // IMPORTANT: Make sure we return a non-empty result array with proper structure
-  // If the result is empty, create a dummy series to help debug
-  if (!result.length) {
-    console.error('[formatChartData] WARNING: Returning empty result array!');
-  }
   
   return result;
 };

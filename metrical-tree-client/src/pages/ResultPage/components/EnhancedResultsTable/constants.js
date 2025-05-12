@@ -34,9 +34,10 @@ export const RAW_DATA_COLUMNS = [
   { id: 'widx', label: 'Word Index', width: 90 },
   { id: 'sidx', label: 'Sent Index', width: 90 },
   { id: 'word', label: 'Word', width: 120 },
-  { id: 'wordFrequency', label: 'Word Frequency', width: 100 },
-  { id: 'prevWord', label: 'Previous Word', width: 120 },
-  { id: 'prevWordFrequency', label: 'Prev Word Freq', width: 110 },
+  { id: 'word_lower', label: 'Word Lowercase', width: 120 },
+  { id: 'word_freq', label: 'Word Freq', width: 100 },
+  { id: 'prev_word', label: 'Prev Word', width: 120 },
+  { id: 'prev_word_freq', label: 'Prev Word Freq', width: 110 },
   { id: 'pos', label: 'POS', width: 80 },
   { id: 'lexstress', label: 'Stress', width: 80 },
   { id: 'seg', label: 'Segmentation', width: 150 },
@@ -59,7 +60,7 @@ export const RAW_DATA_COLUMNS = [
 export const COLUMN_GROUPS = [
   {
     name: 'Basic Info',
-    columns: ['widx', 'sidx', 'word', 'wordFrequency', 'prevWord', 'prevWordFrequency'],
+    columns: ['widx', 'sidx', 'word', 'word_lower', 'word_freq', 'prev_word', 'prev_word_freq'],
   },
   {
     name: 'Linguistic Properties',

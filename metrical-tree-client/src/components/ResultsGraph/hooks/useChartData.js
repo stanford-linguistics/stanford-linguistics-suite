@@ -5,7 +5,8 @@ import {
   formatChartData 
 } from '../utils/dataProcessing';
 import { adaptDataForChartJS } from '../utils/chartJsAdapter';
-import { POS_COLORS, STRESS_COLORS, VERY_LONG_INPUT_THRESHOLD } from '../constants/chartConfig';
+import { isNormalizedModel } from '../utils/modelNameUtils';
+import { POS_COLORS, STRESS_COLORS, SERIES_COLORS, VERY_LONG_INPUT_THRESHOLD } from '../constants/chartConfig';
 
 /**
  * Custom hook for extracting and preparing chart data
@@ -44,8 +45,8 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
     return buildSentenceFromData(extractedData);
   }, [extractedData]);
   
-  // Get color for an item based on the selected color scheme
-  const getItemColor = useCallback((item) => {
+  // Get color for an item based on the selected color scheme and series index
+  const getItemColor = useCallback((item, seriesIndex = 0) => {
     if (!item) return undefined;
     
     if (colorScheme === 'pos') {
@@ -53,36 +54,41 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
     } else if (colorScheme === 'stress') {
       return item.lexstress ? (STRESS_COLORS[item.lexstress] || STRESS_COLORS.default) : STRESS_COLORS.default;
     } else if (colorScheme === 'default') {
-      return undefined; // Use default chart colors
+      // For default scheme, use series-based color differentiation
+      return SERIES_COLORS[seriesIndex % SERIES_COLORS.length];
     }
     return undefined;
   }, [colorScheme]);
   
   // Extract contour data from the full API response
   const contourData = useMemo(() => {
-    // Debug full API response structure for contour data
-    console.log('[DEBUG-CONTOUR] fullApiResponse exists:', !!fullApiResponse);
     if (fullApiResponse) {
-      console.log('[DEBUG-CONTOUR] API response top level keys:', Object.keys(fullApiResponse));
       
       // Check if we have sentences data in the API response
       if (fullApiResponse?.sentences) {
-        console.log('[DEBUG-CONTOUR] Sentences object found with keys:', Object.keys(fullApiResponse.sentences));
         
-        const sentenceKeys = Object.keys(fullApiResponse.sentences);
+        // Get all sentence keys and sort them numerically
+        const sentenceKeys = Object.keys(fullApiResponse.sentences).sort((a, b) => parseInt(a) - parseInt(b));
+        
         if (sentenceKeys.length > 0) {
-          const firstSentKey = sentenceKeys[0];
-          const firstSent = fullApiResponse.sentences[firstSentKey];
-          console.log(`[DEBUG-CONTOUR] First sentence (${firstSentKey}) keys:`, Object.keys(firstSent));
-          console.log(`[DEBUG-CONTOUR] First sentence contourValues exists:`, !!firstSent.contourValues);
+          // Combine contour values from all sentences
+          let combinedContourValues = '';
           
-          if (firstSent.contourValues) {
-            console.log(`[DEBUG-CONTOUR] contourValues sample:`, firstSent.contourValues.substring(0, 30));
-            return firstSent.contourValues;
+          for (const sentKey of sentenceKeys) {
+            const sentence = fullApiResponse.sentences[sentKey];
+            if (sentence?.contourValues) {
+              // Add a space between sentences if this isn't the first one
+              if (combinedContourValues) {
+                combinedContourValues += ' ';
+              }
+              combinedContourValues += sentence.contourValues;
+            }
+          }
+          
+          if (combinedContourValues) {
+            return combinedContourValues;
           }
         }
-      } else {
-        console.log('[DEBUG-CONTOUR] No sentences object found in API response!');
       }
     }
     
@@ -95,15 +101,8 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
       return [];
     }
     
-    // Debug model structure
-    console.log('[useChartData] model structure:', model);
+
     
-    // Check if there's a series specifically for stress contour
-    const hasContourSeries = model?.value?.some(series => 
-      series.label === 'Stress Contour' || series.elementType === 'line'
-    );
-    console.log('[useChartData] Has contour series:', hasContourSeries);
-    console.log('[useChartData] Has contour data:', !!contourData);
     
     // Pass the extracted contour data to formatChartData
     let formattedData = formatChartData(
@@ -121,19 +120,10 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
       series.elementType === 'line' || series.label === 'Stress Contour'
     );
     
-    console.log('[DEBUG-CONTOUR] Formatted data contains contour series:', hasContourInResult);
-    console.log('[DEBUG-CONTOUR] Formatted data series types:', 
-      formattedData.map(series => ({
-        label: series.label,
-        type: series.elementType,
-        dataPoints: series.data?.length || 0
-      }))
-    );
     
     // If we have contour data from API but it didn't make it into the result,
     // explicitly add a contour series to ensure it's visible
     if (contourData && !hasContourInResult && currentChunkData.length > 0) {
-      console.log('[DEBUG-CONTOUR] Explicitly adding missing contour series');
       
       try {
         // Process contour data
@@ -151,8 +141,9 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
           elementType: 'line',
           data: currentChunkData.map((item, idx) => {
             const valueIdx = startIdx + idx;
-            const value = valueIdx < contourValuesArray.length ? 
-              (contourValuesArray[valueIdx] !== null ? contourValuesArray[valueIdx] : 0) : 0;
+            // Keep null values as null instead of converting to 0
+            // This allows Chart.js to use spanGaps to skip these points
+            const value = valueIdx < contourValuesArray.length ? contourValuesArray[valueIdx] : null;
             
             return {
               primary: item.primary || item.word,
@@ -163,27 +154,26 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
           })
         };
         
-        // Add to result
         formattedData.push(contourSeries);
-        console.log('[DEBUG-CONTOUR] Successfully added explicit contour series with data points:', 
-          contourSeries.data.length);
       } catch (err) {
         console.error('[DEBUG-CONTOUR] Error creating explicit contour series:', err);
       }
     }
     
-    console.log('[useChartData] Final formatted data:', formattedData);
     return formattedData;
   }, [model, currentChunkData, currentPage, chunkSize, needsChunking, getItemColor, contourData]);
   
+  // Check if this is a normalized model
+  const isNormalized = useMemo(() => {
+    const normalized = isNormalizedModel(model);
+    return normalized;
+  }, [model]);
+  
   // Transform chart data for Chart.js
   const chartJsData = useMemo(() => {
-    console.log('[useChartData] chartData before adapting:', chartData);
-    console.log('[useChartData] showContourLine state:', showContourLine);
-    const adapted = adaptDataForChartJS(chartData, showContourLine);
-    console.log('[useChartData] Adapted chartJsData:', adapted);
+    const adapted = adaptDataForChartJS(chartData, showContourLine, isNormalized);
     return adapted;
-  }, [chartData, showContourLine]);
+  }, [chartData, showContourLine, isNormalized]);
   
   return {
     extractedData,
@@ -191,7 +181,8 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
     fullSentence,
     chartData,
     chartJsData,
-    getItemColor
+    getItemColor,
+    isNormalized
   };
 };
 

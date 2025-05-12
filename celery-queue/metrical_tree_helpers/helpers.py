@@ -28,13 +28,84 @@ def verify_metrical_tree_results(folder_id):
     Raises:
         SystemException: If results.csv is missing
     """
+    # Primary expected path
     results_path = os.path.join(get_output_path(folder_id), 'results.csv')
-    if not os.path.exists(results_path):
-        raise SystemException(
-            message="Missing results.csv file",
-            error_code=ErrorCode.FILE_NOT_FOUND,
-            suggestion="Check metrical tree CLI output for errors"
-        )
+    results_path = os.path.normpath(results_path)  # Normalize path to handle any path format differences
+    
+    logger.info("Checking for results.csv at path: {}".format(results_path))
+    
+    # Add a small delay to allow for filesystem sync
+    import time
+    time.sleep(0.5)
+    
+    # If the primary path exists, we're good
+    if os.path.exists(results_path):
+        logger.info("Verified results.csv exists at expected path: {}".format(results_path))
+        return
+        
+    # If not, let's try some alternate locations and provide detailed error info
+    logger.warning("Results file not found at primary path: {}".format(results_path))
+    
+    # Alternative path patterns to check
+    possible_paths = [
+        results_path,
+        os.path.normpath(os.path.join('/results', folder_id, 'output', 'results.csv')),
+        os.path.normpath(os.path.join('/results', folder_id, 'results.csv')),
+    ]
+    
+    # Log directory contents for debugging
+    output_dir = os.path.dirname(results_path)
+    if os.path.exists(output_dir):
+        logger.info("Contents of output directory {}:".format(output_dir))
+        try:
+            for item in os.listdir(output_dir):
+                item_path = os.path.join(output_dir, item)
+                if os.path.isfile(item_path):
+                    logger.info("  - File: {} ({} bytes)".format(item, os.path.getsize(item_path)))
+                else:
+                    logger.info("  - Directory: {}".format(item))
+        except Exception as e:
+            logger.error("Error listing directory contents: {}".format(str(e)))
+    else:
+        logger.warning("Output directory does not exist: {}".format(output_dir))
+    
+    found_paths = []
+    for test_path in possible_paths:
+        if os.path.exists(test_path):
+            found_paths.append((test_path, os.path.getsize(test_path)))
+            
+    # Check if we found results.csv in any alternate location
+    if found_paths:
+        # If we found it somewhere else, log the details but don't move it - we should fix
+        # the source of the problem instead of implementing a workaround
+        logger.warning("Results file found at alternate location(s): {}".format(found_paths))
+        
+    # Look for any CSV files as a last resort
+    csv_files = []
+    for root, dirs, files in os.walk(os.path.dirname(output_dir)):
+        for file in files:
+            if file.endswith('.csv'):
+                full_path = os.path.join(root, file)
+                csv_files.append((full_path, os.path.getsize(full_path)))
+                
+    if csv_files:
+        logger.warning("Found other CSV files in output directory: {}".format(csv_files))
+    
+    # Raise the exception with enhanced details
+    raise SystemException(
+        message="Metrical tree script did not generate required results.csv file",
+        error_code=ErrorCode.FILE_NOT_FOUND,
+        details={
+            "expected_path": results_path,
+            "output_directory": output_dir,
+            "alternate_paths_checked": possible_paths,
+            "found_csv_files": csv_files,
+            "directory_exists": os.path.exists(output_dir),
+            "parent_directory_exists": os.path.exists(os.path.dirname(output_dir)),
+            "folder_id": folder_id
+        },
+        suggestion="Check metrical tree script for possible Python import errors or bugs"
+    )
 
 def ensure_directory(path):
     """
@@ -168,14 +239,14 @@ def call_metrical_tree(input_file_path, output_path, unstressed_words, unstresse
         unstressed_words, unstressed_tags, unstressed_deps, ambiguous_words,
         ambiguous_tags, ambiguous_deps, stressed_words)
 
-    metrical_tree_command = 'python metrical-tree/metricaltree.py --input-file {} ' \
+    metrical_tree_command = 'python2 metrical-tree/metricaltree.py --input-file {} ' \
                            '--output {} {}'.format(pipes.quote(input_file_path),
                                                  pipes.quote(output_path), optional_args)
 
     logger.info("Executing metrical tree command", extra={'command': metrical_tree_command})
 
+    # Execute with timeout and capture both stdout and stderr
     try:
-        # Execute with timeout and capture both stdout and stderr
         process = subprocess.Popen(
             metrical_tree_command,
             shell=True,
@@ -188,64 +259,23 @@ def call_metrical_tree(input_file_path, output_path, unstressed_words, unstresse
             stdout, stderr = process.communicate(timeout=300)  # 5 minute timeout
             return_code = process.returncode
             
-            # Log output for debugging
-            logger.debug("Command output", extra={
-                'stdout': stdout,
-                'stderr': stderr,
-                'return_code': return_code
-            })
+            # Log output at INFO level with full output for debugging
+            logger.info("Command output - return code: {}".format(return_code))
             
-            if return_code != 0:
-                error_output = stderr or stdout
+            # Log stdout in manageable chunks to avoid log truncation
+            if stdout:
+                logger.info("STDOUT START ----------------------------")
+                for i in range(0, len(stdout), 1000):
+                    logger.info(stdout[i:i+1000])
+                logger.info("STDOUT END ------------------------------")
+            
+            # Log stderr in manageable chunks to avoid log truncation
+            if stderr:
+                logger.info("STDERR START ----------------------------")
+                for i in range(0, len(stderr), 1000):
+                    logger.info(stderr[i:i+1000])
+                logger.info("STDERR END ------------------------------")
                 
-                # Analyze error output for specific issues
-                if "MemoryError" in error_output:
-                    raise ComputationalException(
-                        message="The system ran out of memory while processing your text",
-                        error_code=ErrorCode.MEMORY_LIMIT_EXCEEDED,
-                        details={"error_output": error_output, "return_code": return_code},
-                        suggestion="Try processing a smaller text sample."
-                    )
-                elif "syllabus_lookup_failure" in error_output or "KeyError" in error_output:
-                    raise LinguisticProcessingException(
-                        message="Failed to process some words in your text",
-                        error_code=ErrorCode.SYLLABUS_LOOKUP_FAILURE,
-                        details={"error_output": error_output, "return_code": return_code},
-                        suggestion="Check your text for unusual words or non-English content."
-                    )
-                elif "UnicodeDecodeError" in error_output:
-                    raise InputValidationException(
-                        message="Text encoding issue detected",
-                        error_code=ErrorCode.ENCODING_ERROR,
-                        details={"error_output": error_output, "return_code": return_code},
-                        suggestion="Make sure your text file uses UTF-8 encoding."
-                    )
-                elif "ValueError" in error_output and "ambiguity" in error_output:
-                    raise LinguisticProcessingException(
-                        message="Ambiguity resolution error",
-                        error_code=ErrorCode.AMBIGUITY_RESOLUTION_FAILURE,
-                        details={"error_output": error_output, "return_code": return_code},
-                        suggestion="Check your ambiguous words, tags, and dependencies configuration."
-                    )
-                elif "Permission denied" in error_output:
-                    raise SystemException(
-                        message="Permission denied while executing metrical tree script",
-                        error_code=ErrorCode.PERMISSION_DENIED,
-                        details={"error_output": error_output},
-                        suggestion="Check file and directory permissions."
-                    )
-                else:
-                    raise CLIProcessingException(
-                        message="Error executing metrical tree script",
-                        error_code=ErrorCode.CLI_EXECUTION_ERROR,
-                        details={
-                            "error_output": error_output,
-                            "return_code": return_code,
-                            "command": metrical_tree_command
-                        },
-                        suggestion="Check the error details and try again."
-                    )
-                    
         except subprocess.TimeoutExpired:
             process.kill()
             raise CLIProcessingException(
@@ -255,6 +285,106 @@ def call_metrical_tree(input_file_path, output_path, unstressed_words, unstresse
                 suggestion="Try processing a smaller text sample."
             )
             
+        # Explicitly check for results.csv even if return code is 0
+        # Use the exact same output path where metricaltree.py writes the file (without dirname)
+        results_file = os.path.join(output_path, 'results.csv')
+        results_file = os.path.normpath(results_file)
+        
+        # Add a small delay to allow for filesystem sync
+        import time
+        time.sleep(0.5)
+        
+        logger.info("Checking for results file at: {}".format(results_file))
+        logger.info("Output path provided to metricaltree.py: {}".format(output_path))
+        
+        # List directory contents for debugging
+        output_dir = os.path.dirname(results_file)
+        if os.path.exists(output_dir):
+            logger.info("Contents of output directory {}:".format(output_dir))
+            try:
+                for item in os.listdir(output_dir):
+                    item_path = os.path.join(output_dir, item)
+                    if os.path.isfile(item_path):
+                        logger.info("  - File: {} ({} bytes)".format(item, os.path.getsize(item_path)))
+                    else:
+                        logger.info("  - Directory: {}".format(item))
+            except Exception as e:
+                logger.error("Error listing directory contents: {}".format(str(e)))
+        
+        if return_code == 0 and not os.path.exists(results_file):
+            logger.error("Command returned success but results.csv not found", extra={
+                'output_dir': os.path.dirname(output_path),
+                'results_file_path': results_file,
+                'full_stdout': stdout,
+                'full_stderr': stderr
+            })
+            raise SystemException(
+                message="Metrical tree script did not generate required results.csv file",
+                error_code=ErrorCode.FILE_NOT_FOUND,
+                details={
+                    "output_path": output_path,
+                    "results_file_path": results_file,
+                    "command": metrical_tree_command,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "directory_exists": os.path.exists(os.path.dirname(results_file))
+                },
+                suggestion="Check metrical tree script for possible Python import errors or bugs"
+            )
+        elif return_code == 0:
+            logger.info("Successfully verified results.csv exists: {} ({} bytes)".format(
+                results_file, os.path.getsize(results_file)))
+        elif return_code != 0:
+            error_output = stderr or stdout
+            
+            # Analyze error output for specific issues
+            if "MemoryError" in error_output:
+                raise ComputationalException(
+                    message="The system ran out of memory while processing your text",
+                    error_code=ErrorCode.MEMORY_LIMIT_EXCEEDED,
+                    details={"error_output": error_output, "return_code": return_code},
+                    suggestion="Try processing a smaller text sample."
+                )
+            elif "syllabus_lookup_failure" in error_output or "KeyError" in error_output:
+                raise LinguisticProcessingException(
+                    message="Failed to process some words in your text",
+                    error_code=ErrorCode.SYLLABUS_LOOKUP_FAILURE,
+                    details={"error_output": error_output, "return_code": return_code},
+                    suggestion="Check your text for unusual words or non-English content."
+                )
+            elif "UnicodeDecodeError" in error_output:
+                raise InputValidationException(
+                    message="Text encoding issue detected",
+                    error_code=ErrorCode.ENCODING_ERROR,
+                    details={"error_output": error_output, "return_code": return_code},
+                    suggestion="Make sure your text file uses UTF-8 encoding."
+                )
+            elif "ValueError" in error_output and "ambiguity" in error_output:
+                raise LinguisticProcessingException(
+                    message="Ambiguity resolution error",
+                    error_code=ErrorCode.AMBIGUITY_RESOLUTION_FAILURE,
+                    details={"error_output": error_output, "return_code": return_code},
+                    suggestion="Check your ambiguous words, tags, and dependencies configuration."
+                )
+            elif "Permission denied" in error_output:
+                raise SystemException(
+                    message="Permission denied while executing metrical tree script",
+                    error_code=ErrorCode.PERMISSION_DENIED,
+                    details={"error_output": error_output},
+                    suggestion="Check file and directory permissions."
+                )
+            else:
+                raise CLIProcessingException(
+                    message="Error executing metrical tree script",
+                    error_code=ErrorCode.CLI_EXECUTION_ERROR,
+                    details={
+                        "error_output": error_output,
+                        "return_code": return_code,
+                        "command": metrical_tree_command
+                    },
+                    suggestion="Check the error details and try again."
+                )
+                
     except OSError as e:
         raise SystemException(
             message="Failed to execute metrical tree script: {}".format(str(e)),

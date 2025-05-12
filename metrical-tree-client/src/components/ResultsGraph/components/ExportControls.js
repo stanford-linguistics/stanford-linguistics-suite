@@ -38,25 +38,34 @@ const useStyles = makeStyles((theme) => ({
   },
   exportContainer: {
     display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1),
+      justifyContent: 'flex-end',
+    },
+  },
+  controlsWrapper: {
+    padding: theme.spacing(1.5),
+    display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing(2, 3),
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: theme.shape.borderRadius,
-    boxShadow: theme.shadows[1],
-    flexWrap: 'wrap',
-    gap: theme.spacing(2),
-    marginBottom: theme.spacing(3),
-    [theme.breakpoints.down('xs')]: {
-      padding: theme.spacing(2),
-      justifyContent: 'center',
-      flexDirection: 'column',
-      alignItems: 'stretch',
-    },
+    width: '100%',
+    boxSizing: 'border-box',
+    overflow: 'visible',
   },
   exportButton: {
     fontSize: '0.8rem',
     textTransform: 'none',
+    fontWeight: 500,
+    padding: theme.spacing(0.5, 1.5),
+    borderRadius: theme.shape.borderRadius,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      transform: 'translateY(-1px)',
+    },
   },
   splitButton: {
     marginLeft: -1,
@@ -113,6 +122,7 @@ const useStyles = makeStyles((theme) => ({
  * @param {function} props.handleExportAllImages - Handler for exporting all pages as images (optional)
  * @param {function} props.handleExportAllPdf - Handler for exporting all pages as PDF (optional)
  * @param {number} props.totalPages - Total number of pages (optional)
+ * @param {string} props.downloadLink - API link for downloading raw results (optional)
  * @returns {JSX.Element} The export controls component
  */
 const ExportControls = ({
@@ -123,7 +133,8 @@ const ExportControls = ({
   handleExportAllImages,
   handleExportAllPdf,
   totalPages = 1,
-  modelName = "m2a (raw)"
+  modelName = "m2a (raw)",
+  downloadLink
 }) => {
   const classes = useStyles();
   const theme = useTheme();
@@ -175,7 +186,13 @@ const ExportControls = ({
   };
   
   const handleCsvExport = () => {
-    handleExportCsv();
+    if (downloadLink) {
+      // If we have a direct download link from the API, use that
+      window.open(downloadLink, '_blank');
+    } else if (handleExportCsv) {
+      // Fallback to local CSV export if no direct link available
+      handleExportCsv();
+    }
     closeMobileMenu();
   };
   
@@ -243,6 +260,20 @@ const ExportControls = ({
         </Button>
       );
     }
+  }
+  
+  if (downloadLink) {
+    desktopButtons.push(
+      <Tooltip key="csv-btn" title="Download raw results">
+        <Button 
+          className={classes.exportButton}
+          onClick={handleCsvExport}
+          startIcon={<TableChartIcon />}
+        >
+          CSV
+        </Button>
+      </Tooltip>
+    );
   }
   
   
@@ -338,13 +369,13 @@ const ExportControls = ({
       {isMobile ? (
         renderMobileMenu()
       ) : (
-        <div className={classes.exportContainer}>
+        <div className={classes.controlsWrapper}>
           <div className={classes.header}>
             <AssessmentIcon />
-            <Typography variant="h6" style={{ marginRight: '2rem' }}>{modelName}</Typography>
+            <Typography variant="h6" style={{ marginLeft: '8px', fontWeight: 500 }}>{modelName}</Typography>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <ButtonGroup size="small" variant="outlined" color="primary">
+          <div className={classes.exportContainer} style={{ paddingRight: theme.spacing(1) }}>
+            <ButtonGroup size="small" variant="contained" color="primary">
             {desktopButtons}
             </ButtonGroup>
           </div>

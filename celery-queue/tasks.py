@@ -6,6 +6,17 @@ import datetime
 import json
 import subprocess
 import pipes
+import time
+
+# Import Celery exceptions at the top level
+# Handle the case where Failure might not exist in the current Celery version
+try:
+    from celery.exceptions import Failure
+except ImportError:
+    # Define a custom Failure class if it doesn't exist in the current Celery version
+    class Failure(Exception):
+        """Custom Failure exception as fallback when not available in Celery."""
+        pass
 
 from shared.results_helper import (
     get_task_results_path,
@@ -15,6 +26,12 @@ from shared.results_helper import (
     zip_all,
     clean_directory,
     copy_graphs as results_helper_copy_graphs,
+)
+from shared.task_state_manager import (
+    mark_task_started,
+    mark_task_successful,
+    mark_task_failed,
+    write_task_state,
 )
 from metrical_tree_helpers.helpers import (
     call_metrical_tree,
@@ -171,16 +188,25 @@ def compute_metrical_tree(self, input_file_path,
                           ambiguous_deps,
                           stressed_words):
     """
-    Celery task to process metrical tree computations.
-
+    Celery task to process metrical tree computations with enhanced state tracking.
+    
     This task handles input validation, calls the metrical tree processing script,
-    performs enhancement, and manages results.
+    performs enhancement, and manages results. Task state is persistently tracked
+    throughout execution to ensure reliable state recovery after worker restarts.
     """
     logger = logging.getLogger(__name__)
     self.update_state(state='RUNNING')
     folder_id = self.request.id
+    
+    # Mark task as started with initial metadata
+    mark_task_started(folder_id, {
+        'input_file': os.path.basename(input_file_path) if input_file_path else None,
+        'started_at': int(time.time())
+    })
+    
     try:
         if input_file_path is None or not input_file_path.strip():
+            mark_task_failed(folder_id, "No input file specified")
             raise InputValidationException(
                 message="No input file specified",
                 error_code=ErrorCode.MISSING_REQUIRED_FIELD,
@@ -192,10 +218,16 @@ def compute_metrical_tree(self, input_file_path,
         ensure_directory(os.path.dirname(output_path))
         ensure_directory(os.path.join(get_task_results_path(folder_id), 'input'))
 
-        # Execute metrical tree computation
+        # Execute metrical tree computation - update state tracking
         logger.info("Processing metrical tree for task {}".format(folder_id), extra={
             'input_file': input_file_path,
             'output_path': output_path
+        })
+        
+        # Mark computation stage
+        write_task_state(folder_id, 'processing', {
+            'stage': 'metrical_tree_computation',
+            'input_file': os.path.basename(input_file_path)
         })
 
         call_metrical_tree(input_file_path,
@@ -208,8 +240,22 @@ def compute_metrical_tree(self, input_file_path,
                            ambiguous_deps,
                            stressed_words)
 
+        # Mark verification stage
+        write_task_state(folder_id, 'verifying', {
+            'stage': 'result_verification'
+        })
         verify_metrical_tree_results(folder_id)
+        
+        # Mark enhancement stage
+        write_task_state(folder_id, 'enhancing', {
+            'stage': 'results_enhancement'
+        })
         enhance_metrical_tree_results(folder_id)
+        
+        # Mark packaging stage
+        write_task_state(folder_id, 'packaging', {
+            'stage': 'results_packaging'
+        })
         zip_results(input_filename, folder_id)
 
         created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
@@ -220,6 +266,14 @@ def compute_metrical_tree(self, input_file_path,
             created_on
         )
         
+        # Create final success markers before cleanup
+        mark_task_successful(folder_id, {
+            'download_url': result.download_url,
+            'expires_in': result.expires_in,
+            'expires_on': result.expires_on,
+            'created_on': created_on,
+            'input_file': os.path.basename(input_file_path)
+        })
 
         clean_results(folder_id)
         
@@ -229,6 +283,13 @@ def compute_metrical_tree(self, input_file_path,
     except TaskException as e:
         self.update_state(state='FAILURE')
         error_info = format_error_for_user(e)
+
+        # Mark task as failed in persistent state file
+        mark_task_failed(folder_id, {
+            'error_code': e.error_code,
+            'message': e.message,
+            'suggestion': e.suggestion if hasattr(e, 'suggestion') else None
+        })
 
         logger.error("Task error in task {}: {}".format(folder_id, e.message), extra={
             'error_info': error_info,
@@ -243,16 +304,25 @@ def compute_metrical_tree(self, input_file_path,
             "errorMessage": e.message,
             "errorDetails": error_info
         }
-        raise TaskException(e.message, e.error_code, e.details, e.suggestion)
+        # Return a serialized JSON string instead of raising an exception
+        # This will ensure the result can be properly parsed by the API
+        return json.dumps(error_result)
     except Exception as e:
         self.update_state(state='FAILURE')
         logger.exception("Unexpected error in task {}".format(folder_id))
+        
+        # Mark task as failed in persistent state file with generic error
+        mark_task_failed(folder_id, {
+            'error_code': ErrorCode.UNEXPECTED_ERROR,
+            'message': "An unexpected error occurred: {}".format(str(e)),
+            'timestamp': int(time.time())
+        })
         
         error_info = format_error_for_user(TaskException(
             message="An unexpected error occurred",
             error_code=ErrorCode.UNEXPECTED_ERROR,
             details={'error': str(e)},
-            suggestion="Please try again or contact support if the problem persists."
+            suggestion="Please try again or contact anttila@stanford.edu if the problem persists."
         ))
         
         error_result = {
@@ -263,8 +333,9 @@ def compute_metrical_tree(self, input_file_path,
             "errorMessage": "An unexpected error occurred",
             "errorDetails": error_info
         }
-        from celery.exceptions import Failure
-        raise Failure(json.dumps(error_result))
+        # Instead of trying to import Failure (which may not exist), 
+        # return the error result directly as JSON string
+        return json.dumps(error_result)
 
 @celery.task(name='tasks.delete_folder')
 def delete_folder(directory_to_delete):

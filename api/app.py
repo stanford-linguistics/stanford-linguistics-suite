@@ -1,8 +1,14 @@
 import os
+import logging
 from flask import Flask, Blueprint
 from flask_cors import CORS
 from routes import *
 from routes.test_errors import register_test_routes
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+logger.info("Starting Stanford Linguistics Suite API")
 
 # Constants
 RESULTS_FOLDER = '/results'

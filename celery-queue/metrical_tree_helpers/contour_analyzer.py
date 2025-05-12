@@ -23,8 +23,14 @@ def analyze_contour_pattern_py(stress_str):
              stress_str = str(stress_str)
 
         try:
+            # First try to parse as JSON
+            logging.debug("Attempting to parse contour data as JSON: %s", 
+                         stress_str[:50] + "..." if len(stress_str) > 50 else stress_str)
             values = json.loads(stress_str)
+            logging.debug("Successfully parsed contour data as JSON")
         except ValueError as json_error:
+            # If JSON parsing fails, try space-separated format
+            logging.debug("JSON parsing failed, trying space-separated format")
             try:
                 values = []
                 for val in stress_str.split():
@@ -34,18 +40,29 @@ def analyze_contour_pattern_py(stress_str):
                         values.append(float(val))
                     except ValueError:
                         # Skip values that can't be converted to float
+                        logging.debug("Skipping non-float value: %s", val)
                         continue
                 
                 if not values:
+                    logging.warning("No valid float values found in space-separated string: %s", 
+                                   stress_str[:50] + "..." if len(stress_str) > 50 else stress_str)
                     raise json_error
                 
-                logging.info("Successfully parsed space-separated numbers: %s", values)
+                logging.debug("Successfully parsed %d values from space-separated format", len(values))
+                
             except Exception as e:
                 logging.warning("Failed to parse as space-separated numbers: %s", e)
+                logging.warning("Original contour data: %s", 
+                               stress_str[:50] + "..." if len(stress_str) > 50 else stress_str)
                 raise json_error
 
-        if not isinstance(values, list):
-            logging.warning("Parsed stress data is not a list: %s", stress_str)
+        # Handle case where a single numeric value was parsed instead of a list
+        if isinstance(values, (int, float)):
+            # Convert single numeric value to a list with one element
+            values = [values]
+            logging.debug("Converted single numeric value to list: %s", values)
+        elif not isinstance(values, list):
+            logging.warning("Parsed stress data is not a list or numeric value: %s", stress_str)
             return default_result
         if not all(isinstance(x, (int, float)) for x in values):
              # Filter out non-numeric values if mixed types are possible, or return default
@@ -237,7 +254,7 @@ def calculate_pattern_transitions(pattern_sequence):
         transitions[transition] += 1
     return dict(transitions)
 
-def generate_analysis_summary(output_path, word_counts, sentence_map=None):
+def generate_analysis_summary(output_path, word_counts, sentence_map=None, lowercase_word_counts=None):
     """
     Generate and write enhanced analysis summary JSON.
     Python 2 compatible implementation.
@@ -253,7 +270,11 @@ def generate_analysis_summary(output_path, word_counts, sentence_map=None):
         }
     }
 
-    analysis_summary['wordFrequencies'] = dict(word_counts)
+    # Use lowercase word counts for frequency analysis if available
+    if lowercase_word_counts:
+        analysis_summary['wordFrequencies'] = dict(lowercase_word_counts)
+    else:
+        analysis_summary['wordFrequencies'] = dict(word_counts)
 
     # Process contour patterns if sentence_map is provided
     if sentence_map:

@@ -36,15 +36,18 @@ import noFilesImage from 'assets/images/noFiles.svg';
 
 const useStyles = makeStyles((theme) => ({
   container: {
-    padding: 16,
+    padding: theme.spacing(3),
     backgroundColor: theme.palette.background.default,
-    height: 'calc(100vh - 316px)',
+    minHeight: 'calc(100vh - 236px)',
+    height: 'auto',
     overflowY: 'auto',
     [theme.breakpoints.down('sm')]: {
-      height: 'calc(100vh - 402px)',
+      minHeight: 'calc(100vh - 322px)',
+      padding: theme.spacing(2),
     },
     [theme.breakpoints.down('xs')]: {
-      height: 'calc(100vh - 421px)',
+      minHeight: 'calc(100vh - 360px)',
+      padding: theme.spacing(1),
     },
   },
   actionIcon: {
@@ -75,21 +78,32 @@ const useStyles = makeStyles((theme) => ({
   emptyStateContainer: {
     textAlign: 'center',
     animation: '$fadeIn 0.5s ease-in',
+    marginTop: theme.spacing(4),
   },
   '@keyframes fadeIn': {
     from: { opacity: 0 },
     to: { opacity: 1 },
   },
-  title: {
-    fontWeight: 'bold',
-    marginBottom: 16,
-    fontSize: '1.25rem',
+  title: { 
+    fontWeight: 700, 
+    fontSize: '1.35rem',
+    color: '#2C3E50',
+    letterSpacing: '-0.01em',
+    marginTop: theme.spacing(0.5),
+    marginBottom: theme.spacing(2),
   },
-  subTitle: { fontSize: '0.825rem', marginBottom: -4 },
+  subTitle: { 
+    fontSize: '0.875rem', 
+    marginBottom: 0,
+    color: '#7f8c8d',
+    letterSpacing: '0.01em',
+  },
   expirationNotice: {
     textAlign: 'center',
-    fontSize: '0.625rem',
-    marginBottom: 4,
+    fontSize: '0.75rem',
+    color: '#7f8c8d',
+    marginBottom: theme.spacing(1),
+    marginTop: theme.spacing(3),
   },
   downloadLink: { color: 'rgba(0, 0, 0, 0.54)' },
   noFilesImage: { width: 250 },
@@ -97,8 +111,14 @@ const useStyles = makeStyles((theme) => ({
     textAlign: 'center',
     fontWeight: 'bold',
     fontSize: '1.5rem',
+    color: '#2C3E50',
+    marginTop: theme.spacing(2),
   },
-  noFilesSubTitle: { textAlign: 'center' },
+  noFilesSubTitle: { 
+    textAlign: 'center',
+    color: '#7f8c8d',
+    marginTop: theme.spacing(1),
+  },
   statusContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -141,6 +161,41 @@ const useStyles = makeStyles((theme) => ({
     padding: 2,
     color: theme.palette.info.main,
     marginLeft: theme.spacing(0.5),
+  },
+  computeButton: {
+    margin: theme.spacing(2, 0),
+    borderRadius: 32,
+    backgroundColor: theme.palette.primary.main,
+    boxShadow: '0 2px 8px rgba(68, 171, 119, 0.25)',
+    padding: theme.spacing(1, 3),
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: theme.palette.primary.dark,
+      boxShadow: '0 4px 12px rgba(68, 171, 119, 0.3)',
+      transform: 'translateY(-1px)',
+    },
+  },
+  headerSection: {
+    marginBottom: theme.spacing(3),
+  },
+  contentCard: {
+    padding: theme.spacing(3),
+    marginBottom: theme.spacing(3),
+    borderRadius: theme.spacing(1),
+    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+    transition: 'all 0.2s ease',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    overflow: 'visible',
+    '&:hover': {
+      boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+    },
+    [theme.breakpoints.down('sm')]: {
+      padding: theme.spacing(2),
+    },
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1.5),
+      marginBottom: theme.spacing(2),
+    },
   },
 }));
 
@@ -193,7 +248,16 @@ const ComputePage = () => {
       });
     }
     function shouldUpdate(result) {
-      const mappedStatus = mapBackendStatus(result.status);
+      // Map status with reliability info if available
+      const mappedStatus = mapBackendStatus(
+        result.status, 
+        {
+          isReliableState: result.isReliableState,
+          stateDetails: result.stateDetails
+        }
+      );
+      
+      // Check for expired results that need refreshing
       if (mappedStatus === 'success') {
         var utcSeconds = result.expiresOn;
         var d = new Date(0); // sets the date to the epoch
@@ -204,6 +268,20 @@ const ComputePage = () => {
           return true;
         }
       }
+      
+      // For pending tasks, check if it's still appropriate to poll
+      if (mappedStatus === 'pending') {
+        // If we have a reliable indication that this is actually succeeded despite
+        // being reported as pending, no need to aggressively poll
+        if (result.isReliableState && 
+            (result.stateDetails?.resolutionMethod === 'results_json_existence' || 
+             result.stateDetails?.artifactsFound?.has_json)) {
+          // Success was reconstructed from artifacts, poll less frequently (return false)
+          return false;
+        }
+      }
+      
+      // Default polling behavior
       return (
         mappedStatus === 'pending' || mappedStatus === 'running'
       );
@@ -235,17 +313,6 @@ const ComputePage = () => {
     setErrorModalOpen(true);
   };
   
-  // Handle retrying a failed computation
-  const handleRetryComputation = (resultId) => {
-    // Find the original computation that failed
-    const originalResult = results.find(r => r.id === resultId);
-    
-    if (originalResult) {
-      // Re-open the compute dialog with the same parameters
-      setIsComputeDialogOpen(true);
-      // We could pre-populate form fields here if needed
-    }
-  };
 
   const columns = [
     {
@@ -320,15 +387,23 @@ const ComputePage = () => {
           const result = results.find(r => r.id === resultId);
           const hasError = result && (result.error || result.errorMessage);
           
-          // Use status mapping utility for all status rendering
-          const mappedStatus = mapBackendStatus(status);
+          // Use status mapping utility with enhanced reliability data
+          const mappedStatus = mapBackendStatus(
+            status,
+            {
+              isReliableState: result?.isReliableState,
+              stateDetails: result?.stateDetails
+            }
+          );
           const statusDisplay = getStatusDisplay(mappedStatus);
-
+          
           if (mappedStatus === 'success') {
             return (
-              <div className={classes.statusContainer}>
-                <CheckCircleIcon className={`${classes.statusIcon} ${classes.successIcon}`} />
-                <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
+              <div>
+                <div className={classes.statusContainer}>
+                  <CheckCircleIcon className={`${classes.statusIcon} ${classes.successIcon}`} />
+                  <Typography className={classes.statusText}>{statusDisplay.label}</Typography>
+                </div>
               </div>
             );
           } else if (mappedStatus === 'running') {
@@ -563,9 +638,16 @@ const ComputePage = () => {
         container
         justifyContent="center"
         className={classes.container}>
-        <Grid item xs={12} sm={12} md={8} lg={8}>
-          <Grid container>
-            <Grid item>
+        <Grid item xs={12}>
+          <Grid 
+            container 
+            spacing={2}
+            direction="row"
+            justifyContent="space-between" 
+            alignItems="flex-start" 
+            className={classes.headerSection}
+          >
+            <Grid item xs={12} sm={8}>
               <Typography className={classes.subTitle}>
                 Metrical Tree
               </Typography>
@@ -582,20 +664,23 @@ const ComputePage = () => {
               />
             </Grid>
           </Grid>
+          
           {results.length > 0 && (
-            <>
-              <Typography className={classes.expirationNotice}>
-                Your results are listed below. They will expire after
-                3 days.
-              </Typography>
-              <MUIDataTable
-                title={'Results'}
-                data={results}
-                columns={columns}
-                options={options}
-              />
-            </>
+            <Grid item xs={12}>
+              <div className={classes.contentCard}>
+                <Typography className={classes.expirationNotice}>
+                  Your results are listed below. They will expire after 3 days.
+                </Typography>
+                <MUIDataTable
+                  title={'Results'}
+                  data={results}
+                  columns={columns}
+                  options={options}
+                />
+              </div>
+            </Grid>
           )}
+          
           {results.length < 1 && (
             <Grid container justifyContent="center" className={classes.emptyStateContainer}>
               <img
@@ -641,7 +726,6 @@ const ComputePage = () => {
         open={errorModalOpen}
         onClose={() => setErrorModalOpen(false)}
         errorResult={selectedErrorResult}
-        onRetry={handleRetryComputation}
       />
     </>
   );

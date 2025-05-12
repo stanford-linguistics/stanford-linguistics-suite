@@ -8,7 +8,6 @@ import {
   Collapse,
   IconButton,
   Grid,
-  Link,
 } from '@material-ui/core';
 import {
   Error as ErrorIcon,
@@ -105,7 +104,7 @@ const ResultErrorDisplay = ({ error, onRetry }) => {
     message: error?.errorMessage || 'An unexpected error occurred',
     category: 'unknown',
     category_description: 'An unexpected error occurred',
-    suggestion: 'Please try again or contact support if the problem persists',
+    suggestion: 'Please try again or contact anttila@stanford.edu if the problem persists',
     details: {},
   };
 
@@ -191,16 +190,6 @@ const ResultErrorDisplay = ({ error, onRetry }) => {
               </>
             )}
             
-            {onRetry && (
-              <Link
-                component="button"
-                className={classes.retryLink}
-                onClick={onRetry}
-                color="primary"
-              >
-                Try again
-              </Link>
-            )}
           </Grid>
         </Grid>
       </Paper>

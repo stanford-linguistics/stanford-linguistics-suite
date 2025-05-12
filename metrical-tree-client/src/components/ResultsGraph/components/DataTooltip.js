@@ -1,27 +1,34 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { 
   Typography, 
   Grid, 
   Paper, 
   Divider, 
   makeStyles,
-  Chip
+  Chip,
 } from '@material-ui/core';
 import {
   TextFields as TextFieldsIcon,
   Brightness7 as StressIcon,
   Code as CodeIcon,
-  BarChart as MetricsIcon
+  BarChart as MetricsIcon,
+  ShowChart as ContourIcon,
+  Info as InfoIcon
 } from '@material-ui/icons';
 
 const useStyles = makeStyles((theme) => ({
   tooltipPaper: {
     padding: theme.spacing(1.5),
-    maxWidth: 280,
-    boxShadow: theme.shadows[5],
-    pointerEvents: 'none',  // Ensure the tooltip doesn't interfere with chart interactions
+    maxWidth: 300,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)', // Sharper, more defined shadow
+    pointerEvents: 'auto',  // Allow interaction with the tooltip
     border: `2px solid ${theme.palette.primary.light}`,
     borderRadius: theme.shape.borderRadius,
+    transform: 'translateZ(0)', // Force GPU acceleration
+    backfaceVisibility: 'hidden', // Prevent blurry text during animations
+    WebkitFontSmoothing: 'antialiased', // Improve text rendering on WebKit browsers
+    MozOsxFontSmoothing: 'grayscale', // Improve text rendering on Firefox/macOS
+    willChange: 'transform', // Hint to browser for optimization
   },
   tooltipTitle: {
     fontWeight: 'bold',
@@ -30,6 +37,8 @@ const useStyles = makeStyles((theme) => ({
     alignItems: 'center',
     color: theme.palette.primary.main,
     fontSize: '1rem',
+    WebkitFontSmoothing: 'antialiased', // Improve text rendering
+    MozOsxFontSmoothing: 'grayscale',
   },
   tooltipTitleIcon: {
     marginRight: theme.spacing(0.5),
@@ -44,6 +53,8 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '0.75rem',
     display: 'flex',
     alignItems: 'center',
+    WebkitFontSmoothing: 'antialiased',
+    MozOsxFontSmoothing: 'grayscale',
   },
   tooltipValue: {
     fontSize: '0.75rem',
@@ -52,13 +63,8 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.action.hover,
     padding: theme.spacing(0.25, 0.5),
     borderRadius: theme.shape.borderRadius,
-  },
-  metricsBadge: {
-    marginRight: 'auto',
-    backgroundColor: theme.palette.primary.light,
-    color: theme.palette.primary.contrastText,
-    fontSize: '0.65rem',
-    height: 16,
+    WebkitFontSmoothing: 'antialiased',
+    MozOsxFontSmoothing: 'grayscale',
   },
   posChip: {
     height: 20,
@@ -73,6 +79,37 @@ const useStyles = makeStyles((theme) => ({
     marginLeft: theme.spacing(0.5),
     backgroundColor: theme.palette.success.light,
     color: theme.palette.success.contrastText,
+  },
+  contourChip: {
+    height: 20,
+    fontSize: '0.65rem',
+    marginLeft: theme.spacing(0.5),
+    backgroundColor: '#FF1493',
+    color: '#FFFFFF',
+  },
+  speValueChip: {
+    height: 20,
+    fontSize: '0.65rem',
+    marginLeft: theme.spacing(0.5),
+    backgroundColor: '#ff9800',  // orange
+    color: '#FFFFFF',
+  },
+  normalizedChip: {
+    height: 20,
+    fontSize: '0.65rem',
+    marginLeft: theme.spacing(0.5),
+    backgroundColor: '#2979FF',
+    color: '#FFFFFF',
+  },
+  tooltipValueHighlighted: {
+    fontSize: '0.75rem',
+    fontFamily: 'monospace',
+    textAlign: 'right',
+    backgroundColor: 'rgba(255, 193, 7, 0.2)',  // amber highlight
+    padding: theme.spacing(0.25, 0.5),
+    borderRadius: theme.shape.borderRadius,
+    fontWeight: 'bold',
+    color: '#d32f2f'  // red text for emphasis
   },
   sectionHeading: {
     fontSize: '0.8rem',
@@ -93,36 +130,46 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
+// Format value for display - handle nulls and NaN values
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === 'nan' || value === 'NaN') {
+    return '—';
+  }
+  if (typeof value === 'number' || !isNaN(parseFloat(value))) {
+    return parseFloat(value).toFixed(2);
+  }
+  return value;
+};
+
 /**
  * Rich data tooltip component for displaying linguistic information
+ * Memoized to prevent unnecessary re-renders
  * 
  * @param {Object} props - Component props
  * @param {Object} props.data - The data point to display
  * @returns {JSX.Element} The tooltip component
  */
-const DataTooltip = ({ data }) => {
+const DataTooltip = memo(({ data }) => {
   const classes = useStyles();
   
   if (!data) return null;
   
+  
   // Extract word or primary value
   const word = data.word || data.primary || '';
   
-  // Format value for display - handle nulls and NaN values
-  const formatValue = (value) => {
-    if (value === null || value === undefined || value === 'nan' || value === 'NaN') {
-      return '—';
-    }
-    if (typeof value === 'number' || !isNaN(parseFloat(value))) {
-      return parseFloat(value).toFixed(2);
-    }
-    return value;
-  };
+  // Determine which sections to show based on available data
+  const showBasicInfo = !!(data.nsyll || data.nstress || data.dep || data.widx);
+  const showPhoneticSegments = !!data.seg;
+  const showStressMetrics = !!(data.m1 || data.m2a || data.m2b || data.mean);
+  const showNormalizedMetrics = !!(data.norm_m1 || data.norm_m2a || data.norm_m2b || data.norm_mean);
+  const showContourValue = !!data.contourValue;
+  const showContext = !!data.sent;
   
   return (
     <Paper className={classes.tooltipPaper}>
-      <Typography variant="subtitle1" className={classes.tooltipTitle}>
-        <TextFieldsIcon className={classes.tooltipTitleIcon} />
+      {/* Title section - always shown */}
+      <Typography variant="subtitle1" className={classes.tooltipTitle} component="div">
         {word}
         {data.pos && <Chip size="small" label={data.pos} className={classes.posChip} />}
         {data.lexstress && (
@@ -139,40 +186,42 @@ const DataTooltip = ({ data }) => {
       <Divider className={classes.tooltipDivider} />
       
       {/* Basic linguistic information */}
-      <Grid container spacing={1}>
-        {data.nsyll && (
-          <Grid item xs={6} className={classes.gridRow}>
-            <Typography variant="caption" className={classes.tooltipLabel}>Syllables:</Typography>
-            <Typography variant="caption" className={classes.tooltipValue}>{data.nsyll}</Typography>
-          </Grid>
-        )}
-        
-        {data.nstress && (
-          <Grid item xs={6} className={classes.gridRow}>
-            <Typography variant="caption" className={classes.tooltipLabel}>Stress Count:</Typography>
-            <Typography variant="caption" className={classes.tooltipValue}>{data.nstress}</Typography>
-          </Grid>
-        )}
-        
-        {data.dep && (
-          <Grid item xs={6} className={classes.gridRow}>
-            <Typography variant="caption" className={classes.tooltipLabel}>Dependency:</Typography>
-            <Typography variant="caption" className={classes.tooltipValue}>{data.dep}</Typography>
-          </Grid>
-        )}
-        
-        {data.widx && (
-          <Grid item xs={6} className={classes.gridRow}>
-            <Typography variant="caption" className={classes.tooltipLabel}>Word Index:</Typography>
-            <Typography variant="caption" className={classes.tooltipValue}>{data.widx}</Typography>
-          </Grid>
-        )}
-      </Grid>
+      {showBasicInfo && (
+        <Grid container spacing={1}>
+          {data.nsyll && (
+            <Grid item xs={6} className={classes.gridRow}>
+              <Typography variant="caption" className={classes.tooltipLabel}>Syllables:</Typography>
+              <Typography variant="caption" className={classes.tooltipValue}>{data.nsyll}</Typography>
+            </Grid>
+          )}
+          
+          {data.nstress && (
+            <Grid item xs={6} className={classes.gridRow}>
+              <Typography variant="caption" className={classes.tooltipLabel}>Stress Count:</Typography>
+              <Typography variant="caption" className={classes.tooltipValue}>{data.nstress}</Typography>
+            </Grid>
+          )}
+          
+          {data.dep && (
+            <Grid item xs={6} className={classes.gridRow}>
+              <Typography variant="caption" className={classes.tooltipLabel}>Dependency:</Typography>
+              <Typography variant="caption" className={classes.tooltipValue}>{data.dep}</Typography>
+            </Grid>
+          )}
+          
+          {data.widx && (
+            <Grid item xs={6} className={classes.gridRow}>
+              <Typography variant="caption" className={classes.tooltipLabel}>Word Index:</Typography>
+              <Typography variant="caption" className={classes.tooltipValue}>{data.widx}</Typography>
+            </Grid>
+          )}
+        </Grid>
+      )}
       
       {/* Phonetic segments */}
-      {data.seg && (
+      {showPhoneticSegments && (
         <>
-          <Typography className={classes.sectionHeading}>
+          <Typography className={classes.sectionHeading} component="div">
             <CodeIcon className={classes.sectionIcon} />
             Phonetic Segments
           </Typography>
@@ -182,39 +231,110 @@ const DataTooltip = ({ data }) => {
         </>
       )}
       
-      {/* Stress metrics section */}
-      {(data.m1 || data.m2a || data.m2b || data.mean) && (
+      {/* Raw SPE Values - only shown for raw models and when stress metrics are available */}
+      {!data.isNormalized && showStressMetrics && (
         <>
-          <Typography className={classes.sectionHeading}>
-            <MetricsIcon className={classes.sectionIcon} />
-            Stress Metrics
+          <Typography className={classes.sectionHeading} component="div">
+            <InfoIcon className={classes.sectionIcon} />
+            Raw SPE Values
+            <Chip size="small" label="1 = Loudest" className={classes.speValueChip} style={{ marginLeft: '8px' }} />
           </Typography>
           <Grid container spacing={1}>
-            {/* m1 metric */}
+            {data.m1 && (
+              <Grid item xs={12} className={classes.gridRow}>
+                <Typography variant="caption" className={classes.tooltipLabel}>SPE m1:</Typography>
+                {data.m1_original ? (
+                  <>
+                    <Typography variant="caption" className={classes.tooltipValueHighlighted}>
+                      Raw: {formatValue(data.m1_original)} | Grid: {formatValue(data.m1_transformed || data.m1)}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" className={classes.tooltipValueHighlighted}>{formatValue(data.m1)}</Typography>
+                )}
+              </Grid>
+            )}
+            
+            {data.m2a && (
+              <Grid item xs={12} className={classes.gridRow}>
+                <Typography variant="caption" className={classes.tooltipLabel}>SPE m2a:</Typography>
+                {data.m2a_original ? (
+                  <>
+                    <Typography variant="caption" className={classes.tooltipValueHighlighted}>
+                      Raw: {formatValue(data.m2a_original)} | Grid: {formatValue(data.m2a_transformed || data.m2a)}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" className={classes.tooltipValueHighlighted}>{formatValue(data.m2a)}</Typography>
+                )}
+              </Grid>
+            )}
+            
+            {data.m2b && (
+              <Grid item xs={12} className={classes.gridRow}>
+                <Typography variant="caption" className={classes.tooltipLabel}>SPE m2b:</Typography>
+                {data.m2b_original ? (
+                  <>
+                    <Typography variant="caption" className={classes.tooltipValueHighlighted}>
+                      Raw: {formatValue(data.m2b_original)} | Grid: {formatValue(data.m2b_transformed || data.m2b)}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" className={classes.tooltipValueHighlighted}>{formatValue(data.m2b)}</Typography>
+                )}
+              </Grid>
+            )}
+            
+            {data.mean && (
+              <Grid item xs={12} className={classes.gridRow}>
+                <Typography variant="caption" className={classes.tooltipLabel}>SPE mean:</Typography>
+                {data.mean_original ? (
+                  <>
+                    <Typography variant="caption" className={classes.tooltipValueHighlighted}>
+                      Raw: {formatValue(data.mean_original)} | Grid: {formatValue(data.mean_transformed || data.mean)}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" className={classes.tooltipValueHighlighted}>{formatValue(data.mean)}</Typography>
+                )}
+              </Grid>
+            )}
+          </Grid>
+        </>
+      )}
+      
+      {/* Stress metrics section - only show for normalized models or contour points */}
+      {showStressMetrics && (data.isNormalized || data.isContourPoint) && (
+        <>
+          <Typography className={classes.sectionHeading} component="div">
+            <MetricsIcon className={classes.sectionIcon} />
+            Stress Metrics
+            {data.isContourPoint && (
+              <Chip size="small" label="Contour" className={classes.contourChip} style={{ marginLeft: 'auto' }} />
+            )}
+          </Typography>
+          <Grid container spacing={1}>
             {data.m1 && (
               <Grid item xs={6} className={classes.gridRow}>
-                <Typography variant="caption" className={classes.tooltipLabel}>m1 (position):</Typography>
+                <Typography variant="caption" className={classes.tooltipLabel}>m1:</Typography>
                 <Typography variant="caption" className={classes.tooltipValue}>{formatValue(data.m1)}</Typography>
               </Grid>
             )}
             
-            {/* m2a metric */}
             {data.m2a && (
               <Grid item xs={6} className={classes.gridRow}>
-                <Typography variant="caption" className={classes.tooltipLabel}>m2a (prosody):</Typography>
+                <Typography variant="caption" className={classes.tooltipLabel}>m2a:</Typography>
                 <Typography variant="caption" className={classes.tooltipValue}>{formatValue(data.m2a)}</Typography>
               </Grid>
             )}
             
-            {/* m2b metric */}
             {data.m2b && (
               <Grid item xs={6} className={classes.gridRow}>
-                <Typography variant="caption" className={classes.tooltipLabel}>m2b (lexical):</Typography>
+                <Typography variant="caption" className={classes.tooltipLabel}>m2b:</Typography>
                 <Typography variant="caption" className={classes.tooltipValue}>{formatValue(data.m2b)}</Typography>
               </Grid>
             )}
             
-            {/* mean metric */}
             {data.mean && (
               <Grid item xs={6} className={classes.gridRow}>
                 <Typography variant="caption" className={classes.tooltipLabel}>mean:</Typography>
@@ -226,11 +346,12 @@ const DataTooltip = ({ data }) => {
       )}
       
       {/* Normalized values */}
-      {(data.norm_m1 || data.norm_m2a || data.norm_m2b || data.norm_mean) && (
+      {showNormalizedMetrics && (
         <>
-          <Typography className={classes.sectionHeading}>
+          <Typography className={classes.sectionHeading} component="div">
             <StressIcon className={classes.sectionIcon} />
             Normalized Metrics
+            <Chip size="small" label="0-1 Scale" className={classes.normalizedChip} style={{ marginLeft: 'auto' }} />
           </Typography>
           <Grid container spacing={1}>
             {data.norm_m1 && (
@@ -264,10 +385,27 @@ const DataTooltip = ({ data }) => {
         </>
       )}
       
-      {/* Context information */}
-      {data.sent && (
+      {/* Contour information - special section for contour data points */}
+      {showContourValue && (
         <>
-          <Typography className={classes.sectionHeading}>
+          <Typography className={classes.sectionHeading} component="div">
+            <ContourIcon className={classes.sectionIcon} />
+            Stress Contour
+            <Chip size="small" label="0-5 Scale" className={classes.contourChip} style={{ marginLeft: 'auto' }} />
+          </Typography>
+          <Grid container spacing={1}>
+            <Grid item xs={12} className={classes.gridRow}>
+              <Typography variant="caption" className={classes.tooltipLabel}>Contour Value:</Typography>
+              <Typography variant="caption" className={classes.tooltipValue}>{formatValue(data.contourValue)}</Typography>
+            </Grid>
+          </Grid>
+        </>
+      )}
+      
+      {/* Context information - only show if available and not too long */}
+      {showContext && data.sent.length < 200 && (
+        <>
+          <Typography className={classes.sectionHeading} component="div">
             <TextFieldsIcon className={classes.sectionIcon} />
             Context
           </Typography>
@@ -278,6 +416,6 @@ const DataTooltip = ({ data }) => {
       )}
     </Paper>
   );
-};
+});
 
 export default DataTooltip;

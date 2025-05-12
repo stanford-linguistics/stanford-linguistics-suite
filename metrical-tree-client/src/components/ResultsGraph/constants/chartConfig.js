@@ -1,6 +1,34 @@
 // Default words per chunk/page
 export const DEFAULT_CHUNK_SIZE = 8;
 
+// Colors for different series/models
+export const SERIES_COLORS = [
+  '#4285F4', // Blue
+  '#EA4335', // Red
+  '#FBBC05', // Yellow
+  '#34A853', // Green
+  '#8E24AA', // Purple
+  '#F06292', // Pink
+  '#FF9800', // Orange
+  '#00ACC1', // Teal
+  '#7CB342', // Light Green
+  '#5E35B1', // Deep Purple
+  '#FF5722', // Deep Orange
+  '#00897B', // Teal
+  '#C0CA33', // Lime
+  '#FFA000', // Amber
+  '#455A64'  // Blue Gray
+];
+
+// Enhanced colors for normalized models
+export const NORMALIZED_MODEL_COLORS = {
+  bar: '#2979FF', // Brighter blue for bars
+  barBorder: '#1565C0', // Darker blue for bar borders
+  contourLine: '#FF1493', // Vibrant pink for contour line
+  contourPoint: '#FF1493', // Matching pink for points
+  contourPointBorder: '#FFFFFF' // White border for points
+};
+
 // Color schemes for part of speech (POS) tags
 export const POS_COLORS = {
   // Nouns - blue family

@@ -8,11 +8,39 @@ export const STATUS = {
   RETRY: 'retry',
   REVOKED: 'revoked',
   EXPIRED: 'expired',
+  RECONSTRUCTED: 'reconstructed', // New status for tasks with reconstructed states
 };
 
-export function mapBackendStatus(status) {
+/**
+ * Maps backend status to a canonical frontend status, with enhanced reliability detection
+ * 
+ * @param {string} status - The status string from the backend
+ * @param {Object} stateInfo - Optional additional state information object
+ * @param {boolean} stateInfo.isReliableState - Whether the backend considers this a reliable state determination
+ * @param {Object} stateInfo.stateDetails - Additional details about state resolution
+ * @returns {string} Canonical status string
+ */
+export function mapBackendStatus(status, stateInfo = {}) {
   if (!status) return STATUS.PENDING;
+  
   const normalized = status.toLowerCase();
+  
+  // Enhanced logic for pending states - detect if backend thinks it's actually successful
+  // despite Celery reporting PENDING
+  if (normalized === 'pending' && stateInfo.isReliableState) {
+    // If this is a reliable state determination and we have artifact evidence,
+    // trust the backend's analysis over the raw status
+    const hasSuccessArtifacts = stateInfo.stateDetails?.artifactsFound?.has_json || 
+                               stateInfo.stateDetails?.artifactsFound?.has_results_csv;
+    
+    // If backend has determined this is actually successful, override the pending status
+    if (hasSuccessArtifacts || stateInfo.stateDetails?.resolutionMethod === 'results_json_existence') {
+      console.log('Overriding PENDING status with SUCCESS based on reliability indicators');
+      return STATUS.SUCCESS;
+    }
+  }
+  
+  // Fall back to normal mapping if the enhanced rules don't apply
   switch (normalized) {
     case 'pending':
       return STATUS.PENDING;

@@ -14,14 +14,13 @@ import {
 import { CONTEXT_WINDOW_SIZE } from '../constants/chartConfig';
 
 const useStyles = makeStyles((theme) => ({
-  previewContainer: {
-    marginTop: theme.spacing(2),
+  textPreviewContainer: {
+    width: '100%',
+    position: 'relative',
     marginBottom: theme.spacing(2),
-    padding: theme.spacing(2),
-    backgroundColor: theme.palette.background.paper,
-    border: `1px solid ${theme.palette.primary.light}`,
-    borderRadius: theme.shape.borderRadius,
-    boxShadow: theme.shadows[1],
+    [theme.breakpoints.down('xs')]: {
+      marginBottom: theme.spacing(1),
+    },
   },
   previewHeader: {
     display: 'flex',
@@ -29,22 +28,44 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(1),
     color: theme.palette.text.primary,
     cursor: 'pointer',
+    fontWeight: 500,
   },
   previewHeaderIcon: {
     marginRight: theme.spacing(1),
     color: theme.palette.primary.main,
   },
+  exportControls: {
+    marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    '& > *': {
+      marginLeft: theme.spacing(1),
+    },
+  },
   previewContent: {
     position: 'relative',
     padding: theme.spacing(1.5),
     backgroundColor: theme.palette.grey[50],
+    backgroundImage: 'linear-gradient(to bottom, rgba(255,255,255,0.8) 0%, rgba(245,245,245,0.3) 100%)',
     border: `1px solid ${theme.palette.divider}`,
-    borderRadius: theme.spacing(0.5),
+    borderRadius: theme.spacing(0.75),
     fontSize: '0.9rem',
     lineHeight: '1.5',
     maxHeight: '80px',
     overflowY: 'auto',
     transition: 'max-height 0.3s ease-in-out, opacity 0.2s ease',
+    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.03)',
+    [theme.breakpoints.down('sm')]: {
+      padding: theme.spacing(1.25),
+      fontSize: '0.85rem',
+      lineHeight: '1.4',
+    },
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(1),
+      fontSize: '0.8rem',
+      lineHeight: '1.3',
+      maxHeight: '70px',
+    },
     '&::before': {
       content: '""',
       position: 'absolute',
@@ -102,6 +123,8 @@ const useStyles = makeStyles((theme) => ({
  * @param {number} props.currentPage - Current page index
  * @param {number} props.chunkSize - Size of each chunk
  * @param {number} props.totalWords - Total number of words
+ * @param {Array} props.fullContourData - Full contour data for the heatmap
+ * @param {Function} props.onNavigate - Callback when user navigates via heatmap
  * @returns {JSX.Element} The sentence preview component
  */
 const SentencePreview = ({ 
@@ -110,7 +133,9 @@ const SentencePreview = ({
   isVeryLongInput,
   currentPage,
   chunkSize,
-  totalWords
+  totalWords,
+  fullContourData,
+  onNavigate
 }) => {
   const classes = useStyles();
   

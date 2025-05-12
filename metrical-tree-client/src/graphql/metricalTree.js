@@ -75,6 +75,16 @@ export const GET_RESULT_FOR_SINGLE_COMPUTE = gql`
       expiresIn
       expiresOn
       createdOn
+      isReliableState
+      stateReliability
+      stateDetails {
+        resolutionMethod
+        artifactsFound
+        message
+        reconstruction
+      }
+      isLargeDataset
+      dataSize
     }
   }
 `;

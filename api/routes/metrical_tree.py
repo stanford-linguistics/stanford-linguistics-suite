@@ -1,3 +1,4 @@
+import logging
 from flask import url_for, make_response, json, jsonify, request, current_app as app, abort
 from . import routes
 from worker import celery
@@ -6,6 +7,11 @@ from flask_expects_json import expects_json
 import os
 import traceback
 import http.client as http_client
+from text_validation import validate_text_file
+
+# Configure route-specific logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 schema = {
@@ -227,6 +233,31 @@ def compute_metrical_tree(folder_id):
                 "suggestion": "Please upload a smaller file or use less text"
             }
             return jsonify(error_response), 413
+            
+        # Validate and normalize text content
+        # This helps prevent encoding issues in the Python 2 worker
+        logger.info(f"Starting text validation for file: {input_file_path}")
+        logger.info(f"File exists: {os.path.exists(input_file_path)}, Size: {os.path.getsize(input_file_path)} bytes")
+        
+        success, text_warnings, text_error = validate_text_file(input_file_path)
+        
+        logger.info(f"TEXT VALIDATION RESULT: success={success}")
+        logger.info(f"TEXT VALIDATION WARNINGS: {text_warnings}")
+        logger.info(f"TEXT VALIDATION ERROR: {text_error}")
+        
+        # Add any text validation warnings to the response
+        if text_warnings:
+            validation_warnings.extend(text_warnings)
+            
+        # If text validation failed, return an error
+        if not success:
+            return jsonify({
+                "error": "Text Validation Error",
+                "validation_error": text_error,
+                "message": text_error["message"],
+                "suggestion": text_error["suggestion"],
+                "code": text_error.get("code", "text_validation_error")
+            }), 400
         
         # Dispatch task using filtered parameters
         task = celery.send_task('tasks.compute_metrical_tree', args=[
@@ -254,7 +285,11 @@ def compute_metrical_tree(folder_id):
             "status": task.state,
             "link": link,
             "errorMessage": None,
-            "params": params
+            "params": params,
+            "text_validation": {
+                "performed": True,
+                "success": success
+            }
         }
         
         if validation_warnings:
@@ -263,15 +298,31 @@ def compute_metrical_tree(folder_id):
         return make_response(jsonify(response_data), 201)
             
     except Exception as e:
-        # Log unexpected errors
-        app.logger.error(f"Error in compute_metrical_tree: {str(e)}")
-        app.logger.error(traceback.format_exc())
+        # Log unexpected errors with detailed context
+        logger.error(f"Error in compute_metrical_tree: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error occurred for folder_id: {folder_id}")
+        
+        # Log full traceback
+        logger.error("Full traceback:")
+        logger.error(traceback.format_exc())
+        
+        # Additional context for debugging
+        try:
+            if 'input_file_path' in locals():
+                logger.error(f"Input file path: {input_file_path}")
+                logger.error(f"Input file exists: {os.path.exists(input_file_path)}")
+                if os.path.exists(input_file_path):
+                    logger.error(f"Input file size: {os.path.getsize(input_file_path)} bytes")
+        except Exception as context_error:
+            logger.error(f"Error while logging context: {str(context_error)}")
         
         # Return error response
         error_response = {
             "error": "Internal Server Error",
             "message": "An unexpected error occurred while processing your request",
-            "suggestion": "Please try again or contact support if the problem persists"
+            "suggestion": "Please try again or contact anttila@stanford.edu if the problem persists",
+            "error_type": type(e).__name__
         }
         
         return jsonify(error_response), 500

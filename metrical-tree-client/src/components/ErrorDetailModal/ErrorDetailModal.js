@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { makeStyles } from '@material-ui/core/styles';
+import { makeStyles, useTheme } from '@material-ui/core/styles';
 import {
   Dialog,
   DialogTitle,
@@ -18,16 +18,16 @@ import {
   Warning as WarningIcon,
   Info as InfoIcon,
   ExpandMore as ExpandMoreIcon,
-  Replay as RetryIcon,
   ArrowForward as ViewDetailsIcon,
 } from '@material-ui/icons';
 import { useHistory } from 'react-router-dom';
 
 const useStyles = makeStyles((theme) => ({
   dialogTitle: {
-    backgroundColor: theme.palette.error.light,
-    color: theme.palette.error.dark,
+    backgroundColor: theme.palette.background.default,
+    color: '#2C3E50',
     padding: theme.spacing(2),
+    borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
     '& .MuiTypography-root': {
       display: 'flex',
       alignItems: 'center',
@@ -36,17 +36,19 @@ const useStyles = makeStyles((theme) => ({
   },
   titleIcon: {
     marginRight: theme.spacing(1.5),
-    backgroundColor: theme.palette.error.main,
-    color: 'white',
+    backgroundColor: 'rgba(68, 171, 119, 0.1)',
+    color: theme.palette.primary.main,
     padding: theme.spacing(0.5),
     borderRadius: '50%',
   },
   dialogContent: {
     padding: theme.spacing(3, 3, 1, 3),
+    backgroundColor: theme.palette.background.paper,
   },
   message: {
     fontWeight: 500,
     marginBottom: theme.spacing(2),
+    color: '#2C3E50',
   },
   suggestion: {
     fontStyle: 'italic',
@@ -62,8 +64,8 @@ const useStyles = makeStyles((theme) => ({
     fontSize: '0.75rem',
     fontWeight: 'bold',
     textTransform: 'uppercase',
-    backgroundColor: theme.palette.error.light,
-    color: theme.palette.error.dark,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    color: '#E74C3C',
   },
   categoryIcon: {
     fontSize: '1rem',
@@ -116,13 +118,6 @@ const useStyles = makeStyles((theme) => ({
       backgroundColor: theme.palette.primary.dark,
     },
   },
-  retryButton: {
-    backgroundColor: theme.palette.warning.main,
-    color: theme.palette.warning.contrastText,
-    '&:hover': {
-      backgroundColor: theme.palette.warning.dark,
-    },
-  },
 }));
 
 /**
@@ -130,6 +125,7 @@ const useStyles = makeStyles((theme) => ({
  */
 const ErrorDetailModal = ({ open, onClose, errorResult, onRetry }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const history = useHistory();
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
@@ -303,21 +299,7 @@ const ErrorDetailModal = ({ open, onClose, errorResult, onRetry }) => {
         )}
       </DialogContent>
 
-      <DialogActions>
-        {onRetry && (
-          <Button
-            onClick={() => {
-              onRetry(errorResult.id);
-              onClose();
-            }}
-            className={`${classes.actionButton} ${classes.retryButton}`}
-            variant="contained"
-            startIcon={<RetryIcon />}
-          >
-            Try Again
-          </Button>
-        )}
-        
+      <DialogActions style={{ padding: '16px', backgroundColor: theme.palette.background.paper }}>
         <Button
           onClick={handleViewDetails}
           className={`${classes.actionButton} ${classes.viewDetailsButton}`}

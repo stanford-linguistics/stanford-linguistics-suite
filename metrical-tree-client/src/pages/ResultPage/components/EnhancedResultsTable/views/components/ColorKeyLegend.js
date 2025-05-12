@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
-import { Typography, Box, Grid, Paper, Tooltip } from '@material-ui/core';
+import { Typography, Box, Grid, Paper } from '@material-ui/core';
+import CrispTooltip from '../../../../../../components/CrispTooltip';
 import { POS_DESCRIPTIONS, STRESS_DESCRIPTIONS } from '../../constants';
 
 const useStyles = makeStyles((theme) => ({
@@ -111,7 +112,7 @@ const ColorKeyLegend = ({ title, colorMap, showMetrics = false }) => {
       </Typography>
       <div className={classes.gridContainer}>
         {sortedKeys.map((key) => (
-          <Tooltip key={key} title={getDescription(key)} placement="top" arrow>
+          <CrispTooltip key={key} title={getDescription(key)} placement="top">
             <Paper variant="outlined" elevation={0} className={classes.legendItem}>
               <Box
                 component="span"
@@ -122,11 +123,11 @@ const ColorKeyLegend = ({ title, colorMap, showMetrics = false }) => {
                 {key}
               </Typography>
             </Paper>
-          </Tooltip>
+          </CrispTooltip>
         ))}
         {/* Optionally add default color if needed */}
         {colorMap.default && (
-          <Tooltip title="Other/Unknown" placement="top" arrow>
+          <CrispTooltip title="Other/Unknown" placement="top">
             <Paper variant="outlined" elevation={0} className={classes.legendItem}>
               <Box
                 component="span"
@@ -137,7 +138,7 @@ const ColorKeyLegend = ({ title, colorMap, showMetrics = false }) => {
                 Other
               </Typography>
             </Paper>
-          </Tooltip>
+          </CrispTooltip>
         )}
       </div>
     </Box>

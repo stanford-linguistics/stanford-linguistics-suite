@@ -5,6 +5,7 @@ import traceback
 import io
 import json
 import csv
+import time
 
 from shared.results_helper import get_output_path, create_directory
 from shared.error_handling import SystemException, ErrorCode
@@ -26,10 +27,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def copy_enhanced_results_to_json(results_directory, folder_id):
     """
     Combine data from results.csv, sentences.csv, and analysis_summary.json
-    into a structured JSON file (results.json) for frontend consumption.
-    Places word-level data in the "data" property at the root level for
-    frontend compatibility, with sentences and analysis at the same level.
-
+    into structured JSON files for frontend consumption.
+    For large datasets, creates separate metadata and summary files.
     
     Args:
         results_directory: Source directory containing result files
@@ -45,28 +44,44 @@ def copy_enhanced_results_to_json(results_directory, folder_id):
     sentences_csv_path = os.path.join(results_directory, 'sentences.csv')
     analysis_json_path = os.path.join(results_directory, 'analysis_summary.json')
     
-    # Define output path
+    # Define output paths
     public_folder = os.path.join(PUBLIC_FOLDER, folder_id)
     create_directory(public_folder)
     enhanced_json_path = os.path.join(public_folder, 'results.json')
+    metadata_json_path = os.path.join(public_folder, 'metadata.json')
+    summary_json_path = os.path.join(public_folder, 'results_summary.json')
     
     logging.info("Combining enhanced results to JSON in: %s", public_folder)
     
+    # Initialize data structures
     combined_data = {
         "data": [],
         "sentences": {},
         "analysis": {}
     }
     
+    # Track dataset size
+    data_size = 0
+    is_large_dataset = False
+    LARGE_DATASET_THRESHOLD = 5000  # Define threshold for large datasets
+    
     try:
         # 1. Read and process results.csv (word-level data into "data" property)
         if os.path.exists(results_csv_path):
             with io.open(results_csv_path, 'r', encoding='utf-8') as csvf:
                 csv_reader = csv.DictReader(csvf)
-                for row in csv_reader:
+                # First pass: count rows to determine if it's a large dataset
+                rows = list(csv_reader)
+                data_size = len(rows)
+                is_large_dataset = data_size > LARGE_DATASET_THRESHOLD
+                
+                logging.info("Dataset size: %d rows (large dataset: %s)", data_size, "Yes" if is_large_dataset else "No")
+                
+                # Process all rows
+                for row in rows:
                     # Convert numeric fields to appropriate types
                     for key in row:
-                        if key in ['wordFrequency', 'prevWordFrequency']:
+                        if key in ['word_freq', 'prev_word_freq']:
                             try:
                                 row[key] = int(row[key])
                             except (ValueError, TypeError):
@@ -103,11 +118,51 @@ def copy_enhanced_results_to_json(results_directory, folder_id):
         else:
             logging.warning("Analysis JSON not found: %s", analysis_json_path)
         
-        # 4. Write the combined JSON
+        # 4. Create metadata file with dataset size information
+        metadata = {
+            "dataSize": data_size,
+            "isLargeDataset": is_large_dataset,
+            "threshold": LARGE_DATASET_THRESHOLD,
+            "createdAt": int(time.time())
+        }
+        
+        with io.open(metadata_json_path, 'w', encoding='utf-8') as jsonf:
+            json_str = json.dumps(metadata, indent=4, ensure_ascii=False)
+            if isinstance(json_str, str):  # In Python 2, str is bytes
+                json_str = json_str.decode('utf-8')
+            jsonf.write(json_str)
+        
+        # 5. For large datasets, create a summary file without the full data array
+        if is_large_dataset:
+            summary_data = {
+                "analysis": {},
+                "dataSize": data_size,
+                "isLargeDataset": True
+            }
+            
+            with io.open(summary_json_path, 'w', encoding='utf-8') as jsonf:
+                json_str = json.dumps(summary_data, indent=4, ensure_ascii=False)
+                if isinstance(json_str, str):  # In Python 2, str is bytes
+                    json_str = json_str.decode('utf-8')
+                jsonf.write(json_str)
+            
+            logging.info("Created summary JSON for large dataset (%d rows) at: %s", 
+                        data_size, summary_json_path)
+        
+        # 6. Always write the full results.json for download purposes
         with io.open(enhanced_json_path, 'w', encoding='utf-8') as jsonf:
             # Convert to JSON string with proper encoding for Python 2
+            # ensure_ascii=False ensures that Unicode characters are preserved
             json_str = json.dumps(combined_data, indent=4, ensure_ascii=False)
-            jsonf.write(unicode(json_str))  # noqa: F821
+            
+            # In Python 2, we need to handle the string type correctly
+            # If json_str is already unicode, use it directly
+            # If it's a str (bytes), decode it to unicode first
+            if isinstance(json_str, str):  # In Python 2, str is bytes
+                json_str = json_str.decode('utf-8')
+            
+            # Now write the unicode string directly
+            jsonf.write(json_str)
         
         logging.info("Successfully created enhanced results JSON at: %s", enhanced_json_path)
         
@@ -119,23 +174,33 @@ def copy_enhanced_results_to_json(results_directory, folder_id):
             suggestion="Check file permissions and ensure files exist"
         )
     except (csv.Error, ValueError) as e:
+        # Handle Unicode in error message by ensuring it's properly encoded
+        error_str = str(e)
+        # Safely encode error message for Python 2 if it contains Unicode
+        try:
+            # If it's a unicode object, we need to encode it safely
+            if isinstance(error_str, unicode):  # noqa: F821
+                error_str = error_str.encode('utf-8', 'replace')
+        except NameError:  # In case of Python 3 where unicode type doesn't exist
+            pass
+            
         raise SystemException(
-            message="Failed to parse CSV data: {}".format(str(e)),
-            error_code=ErrorCode.DATA_PROCESSING_ERROR,
-            details={'error': str(e)},
+            message="Failed to parse CSV data: {}".format(error_str),
+            error_code=ErrorCode.CLI_OUTPUT_PARSING_ERROR,
+            details={'error': error_str},
             suggestion="Check if CSV files are properly formatted"
         )
     except (TypeError, ValueError) as e:
         raise SystemException(
             message="Failed to process data: {}".format(str(e)),
-            error_code=ErrorCode.DATA_PROCESSING_ERROR,
+            error_code=ErrorCode.COMPUTATION_FAILED,
             details={'error': str(e)},
             suggestion="Check data types and formats in result files"
         )
     except Exception as e:
         raise SystemException(
             message="Unexpected error creating enhanced results JSON: {}".format(str(e)),
-            error_code=ErrorCode.UNKNOWN_ERROR,
+            error_code=ErrorCode.UNEXPECTED_ERROR,
             details={'error': str(e)},
             suggestion="Check logs for detailed error information"
         )
@@ -160,17 +225,17 @@ def enhance_metrical_tree_results(folder_id):
         rename_and_backup_original(original_csv_path, raw_csv_path)
         
         # Step 2: Build indexes from raw data
-        word_counts, sentence_map, header, column_indices = build_data_indexes(raw_csv_path)
+        word_counts, lowercase_word_counts, sentence_map, header, column_indices = build_data_indexes(raw_csv_path)
         
         # Step 3: Process and write enhanced results.csv
         process_and_write_results(raw_csv_path, original_csv_path, 
-                                word_counts, sentence_map, header, column_indices)
+                                word_counts, lowercase_word_counts, sentence_map, header, column_indices)
         
         # Step 4: Create sentences.csv and store contour analysis in sentence_map
         create_sentences_csv(sentences_csv_path, sentence_map)
         
-        # Step 5: Generate enhanced analysis summary using sentence_map data
-        generate_analysis_summary(analysis_json_path, word_counts, sentence_map)
+        # Step 5: Generate enhanced analysis summary using sentence_map data and lowercase word counts
+        generate_analysis_summary(analysis_json_path, word_counts, sentence_map, lowercase_word_counts)
         
         # Step 6: Delete raw_results.csv
         cleanup_temp_files(raw_csv_path)
