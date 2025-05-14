@@ -98,14 +98,24 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     
     // Check if this is a raw model (not normalized) that needs transformation
     const isRawModel = !isNormalized && !isLine && 
-                       (series.label?.toLowerCase().includes('raw') || 
-                        series.label?.toLowerCase().includes('m2a') ||
-                        series.label?.toLowerCase().includes('series raw'));
+                      (series.label?.toLowerCase().includes('raw') || 
+                       // Check for raw model API keys directly
+                       series.label === 'm1' || 
+                       series.label === 'm2a' || 
+                       series.label === 'm2b' || 
+                       series.label === 'mean');
     
-    ;
+    console.log(`DEBUG - Series: ${series.label}, isNormalized: ${isNormalized}, isLine: ${isLine}, isRawModel: ${isRawModel}`);
     
     // Only apply transformation for raw models and bar charts
-    const displayValues = isRawModel ? speToGrid(values) : values;
+    let displayValues;
+    if (isRawModel) {
+      console.log(`DEBUG - Applying speToGrid to ${series.label}, sample values:`, values.slice(0, 3));
+      displayValues = speToGrid(values);
+      console.log(`DEBUG - After speToGrid transformation:`, displayValues.slice(0, 3));
+    } else {
+      displayValues = values;
+    }
     
     // For raw models, store both original and transformed values
     if (isRawModel) {
