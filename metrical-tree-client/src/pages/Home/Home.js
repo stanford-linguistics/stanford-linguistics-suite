@@ -120,7 +120,7 @@ const Home = () => {
               Metrical Tree
             </Typography>
             <Typography className={classes.title}>
-              Analyze Sentence Structure
+              Analyze Sentence Prosody
             </Typography>
             <Typography>
               Metrical Tree generates a normal stress contour for
