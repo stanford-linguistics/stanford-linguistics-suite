@@ -2,15 +2,13 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight';
 import { makeStyles } from '@material-ui/core/styles';
-import { Grid, Typography, Card, Link } from '@material-ui/core';
+import { Grid, Typography, Card, Link, Button } from '@material-ui/core';
 
 import IdentityBar from 'components/IdentityBar';
 import PrimaryFooter from 'components/PrimaryFooter';
 import SecondaryFooter from 'components/SecondaryFooter';
 import Appbar from 'components/Appbar';
-import MetricalTreeBackground from 'components/MetricalTreeBackground';
-import StyledButtonPrimary from 'components/shared/ButtonPrimary/ButtonPrimary';
-
+import MetricalTreeBackground from 'components/MetricalTreeBackground/MetricalTreeBackgroundAdapter';
 const useStyles = makeStyles((theme) => ({
   root: {
     position: 'relative',
@@ -47,6 +45,7 @@ const useStyles = makeStyles((theme) => ({
     padding: 32,
     borderRadius: 0,
     margin: theme.spacing(4, 2),
+    backgroundColor: '#f2f2f2',
     [theme.breakpoints.down('xs')]: {
       padding: 16,
     },
@@ -67,16 +66,31 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   link: {
-    color: theme.palette.primary.main,
+    color: '#6a3f3f',
     '&:hover': {
       cursor: 'pointer',
-      color: theme.palette.primary.dark,
+      color: '#553333', // Darker shade of #6a3f3f for hover
     },
   },
   linkLabel: {
     display: 'inline',
     fontWeight: 'bold',
     fontSize: '0.875rem',
+  },
+  homeButton: {
+    marginTop: 8,
+    borderRadius: 32,
+    backgroundColor: '#6a3f3f',
+    '&:hover': {
+      backgroundColor: '#553333', // Darker shade of #6a3f3f for hover
+      color: '#ffffff',
+    },
+  },
+  buttonLabel: {
+    textTransform: 'uppercase',
+    fontSize: '0.625rem',
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
 }));
 
@@ -142,10 +156,11 @@ const Home = () => {
               </Grid>
             </Link>
             <Grid container justifyContent="flex-end">
-              <StyledButtonPrimary
-                label={'Compute'}
-                onClick={() => history.push('/compute')}
-              />
+              <Button
+                className={classes.homeButton}
+                onClick={() => history.push('/compute')}>
+                <Typography className={classes.buttonLabel}>Compute</Typography>
+              </Button>
             </Grid>
           </Card>
         </Grid>

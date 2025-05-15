@@ -8,64 +8,6 @@ import traceback
 from metrical_tree_helpers.enhancer_utils import encode_item_py2
 from metrical_tree_helpers.contour_analyzer import analyze_contour_pattern_py
 
-def is_header_row(row, column_indices, row_count):
-    """
-    Detect if a row is likely a header row.
-    
-    Args:
-        row: The row to check
-        column_indices: Dictionary of column indices for required columns
-        row_count: Current row number (0-based)
-        
-    Returns:
-        True if the row appears to be a header row, False otherwise
-    """
-    # Only check the first few rows for header patterns
-    # The first row is already skipped by the reader, so we're looking at rows 2-3
-    if row_count < 3:
-        # Known column names from the CSV header
-        known_headers = [
-            'widx', 'norm_widx', 'word', 'seg', 'lexstress', 'nseg', 'nsyll', 'nstress',
-            'pos', 'dep', 'm1', 'm2a', 'm2b', 'mean', 'norm_m1', 'norm_m2a', 'norm_m2b',
-            'norm_mean', 'sidx', 'sent', 'ambig_words', 'ambig_monosyll', 'contour'
-        ]
-        
-        # Count exact matches to known headers
-        header_matches = 0
-        for cell in row:
-            # Handle both str and unicode types in Python 2
-            try:
-                # In Python 2, we need to check for both str and unicode
-                if isinstance(cell, basestring):  # basestring is the parent class of both str and unicode in Python 2
-                    if cell.lower() in known_headers:
-                        header_matches += 1
-            except NameError:
-                # In Python 3, just check for str (unicode is merged with str)
-                if isinstance(cell, str):
-                    if cell.lower() in known_headers:
-                        header_matches += 1
-        
-        # If we have multiple exact matches to known headers, it's likely a header row
-        if header_matches >= 3:  # Require at least 3 matches to confirm it's a header
-            return True
-    
-    # For all rows, check if sidx/widx can be converted to integers
-    # This catches any remaining header rows or malformed data rows
-    try:
-        sidx_idx = column_indices.get('sidx', -1)
-        widx_idx = column_indices.get('widx', -1)
-        if sidx_idx >= 0 and widx_idx >= 0 and len(row) > max(sidx_idx, widx_idx):
-            # Try to convert to integers - if it fails, might be a header
-            int(row[sidx_idx])
-            int(row[widx_idx])
-            return False
-    except ValueError:
-        # If conversion fails and we're in the first few rows, it's likely a header
-        # For later rows, only consider it a header if we're in the first few rows
-        return row_count < 5
-    
-    return False
-
 def build_data_indexes(raw_csv_path):
     """
     Build word counts and sentence map from raw CSV.
@@ -105,6 +47,57 @@ def build_data_indexes(raw_csv_path):
             try:
                 header = next(reader)
                 logging.info("Successfully read header from %s", raw_csv_path)
+
+                # Find required column indices first - using exact column names
+                for col_name in required_columns:
+                    if col_name in header:
+                        column_indices[col_name] = header.index(col_name)
+                        logging.info("Found column '%s' at index %d", col_name, column_indices[col_name])
+                    else:
+                        logging.error("Missing required column '%s' in %s", col_name, raw_csv_path)
+                        # Log the available columns to help diagnose the issue
+                        logging.error("Available columns: %s", header)
+                        raise ValueError("Missing required column: " + col_name)
+
+                # Read and log the first 3 rows right after header for debugging
+                first_rows = []
+                for i in range(3):
+                    try:
+                        row = next(reader)
+                        first_rows.append(row)
+                        
+                        # Get widx and word from the row using the correct indices
+                        widx_val = "N/A"
+                        word_val = "N/A"
+                        if len(row) > column_indices['widx']:
+                            widx_val = row[column_indices['widx']]
+                        if len(row) > column_indices['word']:
+                            word_val = row[column_indices['word']]
+                            
+                        logging.info("RAW ROW AFTER HEADER #%d: widx=%s, word=%s, full_row=%r", 
+                                    i+1, widx_val, word_val, row)
+                    except StopIteration:
+                        logging.info("Only found %d rows after header", i)
+                        break
+                
+                # Reset the file pointer to start reading from the beginning again
+                infile.seek(0)
+                
+                # Create a fresh reader rather than reusing the existing one
+                # This ensures we don't skip the first data row
+                reader = csv.reader(
+                    codecs.getreader('utf-8')(infile), 
+                    quoting=csv.QUOTE_ALL, 
+                    doublequote=True,
+                    quotechar='"',
+                    skipinitialspace=True
+                )
+                
+                # Skip header again to get back to the first data row
+                next(reader)
+                
+                logging.info("File pointer reset with fresh reader after examining first %d rows", len(first_rows))
+                
             except StopIteration:
                 logging.error("CSV file is empty: %s", raw_csv_path)
                 raise IOError("CSV file is empty")
@@ -134,6 +127,16 @@ def build_data_indexes(raw_csv_path):
                     
             # Reset the file pointer to start reading from the beginning again
             infile.seek(0)
+            
+            # Create a fresh reader rather than reusing the existing one
+            reader = csv.reader(
+                codecs.getreader('utf-8')(infile), 
+                quoting=csv.QUOTE_ALL, 
+                doublequote=True,
+                quotechar='"',
+                skipinitialspace=True
+            )
+            
             # Skip header again
             next(reader)
             
@@ -171,10 +174,7 @@ def build_data_indexes(raw_csv_path):
                     logging.debug("Skipping empty row %d as part of detected pattern", row_count)
                     continue
                 
-                # Check if this row looks like a header row
-                if is_header_row(row, column_indices, row_count):
-                    logging.info("Skipping row %d which appears to be a header row", row_count + 1)
-                    continue
+                # We know exactly what to expect in our CSV and there should be no additional header rows
                 
                 # Check if row has enough columns before processing
                 if len(row) <= max(column_indices.values()):
@@ -245,11 +245,27 @@ def build_data_indexes(raw_csv_path):
                         logging.warning("Error lowercasing word '%r': %s", word, e)
                         lowercase_word_counts[word] += 1  # Fallback: use original word
                     sentence_map[sidx][widx] = word
+                    
+                    # Debug log for first few words to help diagnose indexing issues
+                    if widx <= 3:
+                        logging.info("Mapping sentence %d, word %d: '%s'", sidx, widx, word)
 
+                    # Log when we're processing row with widx=1
+                    if widx == 1:
+                        logging.info("PROCESSING WIDX=1: sentence %d, word='%s', row_count=%d", sidx, word, row_count)
+                        # Check if this word is already in sentence_map
+                        if 1 in sentence_map[sidx]:
+                            logging.warning("DUPLICATE WIDX=1: sentence %d already has word '%s' for widx=1, current word is '%s'", 
+                                          sidx, sentence_map[sidx][1], word)
+                    
                     # Store sentence and contour data for the first word of each sentence
                     # Track the first word we see for each sentence (lowest widx)
                     if sidx not in sentence_first_words or widx < sentence_first_words[sidx]:
+                        old_first = sentence_first_words.get(sidx, None)
                         sentence_first_words[sidx] = widx
+                        logging.info("Setting first word for sentence %d: widx=%d (was %s), word='%s'", 
+                                     sidx, widx, old_first if old_first is not None else "None", word)
+                        
                         sentence_map[sidx]['sent'] = row[column_indices['sent']]
                         
                         # Handle contour data - it's a space-separated string of values
@@ -293,6 +309,26 @@ def process_and_write_results(raw_path, output_path, word_counts, lowercase_word
     """
     excluded_columns = ['sent', 'contour']
     
+    # Debug sentence_map content
+    logging.info("Debug: sentence_map contents:")
+    for sidx, content in sentence_map.items():
+        if isinstance(content, dict):
+            word_entries = {k: v for k, v in content.items() if isinstance(k, (int, float)) or (isinstance(k, str) and k.isdigit())}
+            logging.info("  Sentence {}: {} word entries".format(sidx, len(word_entries)))
+            # Log the first few word entries to see what's there
+            sorted_widx = sorted([int(w) if isinstance(w, str) else w for w in word_entries.keys() 
+                                  if isinstance(w, (int, float)) or (isinstance(w, str) and w.isdigit())])
+            logging.info("  Sentence {} widx values: {}".format(sidx, sorted_widx[:10] if len(sorted_widx) > 10 else sorted_widx))
+            
+            # Check if widx=1 is missing
+            if 1 not in sorted_widx and '1' not in word_entries:
+                logging.warning("  Missing widx=1 for sentence {}!".format(sidx))
+                
+            # Log the first word for this sentence
+            if sorted_widx:
+                first_widx = sorted_widx[0]
+                logging.info("  First word for sentence {}: widx={}, word='{}'".format(sidx, first_widx, word_entries.get(first_widx) or word_entries.get(str(first_widx))))
+    
     # Get filtered header (excluding sent and contour)
     filtered_header = [col for col in header if col not in excluded_columns]
     
@@ -324,6 +360,44 @@ def process_and_write_results(raw_path, output_path, word_counts, lowercase_word
             # Skip header in input file
             next(reader)
             
+            # Log the first 3 rows after header for debugging
+            first_rows = []
+            for i in range(3):
+                try:
+                    row = next(reader)
+                    first_rows.append(row)
+                    
+                    # Get widx and word from the row using the correct indices
+                    widx_val = "N/A"
+                    word_val = "N/A"
+                    if len(row) > column_indices['widx']:
+                        widx_val = row[column_indices['widx']]
+                    if len(row) > column_indices['word']:
+                        word_val = row[column_indices['word']]
+                        
+                    logging.info("PROCESS FUNC - RAW ROW AFTER HEADER #%d: widx=%s, word=%s, full_row=%r", 
+                                i+1, widx_val, word_val, row)
+                except StopIteration:
+                    logging.info("PROCESS FUNC - Only found %d rows after header", i)
+                    break
+            
+            # Reset the file pointer to start reading from the beginning again
+            infile.seek(0)
+            
+            # Create a fresh reader rather than reusing the existing one
+            reader = csv.reader(
+                codecs.getreader('utf-8')(infile), 
+                quoting=csv.QUOTE_ALL, 
+                doublequote=True,
+                quotechar='"',
+                skipinitialspace=True
+            )
+            
+            # Skip header again
+            next(reader)
+            
+            logging.info("PROCESS FUNC - File pointer reset with fresh reader after examining first %d rows", len(first_rows))
+            
             # Write enhanced header
             writer.writerow([encode_item_py2(h) for h in enhanced_header])
             
@@ -338,6 +412,16 @@ def process_and_write_results(raw_path, output_path, word_counts, lowercase_word
                     
             # Reset the file pointer to start reading from the beginning again
             infile.seek(0)
+            
+            # Create a fresh reader rather than reusing the existing one
+            reader = csv.reader(
+                codecs.getreader('utf-8')(infile), 
+                quoting=csv.QUOTE_ALL, 
+                doublequote=True,
+                quotechar='"',
+                skipinitialspace=True
+            )
+            
             # Skip header again
             next(reader)
             
@@ -373,11 +457,7 @@ def process_and_write_results(raw_path, output_path, word_counts, lowercase_word
                     logging.debug("Skipping empty row %d as part of detected pattern", row_count)
                     continue
                 
-                # Check if this row looks like a header row
-                if is_header_row(row, column_indices, row_count):
-                    logging.info("Skipping row %d which appears to be a header row", row_count + 1)
-                    skipped_rows += 1
-                    continue
+                # We know exactly what to expect in our CSV and there should be no additional header rows
                 
                 # Check if row has enough columns before processing
                 if len(row) <= max(column_indices.values()):
@@ -430,7 +510,13 @@ def process_and_write_results(raw_path, output_path, word_counts, lowercase_word
                     # Get previous word and its frequency
                     sidx = int(row[column_indices['sidx']])
                     widx = int(row[column_indices['widx']])
-                    prev_word = sentence_map.get(sidx, {}).get(widx - 1, '')
+                    
+                    # Check if this is the first word (widx=1) by looking for widx=1 in the sentence_map
+                    # If we find it, its content is valid and should be used for the previous word of widx=2
+                    if widx == 1:
+                        prev_word = ''  # First word has no previous word
+                    else:
+                        prev_word = sentence_map.get(sidx, {}).get(widx - 1, '')
                     
                     # Handle previous word lowercasing with improved Unicode handling
                     try:

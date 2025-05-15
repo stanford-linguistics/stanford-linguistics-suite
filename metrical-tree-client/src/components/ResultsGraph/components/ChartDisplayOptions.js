@@ -197,7 +197,8 @@ const ChartDisplayOptions = ({
   colorLegendData,
   showContourLine,
   handleContourLineToggle,
-  isNormalized
+  isNormalized,
+  isSeriesModel
 }) => {
   const classes = useStyles();
   const [legendExpanded, setLegendExpanded] = useState(true);
@@ -215,25 +216,27 @@ const ChartDisplayOptions = ({
 
       <div className={classes.content}>
         <div className={classes.optionsRow}>
-          {/* Color Scheme Selector */}
-          <FormControl className={classes.colorControl} size="small">
-            <InputLabel id="color-scheme-label">
-              <ColorLensIcon fontSize="small" style={{ verticalAlign: 'middle', marginRight: 4 }} />
-              Color By
-            </InputLabel>
-            <Select
-              labelId="color-scheme-label"
-              id="color-scheme"
-              value={colorScheme}
-              onChange={handleColorSchemeChange}
-            >
-              {colorOptions.map(option => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Color Scheme Selector - Hide when series model is selected */}
+          {!isSeriesModel && (
+            <FormControl className={classes.colorControl} size="small">
+              <InputLabel id="color-scheme-label">
+                <ColorLensIcon fontSize="small" style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                Color By
+              </InputLabel>
+              <Select
+                labelId="color-scheme-label"
+                id="color-scheme"
+                value={colorScheme}
+                onChange={handleColorSchemeChange}
+              >
+                {colorOptions.map(option => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           
           {/* Contour Line Toggle */}
           <FormControlLabel
@@ -251,8 +254,11 @@ const ChartDisplayOptions = ({
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <TimelineIcon fontSize="small" style={{ marginRight: 4 }} />
                 <Typography variant="body2">
-                  Show Stress Contour
-                  <CrispTooltip title="Displays the stress contour line (0-5 scale) overlaid on the chart">
+                  Show Mean Contour
+                  <CrispTooltip title={isNormalized ? 
+                    "Displays the mean contour line overlaid on the chart" : 
+                    "Displays the mean contour line (SPE to Grid) overlaid on the chart"
+                  }>
                     <InfoIcon className={classes.infoIcon} />
                   </CrispTooltip>
                 </Typography>
@@ -260,44 +266,6 @@ const ChartDisplayOptions = ({
             }
           />
         </div>
-        
-
-        
-        
-        {/* Dual Axis Information - Only show for normalized models */}
-        {isNormalized && (
-          <div className={classes.axisInfoContainer}>
-            <Typography variant="caption" color="textSecondary" gutterBottom>
-              <ShowChartIcon fontSize="small" style={{ verticalAlign: 'middle', marginRight: 4 }} />
-              Dual Axis Chart
-              <CrispTooltip title="This chart uses two different scales to display both normalized values and stress contour">
-                <InfoIcon className={classes.infoIcon} />
-              </CrispTooltip>
-            </Typography>
-            
-            <Box mt={1}>
-              <div className={classes.axisInfoRow}>
-                <div 
-                  className={classes.axisColorIndicator} 
-                  style={{ backgroundColor: NORMALIZED_MODEL_COLORS.bar }}
-                />
-                <Typography variant="body2">
-                  Left Axis: Normalized Values (0-1 scale)
-                </Typography>
-              </div>
-              
-              <div className={classes.axisInfoRow}>
-                <div 
-                  className={classes.axisColorIndicator} 
-                  style={{ backgroundColor: NORMALIZED_MODEL_COLORS.contourLine }}
-                />
-                <Typography variant="body2">
-                  Right Axis: Stress Contour (0-5 scale)
-                </Typography>
-              </div>
-            </Box>
-          </div>
-        )}
 
         {/* Color Legend - Only show if a color scheme is selected */}
         {colorScheme !== 'default' && colorScheme !== 'none' && colorLegendData && colorLegendData.length > 0 && (

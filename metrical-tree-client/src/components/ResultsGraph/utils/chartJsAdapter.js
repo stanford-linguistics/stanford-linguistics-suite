@@ -1,5 +1,29 @@
 import { getYAxisID } from './modelNameUtils';
-import { NORMALIZED_MODEL_COLORS } from '../constants/chartConfig';
+import { NORMALIZED_MODEL_COLORS, SERIES_COLORS } from '../constants/chartConfig';
+
+/**
+ * Gets the appropriate color for a series based on its label
+ * @param {string} label - The series label
+ * @returns {string} The color to use for the series
+ */
+const getSeriesColor = (label) => {
+  console.log('DEBUG - getSeriesColor called with label:', label);
+  if (!label) return SERIES_COLORS[0]; // Default to first color
+  
+  // Convert label to lowercase for case-insensitive matching
+  const lowerLabel = label.toLowerCase();
+  
+  // More precise matching with exact pattern checks
+  if (lowerLabel === 'm1' || lowerLabel === 'norm_m1') return SERIES_COLORS[0]; // Blue for m1
+  if (lowerLabel === 'm2a' || lowerLabel === 'norm_m2a') return SERIES_COLORS[1]; // Red for m2a
+  if (lowerLabel === 'm2b' || lowerLabel === 'norm_m2b') return SERIES_COLORS[2]; // Yellow for m2b
+  if (lowerLabel === 'mean' || lowerLabel === 'norm_mean') return SERIES_COLORS[3]; // Green for mean
+  
+  // Fallback to index-based color selection
+  const seriesIndex = parseInt(label.match(/\d+/)?.[0] || '0', 10);
+  return SERIES_COLORS[seriesIndex % SERIES_COLORS.length];
+};
+
 
 /**
  * Converts SPE stress numbers to grid values
@@ -62,7 +86,17 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
   // Process each series
   chartData.forEach(series => {
     // CRITICAL: Check both elementType and label for line identification
-    const isLine = series.elementType === 'line' || series.label === 'Stress Contour';
+    // Make this check more inclusive to catch all stress contour lines
+    const isLine = series.elementType === 'line' || 
+                   series.label === 'Mean Contour' || 
+                   series.label?.toLowerCase().includes('mean contour');
+    
+    // Log all series for debugging
+    console.log('DEBUG - Processing series:', {
+      label: series.label,
+      elementType: series.elementType,
+      isLine
+    });
 
     
     // Skip contour line if hidden
@@ -72,15 +106,32 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     
   // Extract values from data - preserving null values for spanGaps
   const values = series.data.map((item, idx) => {
+    // For normalized models, always prefer norm_mean for contour lines
+    // This ensures contours and bars are on the same scale
+    const useNormMean = isNormalized && item.norm_mean !== undefined;
+    
     // If the value is null OR empty string, keep it as null
     // Empty strings are used for punctuation marks in the linguistic data
     if (item.secondary === null || item.secondary === "" || 
-        item.mean === null || item.mean === "") {
+        (useNormMean ? item.norm_mean === null || item.norm_mean === "" : 
+                       item.mean === null || item.mean === "")) {
       return null;
     }
     
-    // Check for NaN after parsing
-    const rawValue = item.secondary || item.mean;
+    // For normalized models, always use norm_mean (for both bars and contour lines)
+    // to ensure consistent scaling
+    const rawValue = useNormMean ? item.norm_mean : (item.secondary || item.mean);
+    
+    // Debug log to check values for normalized model data
+    if (isNormalized) {
+      console.log(`DEBUG - Normalized value for ${series.label} at index ${idx}:`, {
+        useNormMean,
+        norm_mean: item.norm_mean,
+        secondary: item.secondary,
+        mean: item.mean,
+        rawValue
+      });
+    }
     
     // Only use parseFloat for non-empty values
     const value = rawValue !== undefined && rawValue !== "" ? parseFloat(rawValue) : null;
@@ -93,8 +144,9 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
   });
     
 
-    // Apply SPE to grid transformation for raw models (not normalized) and bar charts only
-    // This reverses the sense of the numbers so that smaller SPE numbers (louder stress) become taller bars
+    // Apply SPE to grid transformation for:
+    // 1. Raw models (not normalized) and bar charts - reverses the sense of numbers so smaller SPE numbers (louder stress) become taller bars
+    // 2. Stress contour lines (regardless of model) - ensures consistent visual interpretation with bar charts
     
     // Check if this is a raw model (not normalized) that needs transformation
     const isRawModel = !isNormalized && !isLine && 
@@ -104,21 +156,37 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
                        series.label === 'm2a' || 
                        series.label === 'm2b' || 
                        series.label === 'mean');
+                       
+    // Check if this is a mean contour line - broaden the check to handle all variations
+    const isStressContourLine = isLine && (
+      series.label === 'Mean Contour' || 
+      series.label === 'Mean Contour (0-5)' ||
+      series.label === 'Mean Contour (0-1)' ||
+      series.label?.toLowerCase().includes('mean contour')
+    );
     
-    console.log(`DEBUG - Series: ${series.label}, isNormalized: ${isNormalized}, isLine: ${isLine}, isRawModel: ${isRawModel}`);
+    // For normalized models with contour lines, the values are already normalized from the API
+    // Only apply speToGrid to contour lines for non-normalized models
+    const shouldApplySpeToGridToContour = isStressContourLine && !isNormalized;
     
-    // Only apply transformation for raw models and bar charts
+    console.log(`DEBUG - Series: ${series.label}, isNormalized: ${isNormalized}, isLine: ${isLine}, isRawModel: ${isRawModel}, isStressContourLine: ${isStressContourLine}`);
+    
+    // Apply transformation for:
+    // 1. Raw models - convert SPE values to grid values
+    // 2. Non-normalized contour lines - convert SPE values to grid values
+    // For normalized models, the values are already normalized in the API
     let displayValues;
-    if (isRawModel) {
+    if (isRawModel || shouldApplySpeToGridToContour) {
       console.log(`DEBUG - Applying speToGrid to ${series.label}, sample values:`, values.slice(0, 3));
       displayValues = speToGrid(values);
       console.log(`DEBUG - After speToGrid transformation:`, displayValues.slice(0, 3));
     } else {
       displayValues = values;
+      console.log(`DEBUG - Using raw values for ${series.label}, sample values:`, values.slice(0, 3));
     }
     
-    // For raw models, store both original and transformed values
-    if (isRawModel) {
+    // For raw models and stress contour lines, store both original and transformed values
+    if (isRawModel || isStressContourLine) {
       // Add the original values to each data item for tooltip display
       series.data.forEach((item, idx) => {
         if (values[idx] !== null) {
@@ -156,8 +224,17 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
       // Line chart data - for Bar component with mixed chart types
       const lineDataset = {
         type: 'line',
-        label: 'Stress Contour (0-5)', // Consistent label for all models
+        // Use different label based on whether it's a normalized model
+        label: isNormalized ? 'Mean Contour (0-1)' : 'Mean Contour (SPE to Grid)',
         data: displayValues, // Use displayValues which will be the same as values for line charts
+        // Debug info about dataset
+        _debug: {
+          isNormalized,
+          isStressContourLine,
+          valuesLength: values.length,
+          displayValuesLength: displayValues.length,
+          sampleValues: values.slice(0, 3)
+        },
         backgroundColor: 'rgba(0, 0, 0, 0)',
         borderColor: NORMALIZED_MODEL_COLORS.contourLine, // Consistent color for all models
         borderWidth: 3, // Use thicker line for all models
@@ -184,11 +261,11 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
         label: isNormalized ? `${series.label || ''} (0-1)` : `${series.label || ''} (SPE to Grid)`,
         data: displayValues, // Use transformed values for raw bar charts
         backgroundColor: isNormalized 
-          ? series.data.map(() => NORMALIZED_MODEL_COLORS.bar) 
+          ? getSeriesColor(series.label)
           : series.data.map(item => item.color || '#4CAF50'),
         // Add a border color that's a slightly darker version of the background color
         borderColor: isNormalized
-          ? series.data.map(() => NORMALIZED_MODEL_COLORS.barBorder)
+          ? getSeriesColor(series.label)
           : series.data.map(item => {
               // Create a slightly darker border color for better definition
               if (!item.color) return '#3d8b40'; // Darker version of the default color
@@ -225,10 +302,6 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
  * @returns {Object} Chart.js options
  */
 export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = false) => {
-  // Track the last tooltip position to prevent excessive updates
-  let lastTooltipPosition = { x: 0, y: 0 };
-  let lastTooltipTime = 0;
-  
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -254,62 +327,7 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
     // Enable mixed chart types
     plugins: {
       tooltip: {
-        enabled: false,
-        external: (context) => {
-          // Custom tooltip implementation
-          const { chart, tooltip } = context;
-          
-          // If tooltip is hidden, close it
-          if (tooltip.opacity === 0) {
-            closeTooltip();
-            return;
-          }
-          
-          // Get current mouse position
-          const position = {
-            x: tooltip.caretX,
-            y: tooltip.caretY
-          };
-          
-          // On mobile, increase the activation area to make touch interactions easier
-          const isMobile = window.innerWidth < 768;
-          const touchThreshold = isMobile ? 15 : 5; // Larger threshold on mobile devices
-          
-          // Skip if position hasn't changed significantly and it's been less than 100ms
-          const now = Date.now();
-          const positionChanged = Math.abs(position.x - lastTooltipPosition.x) > touchThreshold || 
-                                 Math.abs(position.y - lastTooltipPosition.y) > touchThreshold;
-          const timeElapsed = now - lastTooltipTime > 100;
-          
-          if (!positionChanged && !timeElapsed) {
-            return;
-          }
-          
-          // Update last position and time
-          lastTooltipPosition = position;
-          lastTooltipTime = now;
-          
-          // Get data point information
-          const datasetIndex = tooltip.dataPoints[0].datasetIndex;
-          const index = tooltip.dataPoints[0].dataIndex;
-          const dataset = context.chart.data.datasets[datasetIndex];
-          const originalData = dataset.originalData?.[index];
-          
-          if (originalData) {
-            handleTooltip(originalData, { 
-              target: chart.canvas,
-              dataset: {
-                datasetIndex: datasetIndex,
-                index: index,
-                type: dataset.type
-              }
-            });
-          }
-        },
-        // Increase interaction mode distance for better touch/mobile support
-        mode: 'nearest',
-        intersect: false,
-        axis: 'x'
+        enabled: false, // Completely disable tooltips
       },
       legend: {
         position: 'top',
@@ -359,6 +377,8 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
           color: 'rgba(0, 0, 255, 0.1)' // Light blue grid for all models
         },
         min: 0,
+        // Set max range appropriate for both bars and contour line
+        max: isNormalized ? 1.2 : 5.5,
         ticks: {
           padding: 8,
           callback: value => Number(value).toFixed(1),
@@ -371,40 +391,10 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
         // This is important for mixed chart types
         type: 'linear',
         position: 'left',
-        // For normalized models, set a more appropriate max value
-        ...(isNormalized ? { max: 1.2 } : {}),
         title: {
           display: true,
           text: isNormalized ? 'Normalized Value (0-1)' : 'SPE to Grid Value',
           color: isNormalized ? NORMALIZED_MODEL_COLORS.bar : '#4CAF50', // Match color to bars
-          font: {
-            weight: 'bold',
-            size: 12
-          }
-        }
-      },
-      // Add a second y-axis for the contour line for all models
-      y2: {
-        type: 'linear',
-        position: 'right',
-        min: 0,
-        max: 5.5, // Typical range for stress contour values
-        grid: {
-          drawOnChartArea: false, // Only show grid lines for the left axis
-          color: 'rgba(255, 20, 147, 0.1)' // Light pink grid for contour
-        },
-        ticks: {
-          padding: 8,
-          callback: value => Number(value).toFixed(1),
-          color: NORMALIZED_MODEL_COLORS.contourLine, // Match contour line color
-          font: {
-            weight: 500 // Semi-bold
-          }
-        },
-        title: {
-          display: true,
-          text: 'Stress Contour (0-5)',
-          color: NORMALIZED_MODEL_COLORS.contourLine,
           font: {
             weight: 'bold',
             size: 12

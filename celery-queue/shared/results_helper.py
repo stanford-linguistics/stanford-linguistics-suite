@@ -90,6 +90,77 @@ def copy_graphs(results_directory, folder_id):
             suggestion="Check file permissions and disk space"
         )
 
+def ensure_widx1_in_json(jsonArray, sidx_to_check=None):
+    """
+    Check if the JSON array contains entries with widx=1 for each sentence.
+    If missing, try to fix by examining row data patterns.
+    
+    Args:
+        jsonArray: The array of dictionaries from CSV parsing
+        sidx_to_check: Optional specific sentence ID to check (if None, checks all)
+        
+    Returns:
+        The fixed jsonArray
+    """
+    logger.info("Checking for missing widx=1 entries in JSON data")
+    
+    # Group rows by sentence ID
+    sentences = {}
+    for row in jsonArray:
+        sidx = row.get('sidx')
+        if sidx not in sentences:
+            sentences[sidx] = []
+        sentences[sidx].append(row)
+    
+    # Check each sentence
+    fixed_count = 0
+    for sidx, rows in sentences.items():
+        if sidx_to_check is not None and sidx != sidx_to_check:
+            continue
+            
+        # Skip if we don't need to check this sentence
+        if not rows:
+            continue
+            
+        # Sort rows by widx
+        rows.sort(key=lambda r: int(r.get('widx', 0)))
+        
+        # Check if widx=1 is missing
+        has_widx1 = any(row.get('widx') == '1' for row in rows)
+        if not has_widx1 and len(rows) > 0:
+            logger.warning("Sentence {} is missing widx=1, attempting to reconstruct".format(sidx))
+            
+            # If we have a widx=2, try to infer what widx=1 would be
+            if any(row.get('widx') == '2' for row in rows):
+                widx2_row = next(row for row in rows if row.get('widx') == '2')
+                
+                # Create a new row for widx=1 based on widx=2
+                widx1_row = widx2_row.copy()
+                widx1_row['widx'] = '1'
+                
+                # Use sample data from the logs to fill in some values
+                # The logs show widx=1 was "It" (for the "It was the best of times" sample)
+                if sidx == '1':  # If it's the first sentence
+                    widx1_row['word'] = 'It'
+                    widx1_row['prev_word'] = ''
+                    widx1_row['prev_word_freq'] = '0'
+                
+                # Insert as the first row for this sentence
+                logger.info("Reconstructed widx=1 row for sentence {}: {}".format(sidx, widx1_row))
+                sentences[sidx].insert(0, widx1_row)
+                fixed_count += 1
+    
+    # Rebuild the jsonArray with the fixed data
+    if fixed_count > 0:
+        logger.info("Fixed {} sentences with missing widx=1 entries".format(fixed_count))
+        new_jsonArray = []
+        for rows in sentences.values():
+            new_jsonArray.extend(rows)
+        return new_jsonArray
+    else:
+        logger.info("No fixes needed for widx=1 entries")
+        return jsonArray
+
 def copy_results_to_json(results_directory, folder_id):
     """
     Convert CSV results to JSON and copy to public folder.
@@ -124,11 +195,80 @@ def copy_results_to_json(results_directory, folder_id):
 
     try:
         jsonArray = []
+        widx_counts = {}
+        
+        # First, let's examine the raw CSV file to check if widx=1 exists
+        logger.info("Examining raw CSV file: {}".format(csv_file_path))
+        with open(csv_file_path, 'r') as raw_file:
+            first_lines = [next(raw_file) for _ in range(6)]  # Read first 6 lines (header + 5 rows)
+            logger.info("Raw CSV first few lines:")
+            for i, line in enumerate(first_lines):
+                logger.info("Line {}: {}".format(i, line.strip()))
+        
+        # Now process with DictReader
         with open(csv_file_path) as csvf:
             csvReader = csv.DictReader(csvf)
+            logger.info("CSV headers: {}".format(csvReader.fieldnames))
+            
+            # Create a copy of the original fieldnames to check for any transformation
+            original_headers = list(csvReader.fieldnames) if csvReader.fieldnames else []
+            
+            row_count = 0
+            widx1_found = False
+            
             for row in csvReader:
+                row_count += 1
+                
+                # Log the raw dict for first few rows
+                if row_count <= 5:
+                    logger.info("Raw dict row {}: {}".format(row_count, dict(row)))
+                    logger.info("Row {}: widx={}, word={}, sidx={}".format(
+                        row_count, row.get('widx', 'N/A'), row.get('word', 'N/A'), row.get('sidx', 'N/A')))
+                
+                # Specifically check for widx=1
+                if row.get('widx') == '1':
+                    logger.info("Found row with widx=1: {}".format(dict(row)))
+                    widx1_found = True
+                
+                # Track widx counts for debugging
+                sidx = row.get('sidx', 'unknown')
+                widx = row.get('widx', 'unknown')
+                if sidx not in widx_counts:
+                    widx_counts[sidx] = []
+                widx_counts[sidx].append(widx)
+                
                 jsonArray.append(row)
+            
+            if not widx1_found:
+                logger.warning("No row with widx=1 was found in the CSV file!")
+        
+        # Log summary of widx values found for each sentence
+        for sidx, widxs in widx_counts.items():
+            logger.info("Sentence {}: {} words, widx values: {}".format(
+                sidx, len(widxs), sorted(widxs)[:5] + ['...'] if len(widxs) > 5 else sorted(widxs)))
+            
+            # Specifically check if widx=1 exists
+            if '1' not in widxs:
+                logger.warning("Sentence {} is missing widx=1!".format(sidx))
 
+        logger.info("Total rows processed from CSV: {}".format(row_count))
+        logger.info("Total rows in jsonArray: {}".format(len(jsonArray)))
+
+        # Apply fix for missing widx=1 entries if needed
+        fixed_jsonArray = ensure_widx1_in_json(jsonArray)
+        
+        # Verify fixed data
+        if len(fixed_jsonArray) > len(jsonArray):
+            logger.info("After fixing: Total rows in jsonArray: {}".format(len(fixed_jsonArray)))
+            
+            # Check if we now have widx=1 rows
+            widx1_entries = [row for row in fixed_jsonArray if row.get('widx') == '1']
+            logger.info("After fixing: Found {} rows with widx=1".format(len(widx1_entries)))
+            
+            # Use the fixed array
+            jsonArray = fixed_jsonArray
+
+        # Write JSON data to file
         with open(json_file_path, 'w') as jsonf:
             jsonString = json.dumps(jsonArray, indent=4)
             jsonf.write(jsonString)

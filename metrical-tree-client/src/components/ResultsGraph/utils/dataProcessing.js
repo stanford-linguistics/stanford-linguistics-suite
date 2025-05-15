@@ -232,9 +232,9 @@ export const formatChartData = (
         // Calculate the starting index for pagination
         const startIdx = needsChunking ? currentPage * chunkSize : 0;
         
-        // Create a stress contour series
+        // Create a mean contour series
         const contourSeries = {
-          label: 'Stress Contour',
+          label: 'Mean Contour',
           elementType: 'line',  // This is critical for chartJsAdapter to create a line dataset
           data: currentChunkData.map((item, idx) => {
             // Calculate the actual index in the full dataset
@@ -256,10 +256,27 @@ export const formatChartData = (
               };
             }
             
+            // For contour values, use the actual norm_mean values from contourAnalyzer when in normalized mode
+            // Need to set norm_mean to 0 for unstressed words that would typically be 5 in SPE values
+            // This ensures when a normalized model is selected, the contour line matches the bars
+            
+            // If contour value is 5, this is typically an unstressed syllable, so norm_mean should be 0
+            // If contour value is 1, this is typically fully stressed, so norm_mean should be 1
+            // Other values are scaled between 0-1
+            
+            // Calculate normalized value: (5 - spe_value) / 4
+            // This maps SPE value 5 (unstressed) -> 0
+            //           SPE value 1 (stressed)  -> 1
+            const normalizedValue = value === null || value === "" ? null : (5 - value) / 4;
+            
             return {
               primary: item.primary || item.word,
               secondary: value,
-              mean: value,
+              mean: value, 
+              // Use properly calculated normalized value
+              norm_mean: normalizedValue,
+              // Store the raw SPE value for tooltip display
+              rawSPEValue: value,
               word: item.primary || item.word
             };
           })

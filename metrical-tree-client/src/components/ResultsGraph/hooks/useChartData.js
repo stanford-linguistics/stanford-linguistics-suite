@@ -117,7 +117,9 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
     
     // Verify if the formatted data contains a contour series
     const hasContourInResult = formattedData.some(series => 
-      series.elementType === 'line' || series.label === 'Stress Contour'
+      series.elementType === 'line' || 
+      series.label === 'Stress Contour' ||
+      series.label?.toLowerCase().includes('stress contour')
     );
     
     
@@ -145,10 +147,23 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
             // This allows Chart.js to use spanGaps to skip these points
             const value = valueIdx < contourValuesArray.length ? contourValuesArray[valueIdx] : null;
             
+            // Debug logging
+            console.log(`Creating contour point at index ${idx}:`, {
+              value,
+              primary: item.primary || item.word
+            });
+            
+            // Calculate normalized value for contour line in normalized mode
+            // This maps SPE value 5 (unstressed) -> 0
+            //           SPE value 1 (stressed)  -> 1
+            const normalizedValue = value === null || value === "" ? null : (5 - value) / 4;
+            
             return {
               primary: item.primary || item.word,
               secondary: value,
               mean: value,
+              // Add properly scaled normalized value
+              norm_mean: normalizedValue,
               word: item.primary || item.word
             };
           })

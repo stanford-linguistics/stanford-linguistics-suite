@@ -34,13 +34,8 @@ export const isNormalizedModel = (model) => {
  * @returns {string} The y-axis ID to use
  */
 export const getYAxisID = (datasetType, isNormalized) => {
-  // For all line charts (contour lines):
-  // - Always use the right y-axis (y2) for better visualization
-  // - This ensures consistent scaling for stress contour values (0-5.5)
-  if (datasetType === 'line') {
-    return 'y2';
-  }
-  
-  // Bar charts always use the primary y-axis
+  // All charts (both bars and contour lines) use the same y-axis
+  // Debug which axis is being used
+  console.log(`DEBUG - Getting y-axis ID for ${datasetType} with isNormalized=${isNormalized}`);
   return 'y';
 };

@@ -391,7 +391,7 @@ const DataTooltip = memo(({ data }) => {
           <Typography className={classes.sectionHeading} component="div">
             <ContourIcon className={classes.sectionIcon} />
             Stress Contour
-            <Chip size="small" label="0-5 Scale" className={classes.contourChip} style={{ marginLeft: 'auto' }} />
+            <Chip size="small" label="SPE to Grid" className={classes.contourChip} style={{ marginLeft: 'auto' }} />
           </Typography>
           <Grid container spacing={1}>
             <Grid item xs={12} className={classes.gridRow}>

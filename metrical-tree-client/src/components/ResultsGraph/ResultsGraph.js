@@ -514,8 +514,9 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
   }, [model, chartRef, totalPages, paginationState.setCurrentPage, chartDisplayState, currentPage, colorLegendData]);
   
   const chartOptions = useMemo(() => {
-    return createChartOptions(handleTooltip, closeTooltip, isNormalized);
-  }, [handleTooltip, closeTooltip, isNormalized]);
+    // Pass empty functions for tooltip handlers since tooltips are disabled
+    return createChartOptions(() => {}, () => {}, isNormalized);
+  }, [isNormalized]);
   
   const renderChart = () => {
     const isLoading = model && !model?.value?.[0]?.data?.length;
@@ -560,7 +561,6 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
           <div
             className={classes.chartContainer}
             ref={chartRef}
-            onMouseLeave={closeTooltip}
           >
             <Bar
               data={chartJsData}
@@ -580,62 +580,6 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
             />
           </div>
         </ResizableBox>
-        
-        <Popper
-          open={tooltipVisible && Boolean(tooltipData) && Boolean(tooltipAnchorEl)}
-          anchorEl={tooltipAnchorEl}
-          placement="top"
-          className={classes.popper}
-          modifiers={{
-            offset: {
-              enabled: true,
-              offset: '0, 10',
-            },
-            preventOverflow: {
-              enabled: true,
-              boundariesElement: 'viewport',
-              padding: 8
-            },
-            flip: {
-              enabled: true,
-            },
-            computeStyle: {
-              gpuAcceleration: true, // Enable GPU acceleration
-              roundPixels: true // Round to integer pixels to prevent blurry text
-            },
-            // Add a custom modifier to ensure integer pixel positioning
-            roundPosition: {
-              enabled: true,
-              order: 900, // Run after computeStyle
-              fn: (data) => {
-                // Round position values to integers
-                if (data.offsets.popper) {
-                  data.offsets.popper.left = Math.round(data.offsets.popper.left);
-                  data.offsets.popper.top = Math.round(data.offsets.popper.top);
-                }
-                return data;
-              }
-            }
-          }}
-          disablePortal={false}
-        >
-          {tooltipData ? (
-            <div 
-              className={classes.tooltip}
-              onMouseEnter={() => {
-                tooltipRef.current.isHovering = true;
-              }}
-              onMouseLeave={() => {
-                tooltipRef.current.isHovering = false;
-                closeTooltip();
-              }}
-            >
-              <DataTooltip data={tooltipData} />
-            </div>
-          ) : (
-            <React.Fragment />
-          )}
-        </Popper>
       </>
     );
   };
@@ -672,16 +616,19 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
               onNavigate={paginationState.setCurrentPage}
             />
             
-            {/* Only show ContourMinimap if we have contour data and multiple words */}
-            {fullContourData && fullContourData.length > 0 && extractedData.length > 1 && (
-              <ContourMinimap
-                fullContourData={fullContourData}
-                currentPage={currentPage}
-                chunkSize={chunkSize}
-                totalWords={extractedData.length}
-                onNavigate={paginationState.setCurrentPage}
-              />
-            )}
+            {/* 
+              Stress Contour Minimap temporarily disabled for now
+              
+              {fullContourData && fullContourData.length > 0 && extractedData.length > 1 && (
+                <ContourMinimap
+                  fullContourData={fullContourData}
+                  currentPage={currentPage}
+                  chunkSize={chunkSize}
+                  totalWords={extractedData.length}
+                  onNavigate={paginationState.setCurrentPage}
+                />
+              )}
+            */}
           </div>
           
           {/* Navigation Controls Section */}
@@ -697,15 +644,16 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
 
         <div className={classes.chartSectionContainer}>
           <div className={classes.chartOptionsContainer}>
-            <ChartDisplayOptions
-              colorScheme={chartDisplayState.colorScheme}
-              handleColorSchemeChange={chartDisplayState.handleColorSchemeChange}
-              colorOptions={chartDisplayState.colorOptions}
-              colorLegendData={colorLegendData}
-              showContourLine={showContourLine}
-              handleContourLineToggle={chartDisplayState.handleContourLineToggle}
-              isNormalized={isNormalized}
-            />
+          <ChartDisplayOptions
+            colorScheme={chartDisplayState.colorScheme}
+            handleColorSchemeChange={chartDisplayState.handleColorSchemeChange}
+            colorOptions={chartDisplayState.colorOptions}
+            colorLegendData={colorLegendData}
+            showContourLine={showContourLine}
+            handleContourLineToggle={chartDisplayState.handleContourLineToggle}
+            isNormalized={isNormalized}
+            isSeriesModel={chartJsData?.datasets?.filter(d => d.type === 'bar').length > 1}
+          />
           </div>
           
           <div className={classes.chartOuterContainer}>
