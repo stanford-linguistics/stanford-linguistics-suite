@@ -170,8 +170,10 @@ def compute_t_orders(self, input_file_path,
                  optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows)
     copy_graphs(folder_id)
     zip_results(input_filename, folder_id)
+    created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
     result = Result(get_download_url(folder_id),
-                    FOLDER_TTL, get_expiration_on())
+                    FOLDER_TTL, get_expiration_on(),
+                    created_on)
     clean_results(folder_id)
     return result.toJSON()
 
