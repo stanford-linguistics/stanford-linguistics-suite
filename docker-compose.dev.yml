@@ -12,9 +12,6 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    build:
-      context: ./api
-      dockerfile: Dockerfile
     command: ["flask", "run", "--host=0.0.0.0", "--port=5001", "--debugger"]
     restart: always
     volumes:
@@ -29,6 +26,7 @@ services:
     environment:
       VIRTUAL_HOST: localhost
       VIRTUAL_PORT: 5001
+      API_ENVIRONMENT: development
   
   worker:
     build:

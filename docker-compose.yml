@@ -39,6 +39,7 @@ services:
       VIRTUAL_PORT: 5001
       LETSENCRYPT_HOST: cogeto-api.stanford.edu
       LETSENCRYPT_EMAIL: jsolis@graycoltdevelopers.com
+      API_ENVIRONMENT: production
   worker:
     build:
       context: celery-queue

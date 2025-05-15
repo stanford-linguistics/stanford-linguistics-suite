@@ -89,6 +89,7 @@ Frontend Clients (React) ↔ Flask API ↔ Celery Task Queue ↔ Processing Engi
 - **Task Queue**: Celery for handling computationally intensive operations
 - **Processing Engines**: Specialized linguistic analysis modules
 - **Infrastructure**: Docker containerization for consistent deployment
+- **Environment Configuration**: Production vs. development modes with appropriate URL schema handling
 
 ## Installation
 
@@ -187,6 +188,7 @@ If you're using Windows Subsystem for Linux 2 (WSL2), there are a few additional
    - Your WSL2 IP may change after system reboots; update the hosts file if needed
    - Verify container status: `docker-compose -f docker-compose.local.yml ps`
    - Check container logs: `docker-compose -f docker-compose.local.yml logs -f nginx-proxy`
+   - For HTTPS-related issues, ensure `API_ENVIRONMENT` is set correctly in your docker-compose files
 
 ## Usage
 
@@ -215,6 +217,15 @@ The repository includes sample input files for testing:
 6. Export or save your analysis
 
 ## Development
+
+### Environment Configuration
+
+The application uses the `API_ENVIRONMENT` environment variable to determine URL schema (HTTP vs HTTPS):
+
+- **Production mode** (`API_ENVIRONMENT=production`): Uses HTTPS for all generated URLs
+- **Development mode** (`API_ENVIRONMENT=development`): Uses HTTP for all generated URLs
+
+This setting is configured in the docker-compose files and affects how the Flask API generates external URLs, particularly for result download links.
 
 ### Monitoring and Logs
 

@@ -21,6 +21,7 @@ services:
     environment:
       VIRTUAL_HOST: api.local
       VIRTUAL_PORT: 5001
+      API_ENVIRONMENT: development
   worker:
     build:
       context: celery-queue
