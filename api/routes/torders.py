@@ -3,6 +3,7 @@ from . import routes
 from worker import celery
 import celery.states as states
 from flask_expects_json import expects_json
+from flask_api import status
 import os
 
 schema = {
@@ -72,6 +73,6 @@ def compute_t_order(folder_id):
                            _external=True, _scheme='https')
             return make_response(jsonify(id=task.id, name=name, description=params['description'], status=task.state, link=link, errorMessage=None, params=params), 201)
         else:
-            return 'No file belonging to id: ' + folder_id + ' was found.', HTTP_404_NOT_FOUND
+            return 'No file belonging to id: ' + folder_id + ' was found.', status.HTTP_404_NOT_FOUND
     else:
-        return 'No file belonging to id: ' + folder_id + ' was found.', HTTP_404_NOT_FOUND
+        return 'No file belonging to id: ' + folder_id + ' was found.', status.HTTP_404_NOT_FOUND

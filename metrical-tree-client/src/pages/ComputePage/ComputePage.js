@@ -525,7 +525,7 @@ const ComputePage = () => {
           const status = rowData.rowData[3];
           const mappedStatus = mapBackendStatus(status);
           const downloadUrl = rowData.rowData[5]
-            ? rowData.rowData[5].replace('https', 'http')
+            ? rowData.rowData[5]
             : null;
           return (
             <Grid container alignItems="center">

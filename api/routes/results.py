@@ -139,7 +139,7 @@ def get_images(folder_id: str) -> List[Dict[str, str]]:
             file_name = os.path.join(folder_id, tail)
             try:
                 image = Image(
-                    url_for('static', filename=file_name, _external=True), tail)
+                    url_for('static', filename=file_name, _external=True, _scheme=app.config['PREFERRED_URL_SCHEME']), tail)
                 images.append(image.__dict__)
             except Exception as e:
                 logger.error(f"Error creating image URL for {file_name}: {e}")
@@ -191,7 +191,7 @@ def get_data_url(folder_id: str) -> Optional[Dict[str, str]]:
         head, tail = os.path.split(results_path)
         file_name = os.path.join(folder_id, tail)
         result = Result(
-            url_for('static', filename=file_name, _external=True), tail)
+            url_for('static', filename=file_name, _external=True, _scheme=app.config['PREFERRED_URL_SCHEME']), tail)
         return result.__dict__
     except Exception as e:
         logger.error(f"Error creating data URL for {folder_id}: {e}")
@@ -416,7 +416,7 @@ def check_metrical_tree_task(task_id: str) -> Any:
                 
                 response_data.update({
                     'status': 'success',
-                    'link': url_for('routes.download_file', task_id=task_id, _external=True),
+                    'link': url_for('routes.download_file', task_id=task_id, _external=True, _scheme=app.config['PREFERRED_URL_SCHEME']),
                     'expiresIn': expires_in,
                     'expiresOn': expires_on,
                     'createdOn': created_on
@@ -636,7 +636,7 @@ def check_task(task_id: str) -> Any:
             elif directory_exists(task_id) and check_result_files(task_id):
                 response_data.update({
                     'status': 'success',
-                    'link': url_for('routes.download_file', task_id=task_id, _external=True),
+                    'link': url_for('routes.download_file', task_id=task_id, _external=True, _scheme=app.config['PREFERRED_URL_SCHEME']),
                     'expiresIn': result_data.get('expires_in'),
                     'expiresOn': result_data.get('expires_on'),
                     'createdOn': result_data.get('created_on')

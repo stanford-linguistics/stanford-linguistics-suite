@@ -162,20 +162,83 @@ def compute_t_orders(self, input_file_path,
                      num_trials,
                      weight_bound,
                      include_arrows):
+    logger = logging.getLogger(__name__)
     self.update_state(state='RUNNING')
     folder_id = self.request.id
-
-    output_path = get_output_path(folder_id)
-    call_t_order(input_file_path, output_path, hg_feasible_mappings_only,
-                 optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows)
-    copy_graphs(folder_id)
-    zip_results(input_filename, folder_id)
-    created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
-    result = Result(get_download_url(folder_id),
-                    FOLDER_TTL, get_expiration_on(),
-                    created_on)
-    clean_results(folder_id)
-    return result.toJSON()
+    
+    # Mark task as started with initial metadata
+    mark_task_started(folder_id, {
+        'input_file': os.path.basename(input_file_path) if input_file_path else None,
+        'started_at': int(time.time())
+    })
+    
+    try:
+        # Ensure output directory exists
+        output_path = get_output_path(folder_id)
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+        
+        # Mark processing stage
+        write_task_state(folder_id, 'processing', {
+            'stage': 't_orders_computation',
+            'input_file': os.path.basename(input_file_path)
+        })
+        
+        logger.info("Processing t-orders for task {}".format(folder_id))
+        
+        # Call t-orders computation
+        call_t_order(input_file_path, output_path, hg_feasible_mappings_only,
+                    optimization_method, bound_on_number_of_candidates, num_trials, weight_bound, include_arrows)
+        
+        # Mark copying graphs stage
+        write_task_state(folder_id, 'copying_graphs', {
+            'stage': 'copying_graphs'
+        })
+        copy_graphs(folder_id)
+        
+        # Mark packaging stage
+        write_task_state(folder_id, 'packaging', {
+            'stage': 'results_packaging'
+        })
+        zip_results(input_filename, folder_id)
+        
+        created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
+        result = Result(get_download_url(folder_id),
+                        FOLDER_TTL, get_expiration_on(),
+                        created_on)
+        
+        # Create final success markers before cleanup
+        mark_task_successful(folder_id, {
+            'download_url': result.download_url,
+            'expires_in': result.expires_in,
+            'expires_on': result.expires_on,
+            'created_on': created_on,
+            'input_file': os.path.basename(input_file_path)
+        })
+        
+        clean_results(folder_id)
+        logger.info("Successfully completed t-orders computation for task {}".format(folder_id))
+        return result.toJSON()
+    
+    except Exception as e:
+        self.update_state(state='FAILURE')
+        logger.exception("Error in task {}".format(folder_id))
+        
+        # Mark task as failed in persistent state file
+        mark_task_failed(folder_id, {
+            'message': "An error occurred: {}".format(str(e)),
+            'timestamp': int(time.time())
+        })
+        
+        # Format error result consistently with other tasks
+        error_result = {
+            "download_url": None,
+            "expires_in": None,
+            "expires_on": None,
+            "error": True,
+            "errorMessage": "An error occurred during t-orders computation: {}".format(str(e))
+        }
+        return json.dumps(error_result)
 
 
 
