@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Dict, Optional, Union, Any
+from typing import List, Dict, Optional, Union, Any, Tuple
 from dataclasses import dataclass
 from flask import url_for, make_response, send_from_directory, jsonify, current_app as app
 from flask_api import status
@@ -70,28 +70,81 @@ def download_file(task_id: str):
     Returns:
         File download response or 404 error
     """
+    logger.info(f"--- Entering download_file for task_id: {task_id} ---")
+    
+    # Determine if this is a CoGeTo task
+    is_cogeto, task_name = is_cogeto_task(task_id)
+    if is_cogeto:
+        logger.info(f"Download request for CoGeTo task {task_id}")
+    
     directory = os.path.join(app.config['RESULTS_FOLDER'], task_id)
+    logger.debug(f"Checking for file in directory: {directory}")
+    
+    # Check if the directory exists first and log its contents
+    try:
+        if os.path.exists(directory):
+            logger.info(f"Directory exists: {directory}")
+            files = os.listdir(directory)
+            logger.info(f"Directory contents: {files}")
+        else:
+            logger.warning(f"Directory does not exist: {directory}")
+    except Exception as e:
+        logger.error(f"Error checking directory {directory}: {e}")
+    
+    # First check if the file exists in the expected location
     if directory_exists(task_id):
         zip_filename = get_filename(
             directory, app.config['OUTPUT_FILE_EXTENSION'])
         if zip_filename:
+            zip_path = os.path.join(directory, zip_filename)
+            logger.info(f"Found ZIP file for task {task_id}: {zip_path}")
+            
+            # Verify the file is accessible and log file stats
             try:
+                file_stat = os.stat(zip_path)
+                logger.info(f"File stats: size={file_stat.st_size}, permissions={oct(file_stat.st_mode)}")
+                
                 return send_from_directory(directory, zip_filename, as_attachment=True)
             except Exception as e:
                 logger.error(f"Error sending file {zip_filename} for task {task_id}: {e}")
                 return jsonify({
                     'error': 'Failed to send file',
-                    'message': 'An error occurred while trying to download the file.'
+                    'message': f'An error occurred while trying to download the file: {str(e)}'
                 }), status.HTTP_500_INTERNAL_SERVER_ERROR
-        else:
+    
+    # If file not found, check for CoGeTo success markers
+    if is_cogeto:
+        logger.info(f"ZIP file not found for CoGeTo task {task_id}, checking success markers")
+        cogeto_success, cogeto_details = check_cogeto_success_markers(task_id)
+        logger.debug(f"CoGeTo success details: {cogeto_details}")
+        
+        if cogeto_success:
+            logger.warning(f"Download requested for CoGeTo task {task_id} which completed successfully but results were cleaned up")
             return jsonify({
-                'error': 'File not found',
-                'message': f'No file found for task ID: {task_id}'
-            }), status.HTTP_404_NOT_FOUND
-    else:
+                'error': 'File no longer available',
+                'message': 'The results file was successfully generated but is no longer available for download. It may have been cleaned up to save space.',
+                'wasSuccessful': True,
+                'taskType': 'cogeto',
+                'successDetails': cogeto_details
+            }), status.HTTP_410_GONE
+    
+    # Standard check for success markers
+    output_dir = os.path.join(app.config['RESULTS_FOLDER'], task_id, 'output')
+    success_marker_path = os.path.join(output_dir, 'task_completed')
+    task_state_file = os.path.join(output_dir, 'task_state.json')
+    
+    if os.path.exists(success_marker_path) or os.path.exists(task_state_file):
+        logger.warning(f"Download requested for task {task_id} which completed successfully but results were cleaned up")
         return jsonify({
-            'error': 'Directory not found',
-            'message': f'No results directory found for task ID: {task_id}'
+            'error': 'File no longer available',
+            'message': 'The results file was successfully generated but is no longer available for download. It may have been cleaned up to save space.',
+            'wasSuccessful': True
+        }), status.HTTP_410_GONE
+    else:
+        logger.warning(f"No success indicators found for task {task_id}")
+        return jsonify({
+            'error': 'File not found',
+            'message': f'No results found for task ID: {task_id}'
         }), status.HTTP_404_NOT_FOUND
 
 def get_all_file_paths(directory: str) -> List[str]:
@@ -251,14 +304,77 @@ def check_result_files(task_id: str, retry_count: int = 0) -> bool:
     results_dir = os.path.join(app.config['RESULTS_FOLDER'], task_id)
     public_dir = os.path.join(app.config['PUBLIC_FOLDER'], task_id)
     
-    # Check for zip file
-    zip_exists = bool(get_filename(results_dir, app.config['OUTPUT_FILE_EXTENSION']))
+    # Log directory existence first
+    results_dir_exists = os.path.exists(results_dir)
+    public_dir_exists = os.path.exists(public_dir)
     
-    # Check for results.json
-    json_exists = os.path.exists(os.path.join(public_dir, 'results.json'))
+    logger.info(f"Checking files for task {task_id}:")
+    logger.info(f"- Results directory ({results_dir}): {'exists' if results_dir_exists else 'missing'}")
+    logger.info(f"- Public directory ({public_dir}): {'exists' if public_dir_exists else 'missing'}")
+    
+    # Log contents of directories if they exist
+    if results_dir_exists:
+        try:
+            results_files = os.listdir(results_dir)
+            logger.info(f"- Results directory contents: {results_files}")
+        except Exception as e:
+            logger.error(f"Error reading results directory: {e}")
+    
+    if public_dir_exists:
+        try:
+            public_files = os.listdir(public_dir)
+            logger.info(f"- Public directory contents: {public_files}")
+        except Exception as e:
+            logger.error(f"Error reading public directory: {e}")
+    
+    # Check for zip file (more detailed logging)
+    zip_filename = get_filename(results_dir, app.config['OUTPUT_FILE_EXTENSION'])
+    zip_exists = bool(zip_filename)
+    
+    # Log the zip file status
+    if zip_exists:
+        zip_path = os.path.join(results_dir, zip_filename)
+        try:
+            file_stat = os.stat(zip_path)
+            logger.info(f"- ZIP file found: {zip_path}, size={file_stat.st_size}, permissions={oct(file_stat.st_mode)}")
+        except Exception as e:
+            logger.error(f"- ZIP file found but error accessing it: {e}")
+    else:
+        logger.info(f"- ZIP file not found in {results_dir}")
+    
+    # Check for results.json (more detailed logging)
+    results_json_path = os.path.join(public_dir, 'results.json')
+    json_exists = os.path.exists(results_json_path)
+    
+    # Log the JSON file status
+    if json_exists:
+        try:
+            file_stat = os.stat(results_json_path)
+            logger.info(f"- results.json found: {results_json_path}, size={file_stat.st_size}, permissions={oct(file_stat.st_mode)}")
+        except Exception as e:
+            logger.error(f"- results.json found but error accessing it: {e}")
+    else:
+        logger.info(f"- results.json not found at {results_json_path}")
+    
+    # Check for CoGeTo specific indicators and success markers
+    is_cogeto, _ = is_cogeto_task(task_id)
+    if is_cogeto:
+        cogeto_success, cogeto_details = check_cogeto_success_markers(task_id)
+        logger.info(f"- CoGeTo success indicators: {cogeto_success}")
+        logger.info(f"- CoGeTo details: {cogeto_details}")
+        
+        # For CoGeTo tasks, we consider success differently:
+        # If the task is identified as CoGeTo and we have explicit success indicators,
+        # we can be more lenient about file existence
+        if cogeto_success:
+            # Check if we have either results.zip or PNG files
+            if zip_exists or (public_dir_exists and any(f.endswith('.png') for f in public_files if public_dir_exists and 'public_files' in locals())):
+                logger.info(f"CoGeTo task {task_id} has sufficient success indicators and at least some expected files")
+                return True
     
     # If both files exist, we're good
     if zip_exists and json_exists:
+        logger.info(f"Both ZIP and JSON files exist for task {task_id}")
         return True
     
     # Check task state to see if it's in packaging phase
@@ -269,14 +385,14 @@ def check_result_files(task_id: str, retry_count: int = 0) -> bool:
         logger.info(f"Task {task_id} is in packaging phase, files may not be ready yet")
     
     # For tasks that have just completed, implement a retry mechanism
-    # Increased retry limit from 3 to 5 attempts
-    max_retries = 5
+    # Increased retry limit from 5 to 6 attempts
+    max_retries = 6
     if retry_count < max_retries:
         # Check if there are signs that the task is still completing
         # For example, if the public directory exists but json doesn't yet
         # Or if the task is in packaging phase
         if (os.path.exists(public_dir) and not json_exists) or in_packaging_phase:
-            # Exponential backoff: 0.5s, 1s, 2s, 4s, 8s
+            # Exponential backoff: 0.5s, 1s, 2s, 4s, 8s, 16s
             delay = 0.5 * (2 ** retry_count)
             logger.info(f"Files for task {task_id} not fully available yet. Retrying in {delay}s (attempt {retry_count + 1}/{max_retries})")
             time.sleep(delay)
@@ -284,6 +400,11 @@ def check_result_files(task_id: str, retry_count: int = 0) -> bool:
             return check_result_files(task_id, retry_count + 1)
     
     # If we've exhausted retries or no signs of ongoing completion, return the result
+    # For CoGeTo tasks, just require the ZIP file for success
+    if is_cogeto and zip_exists:
+        logger.info(f"CoGeTo task {task_id} has ZIP file but no results.json - still considering successful")
+        return True
+    
     return zip_exists and json_exists
 
 @routes.route('/metrical-tree-results/<string:task_id>')
@@ -592,6 +713,195 @@ def check_metrical_tree_task(task_id: str) -> Any:
         }), 500)
 
 
+def is_cogeto_task(task_id: str) -> Tuple[bool, Optional[str]]:
+    """
+    Determine if a task is a CoGeTo task using multiple detection methods.
+    
+    Args:
+        task_id: Task ID to check
+        
+    Returns:
+        Tuple of (is_cogeto_task, task_name)
+    """
+    # Method 1: Try to check the task in Redis directly
+    try:
+        res = celery.AsyncResult(task_id)
+        # First try to get the task name using various attribute lookups
+        task_name = None
+        
+        # Try different attributes that could hold the task name (Celery version differences)
+        for attr in ['name', 'task_name', 'task', 'type']:
+            if hasattr(res, attr):
+                task_name = getattr(res, attr)
+                logger.debug(f"Found task name from {attr} attribute: {task_name}")
+                break
+                
+        # If task name was found and contains the t-orders identifier
+        if task_name and 'compute_t_orders' in str(task_name):
+            logger.info(f"Task {task_id} identified as a CoGeTo task through task name: {task_name}")
+            return True, task_name
+            
+        # If Celery has info dictionary, check there
+        if hasattr(res, 'info') and isinstance(res.info, dict) and res.info.get('task_name'):
+            task_name = res.info.get('task_name')
+            if 'compute_t_orders' in str(task_name):
+                logger.info(f"Task {task_id} identified as a CoGeTo task through info.task_name: {task_name}")
+                return True, task_name
+    except Exception as e:
+        logger.warning(f"Could not determine task type via Celery for {task_id}: {e}")
+    
+    # Method 2: Look at task output artifacts to determine task type
+    try:
+        # Check if this task has CoGeTo-specific artifacts
+        public_dir = os.path.join(app.config['PUBLIC_FOLDER'], task_id)
+        results_dir = os.path.join(app.config['RESULTS_FOLDER'], task_id)
+        
+        # Indicators that this is a t-orders (CoGeTo) task:
+        t_order_indicators = [
+            # CoGeTo tasks have graph images in the public folder
+            any(f.endswith('.png') for f in os.listdir(public_dir)) if os.path.exists(public_dir) else False,
+            # CoGeTo tasks have results.json in the public folder
+            os.path.exists(os.path.join(public_dir, 'results.json')),
+            # CoGeTo tasks have a ZIP file in the results folder
+            os.path.exists(results_dir) and any(f.endswith('.zip') for f in os.listdir(results_dir)) if os.path.exists(results_dir) else False
+        ]
+        
+        if any(t_order_indicators):
+            logger.info(f"Task {task_id} identified as a CoGeTo task through artifacts")
+            return True, "tasks.compute_t_orders (detected by artifacts)"
+    except Exception as e:
+        logger.warning(f"Could not check for CoGeTo artifacts for {task_id}: {e}")
+    
+    # Method 3: If no other methods detected it, check if the task follows t-orders pattern
+    # This may not be 100% reliable but serves as a fallback
+    try:
+        # Try to infer from the format of the task_id or other patterns specific to CoGeTo tasks
+        # (This is a placeholder - implement specific patterns if they exist)
+        pass
+    except Exception as e:
+        logger.warning(f"Could not perform pattern detection for {task_id}: {e}")
+    
+    # No CoGeTo indicators found
+    logger.info(f"Task {task_id} is NOT identified as a CoGeTo task (no indicators)")
+    return False, None
+
+
+def check_cogeto_success_markers(task_id: str) -> Tuple[bool, Dict[str, Any]]:
+    """
+    Check for success markers for CoGeTo tasks, whose output directories 
+    may have been deleted after successful completion.
+    
+    Args:
+        task_id: Task ID to check
+        
+    Returns:
+        Tuple of (success_detected, details_dict)
+    """
+    logger.info(f"Checking CoGeTo success markers for task {task_id}")
+    
+    # Log all the directories we're checking to help debug path issues
+    results_dir = os.path.join(app.config['RESULTS_FOLDER'], task_id)
+    output_dir = os.path.join(results_dir, 'output')
+    public_dir = os.path.join(app.config['PUBLIC_FOLDER'], task_id)
+    
+    logger.debug(f"Checking directories: results={results_dir}, output={output_dir}, public={public_dir}")
+    
+    # Check main results directory existence
+    results_dir_exists = os.path.exists(results_dir)
+    logger.debug(f"Results directory exists: {results_dir_exists}")
+    
+    # Check output directory existence
+    output_dir_exists = os.path.exists(output_dir)
+    logger.debug(f"Output directory exists: {output_dir_exists}")
+    
+    # Check public directory existence
+    public_dir_exists = os.path.exists(public_dir)
+    logger.debug(f"Public directory exists: {public_dir_exists}")
+    
+    # Check for success marker
+    success_marker_path = os.path.join(output_dir, 'task_completed')
+    has_success_marker = os.path.exists(success_marker_path)
+    logger.debug(f"Success marker exists: {has_success_marker} (path: {success_marker_path})")
+    
+    # Check task state file
+    task_state_file = os.path.join(output_dir, 'task_state.json')
+    task_state_exists = os.path.exists(task_state_file)
+    logger.debug(f"Task state file exists: {task_state_exists} (path: {task_state_file})")
+    
+    state_indicates_success = False
+    if task_state_exists:
+        try:
+            with open(task_state_file, 'r') as f:
+                state_data = json.load(f)
+                state_indicates_success = state_data.get('state') == 'success'
+                logger.debug(f"Task state indicates success: {state_indicates_success}")
+        except Exception as e:
+            logger.warning(f"Could not read task state file for {task_id}: {e}")
+    
+    # Check for success in task result - this comes from Celery's result backend
+    # and should be available even if the output directories were cleaned up
+    success_in_result = False
+    result_data = {}
+    try:
+        res = celery.AsyncResult(task_id)
+        if res.state == states.SUCCESS:
+            result_str = res.result
+            if result_str:
+                try:
+                    if isinstance(result_str, bytes):
+                        result_str = result_str.decode('utf-8')
+                    result_data = json.loads(result_str)
+                    # Check if this has error flag - if not, it's a successful result
+                    success_in_result = not result_data.get('error', False)
+                    logger.debug(f"Task result indicates success: {success_in_result}")
+                except Exception as e:
+                    logger.warning(f"Could not parse result data for {task_id}: {e}")
+    except Exception as e:
+        logger.warning(f"Could not check result data for {task_id}: {e}")
+    
+    # Check the public directory for results.json and images
+    # This is another strong indicator of success
+    public_results_exist = os.path.exists(os.path.join(public_dir, 'results.json'))
+    logger.debug(f"Public results.json exists: {public_results_exist}")
+    
+    public_images_exist = False
+    if public_dir_exists:
+        try:
+            for file in os.listdir(public_dir):
+                if file.endswith('.png'):
+                    public_images_exist = True
+                    break
+            logger.debug(f"Public images exist: {public_images_exist}")
+        except Exception as e:
+            logger.warning(f"Could not check for images in {public_dir}: {e}")
+    
+    # Success is indicated by:
+    # 1. Success marker or state file indicating success
+    # 2. OR if result data indicates success
+    # 3. OR if public directory has results.json and images (clear sign of successful completion)
+    success_detected = (
+        has_success_marker or
+        state_indicates_success or
+        (success_in_result and not check_for_error_result(result_data)) or
+        (public_results_exist and public_images_exist)
+    )
+    
+    logger.info(f"CoGeTo success detection for task {task_id}: {success_detected}")
+    
+    details = {
+        'has_success_marker': has_success_marker,
+        'state_indicates_success': state_indicates_success,
+        'success_in_result': success_in_result,
+        'public_results_exist': public_results_exist,
+        'public_images_exist': public_images_exist,
+        'results_dir_exists': results_dir_exists,
+        'output_dir_exists': output_dir_exists,
+        'public_dir_exists': public_dir_exists
+    }
+    
+    return success_detected, details
+
+
 @routes.route('/results/<string:task_id>')
 def check_task(task_id: str) -> Any:
     """
@@ -604,6 +914,13 @@ def check_task(task_id: str) -> Any:
         JSON response with task status and results
     """
     logger.info(f"--- Entering check_task for task_id: {task_id} ---")
+    
+    # Determine if this is a CoGeTo task
+    is_cogeto, task_name = is_cogeto_task(task_id)
+    if is_cogeto:
+        logger.info(f"Task {task_id} identified as a CoGeTo task (task_name: {task_name})")
+    else:
+        logger.info(f"Task {task_id} is not a CoGeTo task (task_name: {task_name or 'unknown'})")
     try:
         res = celery.AsyncResult(task_id)
         task_status = res.state
@@ -633,29 +950,77 @@ def check_task(task_id: str) -> Any:
                     'errorMessage': result_data.get("errorMessage", "Task encountered an error"),
                     'errorDetails': result_data.get("errorDetails", {})
                 })
-            elif directory_exists(task_id) and check_result_files(task_id):
+            
+            # Special handling for CoGeTo tasks which clean up their output directories after success
+            cogeto_success = False
+            cogeto_details = {}
+            if is_cogeto:
+                logger.info(f"Using enhanced success detection for CoGeTo task {task_id}")
+                cogeto_success, cogeto_details = check_cogeto_success_markers(task_id)
+                logger.debug(f"CoGeTo success details: {cogeto_details}")
+            
+            # For non-CoGeTo tasks or as a fallback, use the regular success detection
+            regular_success = directory_exists(task_id) and check_result_files(task_id)
+            
+            # Either CoGeTo-specific success or regular success detection is sufficient
+            if cogeto_success or regular_success:
+                # Base success response with common fields
                 response_data.update({
                     'status': 'success',
-                    'link': url_for('routes.download_file', task_id=task_id, _external=True, _scheme=app.config['PREFERRED_URL_SCHEME']),
                     'expiresIn': result_data.get('expires_in'),
                     'expiresOn': result_data.get('expires_on'),
                     'createdOn': result_data.get('created_on')
                 })
                 
-                try:
-                    response_data['images'] = get_images(task_id)
-                except Exception as e:
-                    logger.warning(f"Could not get images for {task_id}: {e}")
-                
-                try:
-                    response_data['data'] = get_data(task_id)
-                except Exception as e:
-                    logger.warning(f"Could not get data for {task_id}: {e}")
-                
-                try:
-                    response_data['dataUrl'] = get_data_url(task_id)
-                except Exception as e:
-                    logger.warning(f"Could not get dataUrl for {task_id}: {e}")
+                # Special case for CoGeTo tasks where files were cleaned up
+                # This is determined by checking if cogeto_success is true, but files are missing
+                # If files exist, we can use the normal flow below
+                if is_cogeto and cogeto_success and not (
+                    cogeto_details.get('results_dir_exists', False) and 
+                    cogeto_details.get('public_results_exist', False)
+                ):
+                    logger.info(f"CoGeTo task {task_id} was successful but result files were cleaned up")
+                    
+                    # Still provide a link even though files are cleaned up
+                    # The download_file function will handle the expired case
+                    response_data['link'] = url_for('routes.download_file', 
+                                                  task_id=task_id, 
+                                                  _external=True, 
+                                                  _scheme=app.config['PREFERRED_URL_SCHEME'])
+                    
+                    # Include task type and success marker details in response
+                    response_data['taskType'] = 'cogeto'
+                    response_data['resultFilesCleanedUp'] = True
+                    response_data['successDetails'] = cogeto_details
+                    
+                    # Attempt to get any images that might still exist
+                    # This is non-critical, so wrapped in try-except
+                    try:
+                        if cogeto_details.get('public_dir_exists', False):
+                            response_data['images'] = get_images(task_id)
+                    except Exception as e:
+                        logger.warning(f"Could not get images for CoGeTo task {task_id}: {e}")
+                else:
+                    # Normal success flow for tasks with available files
+                    response_data['link'] = url_for('routes.download_file', 
+                                                  task_id=task_id, 
+                                                  _external=True, 
+                                                  _scheme=app.config['PREFERRED_URL_SCHEME'])
+                    
+                    try:
+                        response_data['images'] = get_images(task_id)
+                    except Exception as e:
+                        logger.warning(f"Could not get images for {task_id}: {e}")
+                    
+                    try:
+                        response_data['data'] = get_data(task_id)
+                    except Exception as e:
+                        logger.warning(f"Could not get data for {task_id}: {e}")
+                    
+                    try:
+                        response_data['dataUrl'] = get_data_url(task_id)
+                    except Exception as e:
+                        logger.warning(f"Could not get dataUrl for {task_id}: {e}")
             else:
                 # Check if task is in packaging phase
                 task_state_data = read_task_state(task_id)

@@ -46,12 +46,17 @@ const TordersReducer = (state = initialState, action) => {
         torder: {
           ...state.torder,
           id: action.payload.id,
-          status: action.payload.status,
+          status: (action.payload.status && action.payload.status.toUpperCase()) || action.payload.status,
           link: action.payload.link,
           errorMessage: action.payload.errorMessage,
           images: action.payload.images
         },
-        torders: [...state.torders, action.payload],
+        torders: [...state.torders, 
+          {
+            ...action.payload,
+            status: (action.payload.status && action.payload.status.toUpperCase()) || action.payload.status
+          }
+        ],
         isPending: false
       };
     case REQUEST_UPLOAD_TORDER_FAILED:
@@ -68,7 +73,7 @@ const TordersReducer = (state = initialState, action) => {
           torder.id === action.payload.id
             ? {
                 ...torder,
-                status: action.payload.status,
+                status: (action.payload.status && action.payload.status.toUpperCase()) || action.payload.status,
                 link: action.payload.link,
                 errorMessage: action.payload.errorMessage,
                 expiresOn: action.payload.expiresOn,

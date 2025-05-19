@@ -36,7 +36,7 @@ function MyTorderTable(props) {
                     size={20}
                     color={'#8c1515'}
                     loading={
-                      torder.status === 'RUNNING' || torder.status === 'PENDING'
+                      (torder.status && torder.status.toUpperCase() === 'RUNNING') || (torder.status && torder.status.toUpperCase() === 'PENDING')
                     }
                   />
                 </td>
@@ -50,7 +50,7 @@ function MyTorderTable(props) {
                 </td>
                 <td>
                   <div>
-                    {torder.status === 'SUCCESS' && (
+                    {(torder.status && torder.status.toUpperCase() === 'SUCCESS') && (
                       <a
                         title="Download"
                         className="btn torder-primary-btn"
@@ -60,7 +60,7 @@ function MyTorderTable(props) {
                         <FontAwesomeIcon icon={faDownload} />
                       </a>
                     )}
-                    {torder.status !== 'SUCCESS' && (
+                    {!(torder.status && torder.status.toUpperCase() === 'SUCCESS') && (
                       <Button className="torder-primary-btn" disabled>
                         <FontAwesomeIcon icon={faDownload} />
                       </Button>
@@ -69,7 +69,7 @@ function MyTorderTable(props) {
                       title="View Details"
                       className="torder-primary-btn"
                       value={torder}
-                      disabled={torder.status !== 'SUCCESS'}
+                      disabled={!(torder.status && torder.status.toUpperCase() === 'SUCCESS')}
                       onClick={() => props.viewTorder(torder)}>
                       <FontAwesomeIcon icon={faListAlt} />
                     </Button>

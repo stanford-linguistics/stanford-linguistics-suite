@@ -62,7 +62,7 @@ class MyTorders extends Component {
           that.props.updateTorder(torder.id);
         }
         if (
-          torder.status === 'EXPIRED' &&
+          torder.status && torder.status.toUpperCase() === 'EXPIRED' &&
           that.props.shouldDeleteExpiredTorders
         ) {
           that.props.deleteTorder(torder.id);
@@ -70,7 +70,7 @@ class MyTorders extends Component {
       });
     }
     function shouldUpdate(torder) {
-      if (torder.status === 'SUCCESS') {
+      if (torder.status && torder.status.toUpperCase() === 'SUCCESS') {
         var utcSeconds = torder.expiresOn;
         var d = new Date(0); // sets the date to the epoch
         d.setUTCSeconds(utcSeconds);
@@ -80,7 +80,7 @@ class MyTorders extends Component {
           return true;
         }
       }
-      return torder.status === 'PENDING' || torder.status === 'RUNNING';
+      return (torder.status && torder.status.toUpperCase() === 'PENDING') || (torder.status && torder.status.toUpperCase() === 'RUNNING');
     }
   };
 
@@ -184,13 +184,13 @@ class MyTorders extends Component {
             <Modal.Title>Details - {this.state.torder.name}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            {this.state.torder.status === 'FAILURE' && (
+            {this.state.torder.status && this.state.torder.status.toUpperCase() === 'FAILURE' && (
               <div>
                 <h1>Status: {this.state.torder.status}</h1>
                 <p>{this.state.torder.errorMessage}</p>
               </div>
             )}
-            {this.state.torder.status === 'SUCCESS' && (
+            {this.state.torder.status && this.state.torder.status.toUpperCase() === 'SUCCESS' && (
               <Tabs defaultActiveKey="params">
                 <Tab eventKey="params" title="Params">
                   <Table responsive striped bordered hover>
