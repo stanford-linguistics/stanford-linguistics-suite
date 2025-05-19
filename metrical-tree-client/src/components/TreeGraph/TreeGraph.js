@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useRef, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import { useMediaQuery } from '@material-ui/core';
@@ -12,31 +12,32 @@ const useStyles = makeStyles((theme) => ({
   root: {
     position: 'relative',
     width: '100%',
-    height: props => props.height || '350px',
+    height: props => props.height || '100%',
     display: 'flex',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     margin: '0 auto',
     overflow: 'visible',
-    zIndex: 20, // Add z-index
+    zIndex: 20,
+    backgroundColor: 'transparent',
+    boxSizing: 'border-box',
     [theme.breakpoints.down('sm')]: {
-      height: props => props.mobileHeight || '300px',
+      height: props => props.mobileHeight || '100%',
     },
     [theme.breakpoints.down('xs')]: {
-      height: props => props.smallMobileHeight || '250px',
+      height: props => props.smallMobileHeight || '100%',
     },
   },
   treeContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    position: 'relative',
     width: '100%',
     height: '100%',
     display: 'flex',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     overflow: 'visible',
-    zIndex: 15, // Add z-index
+    padding: '0',
+    boxSizing: 'border-box',
   }
 }));
 
@@ -79,9 +80,9 @@ const TreeGraph = (props) => {
     }
   }, [availableHeight, isLargeDesktop, isDesktop, isMobile, isSmallMobile]);
 
-  // Styles - use dynamic height from calculations
+  // Styles - use dynamic height from calculations or props
   const styleProps = { 
-    height: `${optimalHeight}px`, 
+    height: height || `${optimalHeight}px`, 
     mobileHeight: mobileHeight, 
     smallMobileHeight: smallMobileHeight 
   };

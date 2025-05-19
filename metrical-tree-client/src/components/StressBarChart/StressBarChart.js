@@ -10,43 +10,28 @@ import useAvailableHeight from '../../hooks/useAvailableHeight';
  */
 const useStyles = makeStyles((theme) => ({
   root: {
-    position: 'relative',
-    width: '100%',
-    height: props => props.height || '280px', // Increased height
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: '0 auto',
-    overflowX: 'auto',
-    overflowY: 'visible',
-    WebkitOverflowScrolling: 'touch',
-    zIndex: 30, // Ensure chart is above other elements
-    [theme.breakpoints.down('sm')]: {
-      height: props => props.mobileHeight || '260px', // Increased height
+    overflowX: 'hidden', // Always prevent horizontal scrolling
+    marginBottom: theme.spacing(2), // Default margin
+    // Make overflow conditional based on screen height
+    [`@media (min-height: 700px)`]: {
+      overflowY: 'visible', // Regular screens don't need scroll
     },
-    [theme.breakpoints.down('xs')]: {
-      height: props => props.smallMobileHeight || '240px', // Increased height
-    },
+    [`@media (max-height: 700px)`]: {
+      overflowY: 'auto', // Only enable scrolling on shorter screens
+      marginBottom: theme.spacing(4),
+      maxHeight: 'calc(100vh - 200px)'
+    }
   },
   chartContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflowX: 'auto',
-    overflowY: 'visible',
-    zIndex: 25, // Increased z-index
+    minHeight: '180px', // Slightly reduced minimum height
+    position: 'relative',
+    paddingBottom: theme.spacing(1), // Less padding by default
+    [`@media (max-height: 700px)`]: {
+      paddingBottom: theme.spacing(3) // More padding only on short screens
+    }
   },
   svg: {
-    overflow: 'visible',
-    margin: '0 auto',
-    display: 'block',
-    position: 'relative',
-    zIndex: 20,
+    display: 'block' // Ensure proper display behavior
   }
 }));
 
@@ -90,10 +75,10 @@ const StressBarChart = (props) => {
       return Math.min(260, availableHeight * 0.28);
     } else if (isNarrowScreen && !isTinyScreen) {
       // Tablets and medium screens
-      return Math.min(240, availableHeight * 0.25);
+      return Math.min(260, availableHeight * 0.45);
     } else {
-      // Small mobile screens
-      return Math.min(220, availableHeight * 0.22);
+      // Small mobile screens - increased further for better visibility
+      return Math.min(250, availableHeight * 0.5);
     }
   }, [availableHeight, isLargeDesktop, isDesktop, isNarrowScreen, isTinyScreen]);
   
@@ -255,20 +240,20 @@ const StressBarChart = (props) => {
   // Calculate appropriate dimensions
   const wordCount = barData.length;
   
-  // Responsive bar width and spacing
-  const barWidth = isTinyScreen ? 25 : (isNarrowScreen ? 30 : 35);
-  const barSpacing = isTinyScreen ? 10 : (isNarrowScreen ? 15 : 20);
+  // Responsive bar width and spacing - further adjusted to prevent text overlap 
+  const barWidth = isTinyScreen ? 24 : (isNarrowScreen ? 32 : 35);
+  const barSpacing = isTinyScreen ? 22 : (isNarrowScreen ? 26 : 28);
   
   // SVG viewBox dimensions - ensure enough width for all bars and add extra height for attribution
   const svgWidth = Math.max(600, (barWidth + barSpacing) * wordCount + 60);
-  const svgHeight = 240; // Reduced height to a more reasonable value
+  const svgHeight = isTinyScreen ? 230 : 250; // Increased height to accommodate everything
   
   // Calculate total chart width to ensure all bars are visible
   const totalChartWidth = (barWidth + barSpacing) * wordCount;
   const startX = (svgWidth - totalChartWidth) / 2 + 10;
   
   // Scale factor to ensure tallest bar fits within container
-  const maxAllowedBarHeight = 100; // Maximum bar height
+  const maxAllowedBarHeight = 120; // Increased maximum bar height
   const maxStressValue = Math.max(...stressValues);
   const heightScaleFactor = maxStressValue > 0 ? Math.min(1, maxAllowedBarHeight / (maxStressValue * 40)) : 1;
   
@@ -286,8 +271,9 @@ const StressBarChart = (props) => {
           preserveAspectRatio="xMidYMid meet"
           className={classes.svg}
           style={{
-            minWidth: isTinyScreen ? '350px' : '500px',
-            overflow: 'visible',
+            minWidth: isTinyScreen ? '350px' : (isNarrowScreen ? '380px' : '500px'),
+            width: '100%', 
+            overflow: 'hidden',
             position: 'relative',
             zIndex: 25,
           }}
@@ -316,7 +302,8 @@ const StressBarChart = (props) => {
               const barX = startX + (index * (barWidth + barSpacing));
               // Apply scaling factor to ensure tallest bar fits
               const barHeight = (item.value * 40 * heightScaleFactor) || 0;
-              const barY = svgHeight - barHeight - 70; // Position bars higher
+              // Adjust bar positioning to reduce gap between bars and labels
+              const barY = svgHeight - barHeight - (isTinyScreen ? 45 : 55);
               const isHighlighted = highlightedWord === item.name;
               
               return (
@@ -335,9 +322,9 @@ const StressBarChart = (props) => {
                   {/* Word label */}
                   <text 
                     x={barX + (barWidth / 2)} 
-                    y={svgHeight - 30} // Position labels closer to the bottom
+                    y={svgHeight - 35} // Moved text closer to bars
                     fill="black"
-                    fontSize={isNarrowScreen ? 12 : 14}
+                    fontSize={isTinyScreen ? 9 : (isNarrowScreen ? 11 : 14)}
                     fontWeight="bold"
                     textAnchor="middle"
                     style={{
@@ -398,7 +385,7 @@ const StressBarChart = (props) => {
               />
               <text
                 x={svgWidth / 2}
-                y={svgHeight - 5} // Position closer to bottom
+                y={svgHeight - 4} // Adjusted slightly for better alignment
                 textAnchor="middle"
                 fontSize="11"
                 fontStyle="italic"

@@ -1,83 +1,65 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import { useHistory } from 'react-router-dom';
 import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
-import { Grid, Typography, Card, Link, Button, Box, useMediaQuery } from '@material-ui/core';
-import useAvailableHeight from '../../hooks/useAvailableHeight';
-
+import { makeStyles } from '@material-ui/core/styles';
+import { Grid, Typography, Card, Link, Button, Box } from '@material-ui/core';
 import IdentityBar from 'components/IdentityBar';
 import PrimaryFooter from 'components/PrimaryFooter';
 import SecondaryFooter from 'components/SecondaryFooter';
 import Appbar from 'components/Appbar';
-import GridBackground from 'components/GridBackground/GridBackground';
+
 import TreeGraph from 'components/TreeGraph/TreeGraph';
 import StressBarChart from 'components/StressBarChart/StressBarChart';
+
+// import GridBackground from 'components/GridBackground/GridBackground';
+{/* <div className={classes.backgroundContainer}>
+//           <GridBackground 
+//             showParticles={false}
+//             backgroundColor="rgba(255,255,255,0.01)"
+//           />
+//         </div> */}
 const useStyles = makeStyles((theme) => ({
-  root: {
-    position: 'relative',
-    overflow: 'hidden', // Prevent scrollbars
-    minHeight: '100vh',
-    paddingBottom: 0, // Remove extra padding at the bottom
-    paddingTop: 0, // No need for padding with sticky header
-  },
-  backgroundContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 'calc(100vh - 320px)',
-    zIndex: 0,
-    overflow: 'hidden',
-    marginBottom: '230px', // Account for fixed footers
-    [theme.breakpoints.down('sm')]: {
-      height: 'calc(100vh - 400px)',
-    },
-    [theme.breakpoints.down('xs')]: {
-      height: 'calc(100vh - 420px)',
-    },
-  },
-  container: {
-    position: 'relative',
-    height: 'calc(100vh - 320px)',
-    zIndex: 1,
-    overflow: 'hidden', // Prevent scrollbars
-    marginBottom: '230px', // Account for fixed footers
-    [theme.breakpoints.down('sm')]: {
-      height: 'calc(100vh - 400px)',
-    },
-    [theme.breakpoints.down('xs')]: {
-      height: 'calc(100vh - 420px)',
-    },
-  },
+   root: {
+     backgroundColor: '#f2f2f2',
+     minHeight: '100vh',
+     position: 'relative',
+     overflow: 'visible',
+     paddingBottom: '20px',
+     [`@media (max-height: 700px)`]: {
+       overflow: 'auto',
+       paddingBottom: '50px'
+     }
+   },
+   topBars: {position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1000},
+   container: {
+    padding: 20,
+     [theme.breakpoints.down('sm')]: {
+      marginTop: 0,
+     },
+   },
   card: {
-    padding: 32,
-    borderRadius: 0,
-    margin: 0,
-    backgroundColor: '#f2f2f2',
-    [theme.breakpoints.down('xs')]: {
-      padding: 16,
-    },
-  },
-  subtitle: {
-    fontWeight: 'bold',
-    [theme.breakpoints.down('xs')]: {
-      fontSize: '0.875rem',
-    },
+     paddingRight: 80,
+       [theme.breakpoints.down('sm')]: {
+        padding: 20,
+        paddingRight: 40
+      },
   },
   title: {
     fontWeight: 'bold',
-    fontSize: '1.75rem',
+    fontSize: '2.25rem',
     marginBottom: 16,
     marginTop: -8,
     [theme.breakpoints.down('xs')]: {
       fontSize: '1.25rem',
     },
   },
+  text: {lineHeight: 2},
   link: {
     color: '#6a3f3f',
     '&:hover': {
       cursor: 'pointer',
-      color: '#553333', // Darker shade of #6a3f3f for hover
+      color: '#553333', 
     },
   },
   linkLabel: {
@@ -87,96 +69,97 @@ const useStyles = makeStyles((theme) => ({
   },
   homeButton: {
     marginTop: 8,
+    padding: '8px 16px',
     borderRadius: 32,
-    backgroundColor: '#6a3f3f',
+    backgroundColor: '#8c1515',
     '&:hover': {
-      backgroundColor: '#553333', // Darker shade of #6a3f3f for hover
+      backgroundColor: '#553333', 
       color: '#ffffff',
     },
   },
   buttonLabel: {
     textTransform: 'uppercase',
-    fontSize: '0.625rem',
+    fontSize: '0.8rem',
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  stressBarContainer: {
+    position: 'relative', 
+    zIndex: 15, 
+    minHeight: '220px', 
+    paddingBottom: 40, // Normal padding
+    // Only add extra padding when viewport height is small
+    [`@media (max-height: 700px)`]: {
+      paddingBottom: 120, // Add more padding on short screens
+    },
+    [theme.breakpoints.down('xs')]: {
+      paddingBottom: 60, // Moderate padding on mobile
+      [`@media (max-height: 700px)`]: {
+        paddingBottom: 150, // More padding on small mobile screens
+      },
+    },
+  },
+  divider: {
+    [theme.breakpoints.up('md')]: { 
+      marginLeft: 80
+  },
+[theme.breakpoints.down('sm')]: { 
+      marginLeft: 20,
+      marginTop: 40
+  }
+},
+  solid: {borderTop: '3px solid #bbb'},
+  secondaryFooter: {
+    [theme.breakpoints.up('sm')]: {
+      position: 'fixed',
+      bottom: 130,
+      left: 0,
+      right: 0,
+      zIndex: 1000, // High z-index to ensure it's on top
+      backgroundColor: '#f2f2f2', // Match the background color
+      boxShadow: '0px -2px 4px rgba(0,0,0,0.05)' // Subtle shadow for separation
+    },
+  },
+  primaryFooter: {
+    [theme.breakpoints.up('sm')]: {
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1001, // Even higher z-index than secondaryFooter
+      backgroundColor: '#8c1515', // Match the Stanford red color
+    }
   },
 }));
 
 const Home = () => {
   const classes = useStyles();
   const history = useHistory();
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-  const isLargeDesktop = useMediaQuery(theme.breakpoints.up('lg'));
-  const availableHeight = useAvailableHeight();
 
   return (
     <>
-      <div style={{ position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1000 }}>
+      <div className={classes.topBars}>
         <IdentityBar />
         <Appbar />
       </div>
       <div className={classes.root}>
-        {/* Background Grid */}
-        <div className={classes.backgroundContainer}>
-          <GridBackground 
-            showParticles={false}
-            backgroundColor="rgba(255,255,255,0.01)"
-          />
-        </div>
-        
-        {/* Main Content */}
         <div className={classes.contentWrapper}>
           <Grid
             container
             justifyContent="center"
-            alignItems="flex-start"
             className={classes.container}
-            spacing={2}>
-            
-            {/* Responsive layout - desktop vs mobile */}
-            {isDesktop ? (
-              // Desktop Layout - Side by side for tree and card when space permits
-              <Grid container spacing={2}>
-                {/* Left side - Tree Graph */}
-                <Grid item xs={12} md={6} lg={7} style={{ position: 'relative', zIndex: 15, minHeight: '400px' }}>
-                  <Box
-                    style={{
-                      position: 'relative',
-                      height: '100%',
-                      width: '100%',
-                      overflow: 'visible',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <TreeGraph />
-                  </Box>
-                </Grid>
-                
-                {/* Right side - Info Card */}
-                <Grid
-                  item
-                  xs={12}
-                  md={6}
-                  lg={5}
-                  style={{
-                    position: 'relative',
-                    zIndex: 20,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}
-                >
+            >
+                <Grid item xs={12} lg={6}>
                   <Card className={classes.card}>
-                  <Typography className={classes.subtitle}>
-                    Metrical Tree
-                  </Typography>
+                    <Grid container alignItems="center" justifyContent="center">
+                      <Grid item xs={12} sm={5} md={4}>
+                        <TreeGraph  />
+                      </Grid>
+                      <Grid item xs={12} sm={7} md={8} >
                   <Typography className={classes.title}>
                     Analyze Sentence Prosody
                   </Typography>
-                  <Typography>
+                  <Typography className={classes.text}>
                     Metrical Tree generates a normal stress contour for
                     English sentences. You can type in your own text from
                     the keyboard or upload a text file.
@@ -202,114 +185,32 @@ const Home = () => {
                       <Typography className={classes.buttonLabel}>Compute</Typography>
                     </Button>
                   </Grid>
-                </Card>
-              </Grid>
-              
-              {/* Bottom Section: Stress Bar Chart */}
-              <Grid item xs={12} style={{ position: 'relative', zIndex: 15, minHeight: '220px' }}>
-                <Box 
-                  mt={2} 
-                  style={{ 
-                    position: 'relative', 
-                    width: '100%',
-                    overflow: 'visible'
-                  }}
-                >
+                      </Grid>
+                    </Grid>
+                    <Grid container alignContent='center' justifyContent='center'>
+                      <Grid item xs={12} className={classes.divider}>
+                        <hr class="solid" />
+                        </Grid>
+                    </Grid>
+                  <Grid container>
+                <Grid item xs={12} className={classes.stressBarContainer}>
+                <Box mt={2}>
                   <StressBarChart />
                 </Box>
               </Grid>
-              </Grid>
-            ) : (
-              // Mobile Layout - Stacked components
-              <Grid container spacing={0}>
-                {/* Top Section: Tree Graph */}
-                <Grid item xs={12} style={{ position: 'relative', zIndex: 15, minHeight: '300px' }}>
-                  <Box 
-                    mb={3} 
-                    style={{ 
-                      position: 'relative', 
-                      width: '100%',
-                      overflow: 'visible'
-                    }}
-                  >
-                    <TreeGraph />
-                  </Box>
-                </Grid>
-                
-                {/* Middle Section: Info Card */}
-                <Grid 
-                  item 
-                  xs={12} 
-                  sm={10}
-                  style={{ 
-                    position: 'relative',
-                    zIndex: 20, 
-                    margin: '0 auto',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    marginBottom: '30px'
-                  }}
-                >
-                  <Card className={classes.card}>
-                    <Typography className={classes.subtitle}>
-                      Metrical Tree
-                    </Typography>
-                    <Typography className={classes.title}>
-                      Analyze Sentence Prosody
-                    </Typography>
-                    <Typography>
-                      Metrical Tree generates a normal stress contour for
-                      English sentences. You can type in your own text from
-                      the keyboard or upload a text file.
-                    </Typography>
-                    <Link
-                      className={classes.link}
-                      onClick={() => history.push('/about')}>
-                      <Grid container>
-                        <Grid item>
-                          <Typography className={classes.linkLabel}>
-                            Learn More
-                          </Typography>
-                        </Grid>
-                        <Grid item>
-                          <KeyboardArrowRightIcon />
-                        </Grid>
-                      </Grid>
-                    </Link>
-                    <Grid container justifyContent="flex-end">
-                      <Button
-                        className={classes.homeButton}
-                        onClick={() => history.push('/compute')}>
-                        <Typography className={classes.buttonLabel}>Compute</Typography>
-                      </Button>
-                    </Grid>
-                  </Card>
-                </Grid>
-                
-                {/* Bottom Section: Stress Bar Chart */}
-                <Grid item xs={12} style={{ position: 'relative', zIndex: 15, minHeight: '220px' }}>
-                  <Box 
-                    mt={2}
-                    style={{ 
-                      position: 'relative', 
-                      width: '100%',
-                      overflow: 'visible'
-                    }}
-                  >
-                    <StressBarChart />
-                  </Box>
-                </Grid>
-              </Grid>
-            )}
-          </Grid>
-        </div>
-      </div>
-      <div style={{ position: 'fixed', bottom: '130px', left: 0, right: 0, zIndex: 1000 }}>
-        <SecondaryFooter />
-      </div>
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
-        <PrimaryFooter />
-      </div>
+            </Grid>
+          </Card>
+        </Grid>
+      </Grid>
+    </div>
+    </div>
+      <div className={classes.secondaryFooter}>
+         <SecondaryFooter />
+       </div>
+       <div className={classes.primaryFooter}>
+         <PrimaryFooter />
+       </div> 
+
     </>
   );
 };

@@ -325,7 +325,7 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
               key={conn.id}
               d={getAnimatedLinePath(x1, y1, x2, y2, progress, hasTopLevelConnection)}
               stroke="#000"
-              strokeWidth={isGrowing ? 2 : 1.5}
+              strokeWidth={isGrowing ? 3 : 2}
               strokeOpacity={opacity}
               fill="none"
               style={isGrowing ? {
@@ -394,12 +394,12 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
             >
               {/* White circle behind text for clear visibility */}
               <circle
-                r={11}
+                r={12}
                 fill="#fff"
                 stroke="none"
               />
               <text
-                fill="#000"
+                fill="#8B3A3A"
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={13}
@@ -422,8 +422,8 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
               >
                 {/* Very small black dot for branching points */}
                 <circle
-                  r={2.5}
-                  fill="#000"
+                  r={3}
+                  fill="#8B3A3A"
                 />
               </g>
             );
@@ -551,36 +551,31 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
   
   return (
     <div style={{ 
-      position: 'absolute',
-      top: getVerticalPosition.top,
-      left: 0,
-      width: '100%',
-      height: getVerticalPosition.height,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'flex-start', // Align to top instead of center
-      pointerEvents: 'none',
-      zIndex: 1, // Lower z-index to place behind info card
-      transform: getVerticalPosition.transform || 'none',
-      transformOrigin: getVerticalPosition.transformOrigin || 'center top',
-      marginBottom: getVerticalPosition.marginBottom || '0px',
-      maxWidth: getVerticalPosition.maxWidth || '100%',
-      margin: '0 auto',
-      overflow: getVerticalPosition.overflow || 'visible'
+       position: 'relative',
+       top: 0,
+       left: 0,
+       width: '100%',
+       height: '100%',
+       display: 'flex',
+       justifyContent: 'center',
+       alignItems: 'center',
+       pointerEvents: 'none',
+       zIndex: 1,
+       margin: '0 auto',
+       padding: '0',
+       overflow: 'visible'
     }}>
       <svg
         ref={svgRef}
-        width={treeGraphConfig.layout.width}
-        height={treeGraphConfig.layout.height}
-        viewBox={`0 0 ${treeGraphConfig.layout.width} ${treeGraphConfig.layout.height}`}
+        width="100%"
+        height="100%"
+        viewBox={`0 0 375 375`}
         style={{
-          overflow: 'visible',
-          maxWidth: window.innerWidth < 400 ? '98%' : '95%',  // Allow more width on very small screens
-          maxHeight: '100%', // Use full height
-          // No additional scaling here as we're handling it in the container
+           maxWidth: '100%',
+           maxHeight: '100%', // Use full height
+          // // No additional scaling here as we're handling it in the container
           transformOrigin: 'center top',
           transition: 'transform 0.3s ease', // Smooth transition for scale changes
-          margin: '0 auto' // Center the SVG
         }}
       >
         {/* Connection lines */}

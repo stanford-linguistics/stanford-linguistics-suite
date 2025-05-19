@@ -10,6 +10,8 @@ const useStyles = makeStyles((theme) => ({
     paddingLeft: 100,
     paddingTop: 26,
     paddingBottom: 26,
+    width: '100%',
+    boxShadow: '0px -2px 4px rgba(0,0,0,0.2)',
     [theme.breakpoints.down('sm')]: { paddingLeft: 0 },
   },
   logoContainer: {

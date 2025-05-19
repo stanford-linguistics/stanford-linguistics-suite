@@ -7,6 +7,8 @@ const useStyles = makeStyles((theme) => ({
   container: {
     backgroundColor: '#fff',
     padding: '14px 100px',
+    width: '100%',
+    boxShadow: '0px -1px 3px rgba(0,0,0,0.1)',
     [theme.breakpoints.down('sm')]: { padding: '14px 16px' },
   },
   stanfordTitle: { fontSize: '1.5rem', marginTop: -2 },
