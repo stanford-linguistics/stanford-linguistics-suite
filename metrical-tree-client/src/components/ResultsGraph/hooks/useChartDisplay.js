@@ -5,9 +5,10 @@ import { POS_COLORS, STRESS_COLORS } from '../constants/chartConfig';
  * Custom hook for managing display options in the ResultsGraph
  * 
  * @param {Array} data - The chart data
+ * @param {boolean} isSeriesModel - Whether the current model is a series model
  * @returns {Object} Display state and methods
  */
-export const useChartDisplay = (data) => {
+export const useChartDisplay = (data, isSeriesModel = false) => {
   // Initialize state from localStorage if available
   const [colorScheme, setColorScheme] = useState(() => {
     try {
@@ -45,6 +46,20 @@ export const useChartDisplay = (data) => {
     return hasMeanValues;
   }, [data]);
   
+  // Reset color scheme to 'default' when a series model is detected
+  useEffect(() => {
+    if (isSeriesModel && colorScheme !== 'default') {
+      // Force reset to default for series models
+      setColorScheme('default');
+      // Also clear any localStorage color settings to ensure clean state
+      try {
+        localStorage.removeItem('metrical-tree-color-data');
+      } catch (e) {
+        console.warn('Error removing color data from localStorage:', e);
+      }
+    }
+  }, [isSeriesModel, colorScheme]);
+  
   // Store preferences in localStorage
   useEffect(() => {
     try {
@@ -64,8 +79,23 @@ export const useChartDisplay = (data) => {
   
   // Handlers for UI controls
   const handleColorSchemeChange = useCallback((e) => {
-    setColorScheme(e.target.value);
-  }, []);
+    const newScheme = e.target.value;
+    
+    // If switching between color schemes, ensure complete state reset
+    if (colorScheme !== newScheme) {
+      // Force reset any cached color-related state
+      if (newScheme === 'default') {
+        // Clear any cached color data
+        try {
+          localStorage.removeItem('metrical-tree-color-data');
+        } catch (e) {
+          console.warn('Error removing color data from localStorage:', e);
+        }
+      }
+    }
+    
+    setColorScheme(newScheme);
+  }, [colorScheme]);
   
   const handleContourLineToggle = useCallback(() => {
     setShowContourLine(prev => {

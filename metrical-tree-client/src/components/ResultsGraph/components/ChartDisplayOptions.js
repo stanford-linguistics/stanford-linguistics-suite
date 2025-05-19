@@ -8,7 +8,6 @@ import {
   makeStyles,
   FormControlLabel,
   Switch,
-  Box,
   Collapse,
   IconButton
 } from '@material-ui/core';
@@ -18,11 +17,9 @@ import {
   ColorLens as ColorLensIcon,
   Timeline as TimelineIcon,
   Info as InfoIcon,
-  ShowChart as ShowChartIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon
 } from '@material-ui/icons';
-import { NORMALIZED_MODEL_COLORS } from '../constants/chartConfig';
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -49,6 +46,28 @@ const useStyles = makeStyles((theme) => ({
     [theme.breakpoints.down('xs')]: {
       marginBottom: theme.spacing(1),
     },
+  },
+  modelIndicatorsSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(1.5),
+    flexWrap: 'wrap',
+  },
+  modelIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: theme.spacing(0.5, 1),
+    borderRadius: theme.shape.borderRadius,
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: '50%',
+    marginRight: theme.spacing(1),
+    border: '1px solid rgba(0,0,0,0.1)',
   },
   content: {
     display: 'flex',
@@ -189,6 +208,15 @@ const useStyles = makeStyles((theme) => ({
 
 /**
  * Component for chart display options including color scheme selection and legend
+ * 
+ * @param {string} colorScheme - The current color scheme (pos, stress, default)
+ * @param {Function} handleColorSchemeChange - Handler for color scheme changes
+ * @param {Array} colorOptions - Available color scheme options
+ * @param {Array} colorLegendData - Data for the color legend
+ * @param {boolean} showContourLine - Whether to show the contour line
+ * @param {Function} handleContourLineToggle - Handler for contour line toggle
+ * @param {boolean} isNormalized - Whether the model is normalized (0-1)
+ * @param {boolean} isSeriesModel - Whether this is a series model
  */
 const ChartDisplayOptions = ({
   colorScheme,
@@ -267,8 +295,8 @@ const ChartDisplayOptions = ({
           />
         </div>
 
-        {/* Color Legend - Only show if a color scheme is selected */}
-        {colorScheme !== 'default' && colorScheme !== 'none' && colorLegendData && colorLegendData.length > 0 && (
+        {/* Color Legend - Only show if a color scheme is selected and not a series model */}
+        {!isSeriesModel && colorScheme !== 'default' && colorScheme !== 'none' && colorLegendData && colorLegendData.length > 0 && (
           <div className={classes.legendContainer} style={{ maxHeight: legendExpanded ? '1000px' : '42px' }}>
             <div className={classes.legendHeader}>
               <Typography variant="caption" color="textSecondary" style={{ fontWeight: 500 }}>

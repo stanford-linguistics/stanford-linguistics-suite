@@ -160,7 +160,8 @@ export const formatChartData = (
       return {
         ...series,
         data: seriesData.map(item => {
-          return {
+          // Create updated item - explicitly remove color property if we're in default color scheme
+          const updatedItem = {
             ...item,
             // Map ResultPage.js data fields to correct fields if needed
             word: item.primary || item.word,
@@ -168,9 +169,18 @@ export const formatChartData = (
             m1: item.secondary === "" ? "" : (item.secondary || item.m1),
             secondary: item.secondary,
             mean: item.mean,
-            // Add color based on selected scheme and series index
-            color: getItemColor ? getItemColor(item, seriesIndex) : undefined,
+            // Add color based on selected scheme and series index, or remove it entirely
+            // Using getItemColor which now returns undefined for default color scheme
           };
+          
+          // Only add color property if getItemColor returns a valid color
+          // This ensures no persistent color remnants from previous selections
+          const color = getItemColor ? getItemColor(item, seriesIndex) : undefined;
+          if (color) {
+            updatedItem.color = color;
+          }
+          
+          return updatedItem;
         })
       };
     });
@@ -182,14 +192,21 @@ export const formatChartData = (
       label: model.label || '',
       elementType: 'bar',
       data: currentChunkData.map(item => {
-        return {
+        // Create updated item - explicitly remove color property if we're in default color scheme
+        const updatedItem = {
           ...item,
           // Explicitly preserve empty string values
           secondary: item.secondary,
           mean: item.mean,
-          // Add color based on selected scheme
-          color: getItemColor ? getItemColor(item) : undefined,
         };
+        
+        // Only add color property if getItemColor returns a valid color
+        const color = getItemColor ? getItemColor(item) : undefined;
+        if (color) {
+          updatedItem.color = color;
+        }
+        
+        return updatedItem;
       })
     }];
   } 
@@ -199,14 +216,21 @@ export const formatChartData = (
       label: model.label || '',
       elementType: 'bar',
       data: currentChunkData.map(item => {
-        return {
+        // Create updated item - explicitly remove color property if we're in default color scheme
+        const updatedItem = {
           ...item,
           // Explicitly preserve empty string values
           secondary: item.secondary,
           mean: item.mean,
-          // Add color based on selected scheme
-          color: getItemColor ? getItemColor(item) : undefined,
         };
+        
+        // Only add color property if getItemColor returns a valid color
+        const color = getItemColor ? getItemColor(item) : undefined;
+        if (color) {
+          updatedItem.color = color;
+        }
+        
+        return updatedItem;
       })
     }];
   }

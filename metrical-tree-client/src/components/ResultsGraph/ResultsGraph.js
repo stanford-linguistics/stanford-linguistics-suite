@@ -189,9 +189,31 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
   // Extract raw data from the model for initialization
   const extractedData = useMemo(() => extractDataFromModel(model), [model]);
   
+  // Determine if this is a series model
+  const isSeriesModel = useMemo(() => {
+    if (!model?.value) return false;
+    // Check if we have multiple datasets in this model
+    return model.value.filter(series => series.elementType !== 'line').length > 1;
+  }, [model]);
+  
   // Set up chart display state and handlers
-  const chartDisplayState = useChartDisplay(extractedData);
+  const chartDisplayState = useChartDisplay(extractedData, isSeriesModel);
   const { showContourLine } = chartDisplayState;
+  
+  // Force reset colorScheme when model changes and we have a series model
+  useEffect(() => {
+    if (isSeriesModel && chartDisplayState.colorScheme !== 'default') {
+      // Reset colorScheme to default for series models
+      chartDisplayState.setColorScheme('default');
+      
+      // Clear any localStorage color settings to ensure clean state
+      try {
+        localStorage.removeItem('metrical-tree-color-data');
+      } catch (e) {
+        console.warn('Error removing color data from localStorage:', e);
+      }
+    }
+  }, [isSeriesModel, chartDisplayState, model]);
   
   // Set up pagination state and handlers
   const paginationState = usePagination(extractedData, DEFAULT_CHUNK_SIZE);
@@ -514,9 +536,18 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
   }, [model, chartRef, totalPages, paginationState.setCurrentPage, chartDisplayState, currentPage, colorLegendData]);
   
   const chartOptions = useMemo(() => {
+    // Check if this is a series model (multiple datasets)
+    const isSeriesModel = chartJsData?.datasets?.filter(d => d.type === 'bar').length > 1;
+    
     // Pass empty functions for tooltip handlers since tooltips are disabled
-    return createChartOptions(() => {}, () => {}, isNormalized);
-  }, [isNormalized]);
+    return createChartOptions(
+      () => {}, 
+      () => {}, 
+      isNormalized,
+      chartDisplayState.colorScheme,
+      isSeriesModel
+    );
+  }, [isNormalized, chartDisplayState.colorScheme, chartJsData]);
   
   const renderChart = () => {
     const isLoading = model && !model?.value?.[0]?.data?.length;
@@ -563,6 +594,7 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
             ref={chartRef}
           >
             <Bar
+              key={`chart-${chartDisplayState.colorScheme}-${isSeriesModel ? 'series' : 'single'}`}
               data={chartJsData}
               options={{
                 ...chartOptions,
@@ -653,6 +685,7 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
             handleContourLineToggle={chartDisplayState.handleContourLineToggle}
             isNormalized={isNormalized}
             isSeriesModel={chartJsData?.datasets?.filter(d => d.type === 'bar').length > 1}
+            modelName={model?.value?.[0]?.label || ''}
           />
           </div>
           

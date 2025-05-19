@@ -1,5 +1,20 @@
 import { getYAxisID } from './modelNameUtils';
 import { NORMALIZED_MODEL_COLORS, SERIES_COLORS } from '../constants/chartConfig';
+import { Chart } from 'chart.js';
+
+/**
+ * Helper to darken a color for borders
+ * @param {string} color - The hex color to darken
+ * @returns {string} The darkened color
+ */
+const darkenColor = (color) => {
+  try {
+    // Simple darkening by reducing brightness by 20%
+    return color ? color.replace(/#/, '#0') : '#3d8b40';
+  } catch (e) {
+    return '#3d8b40'; // Fallback to default darker color
+  }
+};
 
 /**
  * Gets the appropriate color for a series based on its label
@@ -71,10 +86,30 @@ const speToGrid = (values) => {
  * @param {Array} chartData - Data in react-charts format
  * @param {boolean} showContourLine - Whether to show the contour line
  * @param {boolean} isNormalized - Whether the model is normalized
+ * @param {string} colorScheme - The color scheme to use (pos, stress, default)
+ * @param {boolean} isSeriesModel - Whether this is a series model (multiple datasets)
  * @returns {Object} Data in Chart.js format
  */
-export const adaptDataForChartJS = (chartData, showContourLine = true, isNormalized = false) => {
-  if (!chartData || !chartData.length || !chartData[0]?.data?.length) {
+export const adaptDataForChartJS = (chartData, showContourLine = true, isNormalized = false, colorScheme = 'default', isSeriesModel = false) => {
+  // Create a fresh deep copy of chartData to prevent mutations affecting original state
+  const processedChartData = JSON.parse(JSON.stringify(chartData));
+  
+  // CRITICAL FIX: For series models, always force default color scheme
+  const effectiveColorScheme = isSeriesModel ? 'default' : colorScheme;
+  
+  // Explicit color property cleanup for all data items when using default color scheme
+  if (effectiveColorScheme === 'default' || isSeriesModel) {
+    processedChartData.forEach(series => {
+      if (series.data && Array.isArray(series.data)) {
+        series.data.forEach(item => {
+          // Explicitly delete color property for clean state
+          if (item) delete item.color;
+        });
+      }
+    });
+  }
+  
+  if (!processedChartData || !processedChartData.length || !processedChartData[0]?.data?.length) {
     return { labels: [], datasets: [] };
   }
   // Extract labels from the first series
@@ -98,7 +133,7 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
       isLine
     });
 
-    
+
     // Skip contour line if hidden
     if (isLine && !showContourLine) {
       return;
@@ -260,31 +295,39 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
         type: 'bar',
         label: isNormalized ? `${series.label || ''} (0-1)` : `${series.label || ''} (SPE to Grid)`,
         data: displayValues, // Use transformed values for raw bar charts
-        backgroundColor: isNormalized 
-          ? getSeriesColor(series.label)
-          : series.data.map(item => item.color || '#4CAF50'),
-        // Add a border color that's a slightly darker version of the background color
-        borderColor: isNormalized
-          ? getSeriesColor(series.label)
-          : series.data.map(item => {
-              // Create a slightly darker border color for better definition
-              if (!item.color) return '#3d8b40'; // Darker version of the default color
+        // Determine background color based on strict hierarchy of rules:
+        // 1. Series models always use series colors
+        // 2. Normalized non-series with default scheme always use blue 
+        // 3. Default color scheme always uses fixed colors regardless of stored colors
+        // 4. POS/Stress color schemes use mapped colors
+        backgroundColor: isSeriesModel 
+          ? getSeriesColor(series.label) // Series model colors always take precedence
+          : (colorScheme === 'default')
+              ? (isNormalized 
+                  ? NORMALIZED_MODEL_COLORS.bar // Force blue for normalized
+                  : '#4CAF50') // Force green for non-normalized
+              : series.data.map(item => item.color || '#4CAF50'), // Use mapped colors for non-default schemes
               
-              // For existing colors, create a slightly darker border
-              try {
-                const color = item.color;
-                // Return a slightly darker version of the color for border
-                return color;
-              } catch (e) {
-                return '#3d8b40'; // Fallback to default darker color
-              }
-            }),
+        // Border color follows same rules as background color
+        borderColor: isSeriesModel
+          ? getSeriesColor(series.label) // Series model colors always take precedence
+          : (colorScheme === 'default')
+              ? (isNormalized 
+                  ? NORMALIZED_MODEL_COLORS.barBorder // Force blue border for normalized
+                  : '#3d8b40') // Force darker green for non-normalized
+              : series.data.map(item => {
+                  // Create a slightly darker border color for better definition
+                  if (!item.color) return '#3d8b40'; // Darker version of the default color
+                  return darkenColor(item.color); // Darken color for border
+                }),
         borderWidth: 2, // Use thicker border for all models
         order: 1, // Draw bars behind lines (higher order appears below)
         // Store original data for tooltips
         originalData: series.data,
         // Use appropriate y-axis based on whether this is a normalized model
-        yAxisID: getYAxisID('bar', isNormalized)
+        yAxisID: getYAxisID('bar', isNormalized),
+        // Add custom property to control legend display
+        hideColorBox: !isSeriesModel && colorScheme !== 'default'
       };
       
       datasets.push(barDataset);
@@ -299,9 +342,11 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
  * @param {Function} handleTooltip - Function to handle tooltip display
  * @param {Function} closeTooltip - Function to close tooltip
  * @param {boolean} isNormalized - Whether the model is normalized
+ * @param {string} colorScheme - The color scheme to use (pos, stress, default)
+ * @param {boolean} isSeriesModel - Whether this is a series model (multiple datasets)
  * @returns {Object} Chart.js options
  */
-export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = false) => {
+export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = false, colorScheme = 'default', isSeriesModel = false) => {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -336,7 +381,63 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
             size: window.innerWidth < 768 ? 10 : 12 // Smaller font on mobile
           },
           boxWidth: window.innerWidth < 576 ? 12 : 16, // Smaller color boxes on mobile
-          padding: window.innerWidth < 576 ? 8 : 10 // Adjust padding for better mobile display
+          padding: window.innerWidth < 576 ? 8 : 10, // Adjust padding for better mobile display
+          
+          // Custom legend label generation to conditionally hide color boxes
+          generateLabels: function(chart) {
+            // Get default legend labels
+            const originalLabels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+            
+            // Process each label to conditionally hide color boxes
+            return originalLabels.map(label => {
+              const dataset = chart.data.datasets[label.datasetIndex];
+              
+              // Check the dataset's hideColorBox property first (highest priority)
+              // or use the isSeriesModel and colorScheme conditions
+              if (dataset.hideColorBox || 
+                 (!isSeriesModel && colorScheme !== 'default' && dataset.type === 'bar')) {
+                // Make the color box completely transparent
+                label.lineWidth = 0;
+                label.strokeStyle = 'transparent';
+                label.fillStyle = 'transparent';
+                // Adjust boxWidth to zero to completely remove the space
+                label.boxWidth = 0;
+              }
+              
+              return label;
+            });
+          }
+        },
+        // Add hover effects to indicate clickability - only for legend items
+        onHover: function(e, legendItem, legend) {
+          // Only apply hover effects if we have a valid legendItem 
+          if (legendItem && legendItem.datasetIndex !== undefined) {
+            if (e && e.native && e.native.target) {
+              // Get the actual legend item element or its container
+              const target = e.native.target;
+              
+              // Apply hover effects to the target
+              target.style.cursor = 'pointer';
+              
+              // Log what we're hovering for debugging
+              console.log('Hovering legend item:', {
+                element: target,
+                legendItem: legendItem
+              });
+            }
+          }
+        },
+        onLeave: function(e, legendItem, legend) {
+          // Only handle leave events if we have a valid legendItem
+          if (legendItem && legendItem.datasetIndex !== undefined) {
+            if (e && e.native && e.native.target) {
+              // Get the element we're leaving
+              const target = e.native.target;
+              
+              // Reset the cursor style to default
+              target.style.cursor = 'default';
+            }
+          }
         },
         // Improve touch interactions on mobile
         onClick: function(e, legendItem, legend) {
@@ -394,7 +495,9 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
         title: {
           display: true,
           text: isNormalized ? 'Normalized Value (0-1)' : 'SPE to Grid Value',
-          color: isNormalized ? NORMALIZED_MODEL_COLORS.bar : '#4CAF50', // Match color to bars
+          color: isNormalized ? 
+            (isSeriesModel ? getSeriesColor('m1') : NORMALIZED_MODEL_COLORS.bar) : 
+            '#4CAF50', // Match color to bars
           font: {
             weight: 'bold',
             size: 12

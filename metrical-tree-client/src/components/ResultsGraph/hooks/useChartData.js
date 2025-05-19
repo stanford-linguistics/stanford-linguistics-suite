@@ -49,14 +49,17 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
   const getItemColor = useCallback((item, seriesIndex = 0) => {
     if (!item) return undefined;
     
-    if (colorScheme === 'pos') {
+    // Always explicitly remove any previously applied color when in default scheme
+    if (colorScheme === 'default') {
+      // For default scheme, don't use color from item - will use fixed color in adapter
+      // Return undefined to signal default handling in chartJsAdapter
+      return undefined;
+    } else if (colorScheme === 'pos') {
       return item.pos ? (POS_COLORS[item.pos] || POS_COLORS.default) : POS_COLORS.default;
     } else if (colorScheme === 'stress') {
       return item.lexstress ? (STRESS_COLORS[item.lexstress] || STRESS_COLORS.default) : STRESS_COLORS.default;
-    } else if (colorScheme === 'default') {
-      // For default scheme, use series-based color differentiation
-      return SERIES_COLORS[seriesIndex % SERIES_COLORS.length];
     }
+    
     return undefined;
   }, [colorScheme]);
   
@@ -186,9 +189,21 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
   
   // Transform chart data for Chart.js
   const chartJsData = useMemo(() => {
-    const adapted = adaptDataForChartJS(chartData, showContourLine, isNormalized);
+    // Check if this is a series model (has multiple bar datasets)
+    const isSeriesModel = chartData && chartData.filter(series => 
+      series.elementType !== 'line' && 
+      !series.label?.toLowerCase().includes('contour')
+    ).length > 1;
+    
+    const adapted = adaptDataForChartJS(
+      chartData, 
+      showContourLine, 
+      isNormalized,
+      colorScheme,
+      isSeriesModel
+    );
     return adapted;
-  }, [chartData, showContourLine, isNormalized]);
+  }, [chartData, showContourLine, isNormalized, colorScheme]);
   
   return {
     extractedData,
