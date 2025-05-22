@@ -354,7 +354,7 @@ const getGraphOptions = (resultData) => {
   return options;
 };
 
-const ResultPage = () => {
+  const ResultPage = () => {
   const classes = useStyles();
   const history = useHistory();
   const { resultId } = useParams();
@@ -368,7 +368,7 @@ const ResultPage = () => {
     setParametersExpanded(!parametersExpanded);
   };
 
-  const [resultsState] = useComputeResults();
+  const [resultsState, { updateComputeResult }] = useComputeResults();
 
   const {
     loading,
@@ -387,6 +387,36 @@ const ResultPage = () => {
   const mergedResult = {
     ...cachedResult,
     ...(data?.result ? data.result : {}),
+  };
+  
+  // Check if this is a stale pending task that should be marked expired
+  useEffect(() => {
+    // Only check after data is loaded and if the status is pending
+    if (!loading && mergedResult?.status?.toLowerCase() === 'pending') {
+      const isStale = checkIfStale(mergedResult);
+      if (isStale) {
+        console.warn('Marking stale pending task as expired on result page:', mergedResult.id);
+        // Update the merged result and recoil state
+        updateComputeResult({
+          ...mergedResult,
+          status: 'expired',
+          errorMessage: 'Task expired due to inactivity or backend reset'
+        });
+      }
+    }
+  }, [loading, mergedResult, updateComputeResult]);
+  
+  // Function to determine if a pending task is stale
+  const checkIfStale = (result) => {
+    if (!result.createdOn) return false;
+    
+    // Consider a task stale if it's been pending for more than 10 minutes
+    const STALE_THRESHOLD_MS = 45 * 60 * 1000; // 45 minutes in milliseconds
+    const createdDate = new Date(result.createdOn * 1000);
+    const now = new Date();
+    const ageMs = now - createdDate;
+    
+    return ageMs > STALE_THRESHOLD_MS;
   };
   
   // Use the data array directly from the response

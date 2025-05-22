@@ -237,7 +237,27 @@ const ComputePage = () => {
               updateComputeResult(updatedResult.data.result);
             }
           );
+        } else {
+          // Check if we need to mark a pending task as expired due to staleness
+          const mappedStatus = mapBackendStatus(
+            result.status,
+            {
+              isReliableState: result.isReliableState,
+              stateDetails: result.stateDetails
+            }
+          );
+          
+          if (mappedStatus === 'pending' && isStale(result)) {
+            console.warn('Marking stale pending task as expired:', result.id);
+            // Mark the task as expired by updating its status
+            updateComputeResult({
+              ...result,
+              status: 'expired',
+              errorMessage: 'Task expired due to inactivity or backend reset'
+            });
+          }
         }
+        
         const mappedStatus = mapBackendStatus(result.status);
         if (
           mappedStatus === 'expired' &&
@@ -247,6 +267,20 @@ const ComputePage = () => {
         }
       });
     }
+    
+    // Check if a pending compute is stale (too old to be still pending)
+    function isStale(result) {
+      if (!result.createdOn) return false;
+      
+      // Consider a task stale if it's been pending for more than 10 minutes
+      const STALE_THRESHOLD_MS = 45 * 60 * 1000; // 45 minutes in milliseconds
+      const createdDate = new Date(result.createdOn * 1000);
+      const now = new Date();
+      const ageMs = now - createdDate;
+      
+      return ageMs > STALE_THRESHOLD_MS;
+    }
+    
     function shouldUpdate(result) {
       // Map status with reliability info if available
       const mappedStatus = mapBackendStatus(
@@ -277,6 +311,11 @@ const ComputePage = () => {
             (result.stateDetails?.resolutionMethod === 'results_json_existence' || 
              result.stateDetails?.artifactsFound?.has_json)) {
           // Success was reconstructed from artifacts, poll less frequently (return false)
+          return false;
+        }
+        
+        // Don't update stale pending tasks - they'll be marked as expired instead
+        if (isStale(result)) {
           return false;
         }
       }
