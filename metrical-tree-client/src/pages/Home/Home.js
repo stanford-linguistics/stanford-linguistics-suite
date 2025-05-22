@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { useHistory } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import KeyboardArrowRightIcon from '@material-ui/icons/KeyboardArrowRight';
 import { makeStyles } from '@material-ui/core/styles';
 import { Grid, Typography, Card, Link, Button, Box } from '@material-ui/core';
@@ -123,6 +123,15 @@ const useStyles = makeStyles((theme) => ({
 const Home = () => {
   const classes = useStyles();
   const history = useHistory();
+  const location = useLocation();
+  
+  // Add a remount key that changes when location changes
+  const [remountKey, setRemountKey] = useState(Date.now());
+  
+  // Reset key when location changes to force remounting of animated components
+  useEffect(() => {
+    setRemountKey(Date.now());
+  }, [location]);
 
   return (
     <>
@@ -141,7 +150,7 @@ const Home = () => {
                   <Card className={classes.card}>
                     <Grid container alignItems="center" justifyContent="center">
                       <Grid item xs={12} sm={5} md={4}>
-                        <TreeGraph  />
+                        <TreeGraph key={`tree-graph-${remountKey}`} />
                       </Grid>
                       <Grid item xs={12} sm={7} md={8} >
                   <Typography className={classes.title}>
@@ -183,7 +192,7 @@ const Home = () => {
                   <Grid container>
                 <Grid item xs={12} className={classes.stressBarContainer}>
                 <Box mt={2}>
-                  <StressBarChart />
+                  <StressBarChart key={`stress-chart-${remountKey}`} />
                 </Box>
               </Grid>
             </Grid>

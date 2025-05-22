@@ -26,6 +26,9 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
   const animationFrameRef = useRef(null);
   const startTimeRef = useRef(null);
   
+  // Track mounted state to prevent memory leak
+  const mountedRef = useRef(true);
+  
   // Total animation duration in ms
   const ANIMATION_DURATION = useMemo(() => 
     treeGraphConfig.animation.levelDelay * (treeGraphConfig.treeData.levels.length - 1) + 
@@ -101,34 +104,57 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
       // Apply easing for more natural animation
       progress = easeOutCubic(progress);
       
-      setAnimationProgress(progress);
+      // Only update state if component is still mounted
+      if (mountedRef.current) {
+        setAnimationProgress(progress);
+      }
       
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(animate);
       } else {
-        setAnimationComplete(true);
-        if (onAnimationComplete) {
-          onAnimationComplete();
+        // Only update state and call callback if component is still mounted
+        if (mountedRef.current) {
+          setAnimationComplete(true);
+          if (onAnimationComplete) {
+            onAnimationComplete();
+          }
         }
       }
     };
     
-    // Start the animation after a short delay
-    setTimeout(() => {
-      animationFrameRef.current = requestAnimationFrame(animate);
+    // Store timeout reference for cleanup
+    const timeoutRef = setTimeout(() => {
+      if (mountedRef.current) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
     }, treeGraphConfig.animation.initialDelay);
     
     return () => {
+      // Mark as unmounted to prevent further state updates
+      mountedRef.current = false;
+      
+      // Clear animation frame
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      
+      // Clear timeout
+      clearTimeout(timeoutRef);
     };
   }, [ANIMATION_DURATION, easeOutCubic, onAnimationComplete]);
   
   // Lifecycle hooks
   useEffect(() => {
+    // Set mounted flag to true when component mounts
+    mountedRef.current = true;
+    
     const cleanup = startAnimation();
-    return cleanup;
+    
+    // On unmount, call cleanup function
+    return () => {
+      mountedRef.current = false;
+      cleanup();
+    };
   }, [startAnimation]);
   
   // Get node animation timing
@@ -454,7 +480,9 @@ const TreeGraphVisualization = ({ onAnimationComplete, isMobile }) => {
   useEffect(() => {
     const updateDimensions = () => {
       const vh = window.innerHeight;
-      setContainerHeight(vh);
+      if (mountedRef.current) {
+        setContainerHeight(vh);
+      }
     };
     
     // Initial calculation
