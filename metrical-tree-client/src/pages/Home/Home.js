@@ -24,14 +24,18 @@ const useStyles = makeStyles((theme) => ({
      backgroundColor: '#f2f2f2',
      minHeight: '100vh',
      position: 'relative',
-     overflow: 'visible',
-     paddingBottom: '20px',
-     [`@media (max-height: 700px)`]: {
-       overflow: 'auto',
-       paddingBottom: '50px'
-     }
+     overflow: 'auto',
+     paddingBottom: '10px',
+     display: 'flex', // Enable flexbox for vertical centering
+     flexDirection: 'column', // Stack children vertically
    },
    topBars: {position: 'sticky', top: 0, left: 0, right: 0, zIndex: 1000},
+   contentWrapper: {
+     flex: 1, // Take up available space
+     display: 'flex',
+     flexDirection: 'column',
+     justifyContent: 'center', // Center content vertically
+   },
    container: {
     padding: 20,
      [theme.breakpoints.down('sm')]: {
@@ -86,17 +90,12 @@ const useStyles = makeStyles((theme) => ({
   stressBarContainer: {
     position: 'relative', 
     zIndex: 15, 
-    minHeight: '220px', 
-    paddingBottom: 40, // Normal padding
-    // Only add extra padding when viewport height is small
-    [`@media (max-height: 700px)`]: {
-      paddingBottom: 120, // Add more padding on short screens
-    },
+    minHeight: '200px',
+    paddingBottom: 20,
+    
     [theme.breakpoints.down('xs')]: {
-      paddingBottom: 60, // Moderate padding on mobile
-      [`@media (max-height: 700px)`]: {
-        paddingBottom: 150, // More padding on small mobile screens
-      },
+      paddingBottom: 15,
+      minHeight: '180px',
     },
   },
   divider: {
@@ -110,25 +109,14 @@ const useStyles = makeStyles((theme) => ({
 },
   solid: {borderTop: '3px solid #bbb'},
   secondaryFooter: {
-    [theme.breakpoints.up('sm')]: {
-      position: 'fixed',
-      bottom: 130,
-      left: 0,
-      right: 0,
-      zIndex: 1000, // High z-index to ensure it's on top
-      backgroundColor: '#f2f2f2', // Match the background color
-      boxShadow: '0px -2px 4px rgba(0,0,0,0.05)' // Subtle shadow for separation
-    },
+    position: 'static',
+    marginTop: '5px',
+    backgroundColor: '#f2f2f2',
   },
   primaryFooter: {
-    [theme.breakpoints.up('sm')]: {
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1001, // Even higher z-index than secondaryFooter
-      backgroundColor: '#8c1515', // Match the Stanford red color
-    }
+    position: 'static',
+    backgroundColor: '#8c1515',
+    marginTop: 0, 
   },
 }));
 
