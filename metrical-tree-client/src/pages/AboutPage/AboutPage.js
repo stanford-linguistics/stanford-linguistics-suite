@@ -156,7 +156,7 @@ const AboutPage = () => {
               
               <Typography className={classes.sectionText}>
                 It uses syntactic parse trees provided by the Stanford Parser (Klein and Manning 2003; Chen and Manning 2014; Manning et al. 2014). The
-                source code for MetricalTree is available at{' '}
+                source code for Metrical Tree is available at{' '}
                 <Link
                   href="https://github.com/tdozat/Metrics"
                   className={classes.link}>
@@ -290,7 +290,7 @@ const AboutPage = () => {
               The code for Metrical Tree was originally written in 2015 by Timothy Dozat. The current web interface was developed in 2025 by Juan Solis.
             </Typography>
             <Typography className={classes.sectionText}>
-              If you use MetricalTree you can cite the following
+              If you use Metrical Tree you can cite the following
               article:
             </Typography>
             <Typography className={classes.sectionText}>

@@ -195,8 +195,6 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     // Check if this is a mean contour line - broaden the check to handle all variations
     const isStressContourLine = isLine && (
       series.label === 'Mean Contour' || 
-      series.label === 'Mean Contour (0-5)' ||
-      series.label === 'Mean Contour (0-1)' ||
       series.label?.toLowerCase().includes('mean contour')
     );
     
@@ -260,7 +258,7 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
       const lineDataset = {
         type: 'line',
         // Use different label based on whether it's a normalized model
-        label: isNormalized ? 'Mean Contour (0-1)' : 'Mean Contour (SPE to Grid)',
+        label: 'Mean Contour',
         data: displayValues, // Use displayValues which will be the same as values for line charts
         // Debug info about dataset
         _debug: {
@@ -293,7 +291,7 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
       // Bar chart data
       const barDataset = {
         type: 'bar',
-        label: isNormalized ? `${series.label || ''} (0-1)` : `${series.label || ''} (SPE to Grid)`,
+        label: `${series.label || ''}`,
         data: displayValues, // Use transformed values for raw bar charts
         // Determine background color based on strict hierarchy of rules:
         // 1. Series models always use series colors
@@ -494,7 +492,7 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
         position: 'left',
         title: {
           display: true,
-          text: isNormalized ? 'Normalized Value (0-1)' : 'SPE to Grid Value',
+          text: 'Predicted Normal Stress ',
           color: isNormalized ? 
             (isSeriesModel ? getSeriesColor('m1') : NORMALIZED_MODEL_COLORS.bar) : 
             '#4CAF50', // Match color to bars

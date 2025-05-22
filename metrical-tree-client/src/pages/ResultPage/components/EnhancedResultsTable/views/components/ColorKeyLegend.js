@@ -47,7 +47,7 @@ const useStyles = makeStyles((theme) => ({
  * @param {Object} props.colorMap - An object mapping keys (e.g., POS tags) to color strings.
  * @returns {JSX.Element}
  */
-const ColorKeyLegend = ({ title, colorMap, showMetrics = false }) => {
+const ColorKeyLegend = ({ title, colorMap }) => {
   const classes = useStyles();
   const theme = useTheme();
   const sortedKeys = Object.keys(colorMap).filter(key => key !== 'default').sort();
@@ -56,54 +56,8 @@ const ColorKeyLegend = ({ title, colorMap, showMetrics = false }) => {
     if (title === 'POS Tags') {
       return POS_DESCRIPTIONS[key] || 'Part of speech tag';
     }
-    if (title === 'Metrics') {
-      return 'The width of the bar indicates the relative value';
-    }
     return STRESS_DESCRIPTIONS[key] || 'Stress pattern';
   };
-
-  // Special rendering for metrics legend
-  if (title === 'Metrics') {
-    return (
-      <Box mb={2}>
-        <Typography variant="subtitle2" className={classes.title}>
-          {title}
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Paper variant="outlined" elevation={0} className={classes.legendItem}>
-              <Box
-                component="span"
-                className={classes.colorSwatch}
-                style={{ backgroundColor: theme.palette.info.light }}
-              />
-              <Typography variant="body2" className={classes.keyText}>
-                Word Frequency
-                <Typography variant="caption" color="textSecondary" display="block">
-                  Bar width shows relative frequency
-                </Typography>
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12}>
-            <Paper variant="outlined" elevation={0} className={classes.legendItem}>
-              <Box
-                component="span"
-                className={classes.colorSwatch}
-                style={{ backgroundColor: theme.palette.success.light }}
-              />
-              <Typography variant="body2" className={classes.keyText}>
-                Metric Values
-                <Typography variant="caption" color="textSecondary" display="block">
-                  Bar width shows relative strength
-                </Typography>
-              </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
-      </Box>
-    );
-  }
 
   return (
     <Box mb={2}>

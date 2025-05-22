@@ -26,6 +26,7 @@ import {
   Menu,
   useMediaQuery,
   useTheme,
+  Tooltip,
 } from '@material-ui/core';
 import CrispTooltip from '../../../../../components/CrispTooltip';
 import {
@@ -36,6 +37,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ArrowDropDown as ArrowDropDownIcon,
   CloudDownload as CloudDownloadIcon,
+  Refresh as RefreshIcon,
 } from '@material-ui/icons';
 import clsx from 'clsx';
 import { exportAsCsv } from 'components/ResultsGraph/utils/exportHelpers';
@@ -215,6 +217,14 @@ const useStyles = makeStyles((theme) => ({
   },
   expandOpen: {
     transform: 'rotate(180deg)',
+  },
+  resetButton: {
+    marginTop: theme.spacing(2),
+    backgroundColor: theme.palette.grey[200],
+    color: theme.palette.text.secondary,
+    '&:hover': {
+      backgroundColor: theme.palette.grey[300],
+    },
   },
 }));
 
@@ -413,6 +423,30 @@ const RawDataView = ({ data }) => {
     return enhancedColumns.map((column) => {
       const isActiveSort = sortConfig.key === column.id;
       
+      // Determine if this column needs a tooltip
+      const needsTooltip = ['word_freq', 'prev_word_freq'].includes(column.id);
+      
+      // Create the column label content
+      const labelContent = (
+        <Typography variant="subtitle2" className={classes.columnCell}>
+          {column.label}
+          {isActiveSort && (
+            sortConfig.direction === 'asc' 
+              ? <ArrowUpwardIcon className={classes.sortIcon} />
+              : <ArrowDownwardIcon className={classes.sortIcon} />
+          )}
+        </Typography>
+      );
+      
+      // Wrap in tooltip if needed
+      const columnContent = needsTooltip ? (
+        <CrispTooltip title="Bar width shows relative frequency" placement="top">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {labelContent}
+          </div>
+        </CrispTooltip>
+      ) : labelContent;
+      
       return (
         <div
           key={column.id}
@@ -426,14 +460,7 @@ const RawDataView = ({ data }) => {
           tabIndex={0}
           onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleSort(column.id)}
         >
-          <Typography variant="subtitle2" className={classes.columnCell}>
-            {column.label}
-            {isActiveSort && (
-              sortConfig.direction === 'asc' 
-                ? <ArrowUpwardIcon className={classes.sortIcon} />
-                : <ArrowDownwardIcon className={classes.sortIcon} />
-            )}
-          </Typography>
+          {columnContent}
         </div>
       );
     });
@@ -637,6 +664,19 @@ const RawDataView = ({ data }) => {
     handleExport(false);
   }, [handleExport]);
 
+  // Reset all filters to their default state
+  const handleResetFilters = useCallback(() => {
+    setFilters({
+      word: '',
+      pos: [],
+      lexstress: [],
+    });
+    setQuickFilters({
+      hidePunctuation: false,
+      hideUnknown: false
+    });
+  }, []);
+
   // Render row function for the virtualized table
   const renderRow = useCallback((item, index, exactWidth) => {
     return (
@@ -674,14 +714,11 @@ const RawDataView = ({ data }) => {
         <Collapse in={legendOpen} timeout="auto" unmountOnExit>
           <CardContent style={{ paddingTop: 0 }}> {/* Remove top padding */}
             <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={6}>
                 <ColorKeyLegend title="POS Tags" colorMap={POS_COLORS} />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={6}>
                 <ColorKeyLegend title="Lexical Stress" colorMap={STRESS_COLORS} />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <ColorKeyLegend title="Metrics" colorMap={{}} />
               </Grid>
             </Grid>
           </CardContent>
@@ -952,6 +989,19 @@ const RawDataView = ({ data }) => {
               </FormControl>
             </Grid>
           </Grid>
+          
+          {/* Reset Filters button */}
+          <Tooltip title="Reset all filters to default">
+            <Button
+              variant="outlined"
+              size="small"
+              className={classes.resetButton}
+              onClick={handleResetFilters}
+              startIcon={<RefreshIcon />}
+            >
+              Reset Filters
+            </Button>
+          </Tooltip>
         </Paper>
       )}
       

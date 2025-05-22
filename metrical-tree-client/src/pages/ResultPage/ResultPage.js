@@ -601,7 +601,7 @@ const ResultPage = () => {
                         className={classes.cardTitle}
                       >
                         <AssessmentIcon className={classes.titleIcon} />
-                        Sound Pattern of English (SPE) to Grids
+                        Normal Stress Contour
                       </Typography>
                     </CrispTooltip>
                     {selectedModel && (

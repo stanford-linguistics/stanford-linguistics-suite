@@ -60,18 +60,14 @@ export const RAW_DATA_COLUMNS = [
 export const COLUMN_GROUPS = [
   {
     name: 'Basic Info',
-    columns: ['widx', 'sidx', 'word', 'word_lower', 'word_freq', 'prev_word', 'prev_word_freq'],
+    columns: ['widx', 'sidx', 'word', 'word_lower', 'word_freq', 'prev_word', 'prev_word_freq', 'pos', 'lexstress', 'seg', 'dep', 'nsyll', 'nstress'],
   },
   {
-    name: 'Linguistic Properties',
-    columns: ['pos', 'lexstress', 'seg', 'dep', 'nsyll', 'nstress'],
-  },
-  {
-    name: 'Raw Metrics',
+    name: 'Raw Stress',
     columns: ['m1', 'm2a', 'm2b', 'mean'],
   },
   {
-    name: 'Normalized Metrics',
+    name: 'Normalized Stress',
     columns: ['norm_m1', 'norm_m2a', 'norm_m2b', 'norm_mean'],
   }
 ];

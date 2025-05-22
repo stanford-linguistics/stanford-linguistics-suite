@@ -282,11 +282,9 @@ const ChartDisplayOptions = ({
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <TimelineIcon fontSize="small" style={{ marginRight: 4 }} />
                 <Typography variant="body2">
-                  Show Mean Contour
-                  <CrispTooltip title={isNormalized ? 
-                    "Displays the mean contour line overlaid on the chart" : 
-                    "Displays the mean contour line (SPE to Grid) overlaid on the chart"
-                  }>
+                  Calculate Mean Contour
+                  <CrispTooltip title={ 
+                    "Displays the mean contour line overlaid on the chart"}>
                     <InfoIcon className={classes.infoIcon} />
                   </CrispTooltip>
                 </Typography>
