@@ -61,7 +61,14 @@ const speToGrid = (values) => {
   if (validValues.length === 0) return values;
   
   const max = Math.max(...validValues);
+  const min = Math.min(...validValues);
   
+  // DIAGNOSTIC: Log if this appears to be normalized data
+  if (min >= 0 && max <= 1.1) { // Allow slight margin for floating point
+    console.warn('WARNING: speToGrid may have been called on normalized values:', {
+      min, max, sampleValues: validValues.slice(0, 5)
+    });
+  }
   
   // Explicitly preserve null, empty string, and NaN values
   const result = values.map((v, idx) => {
@@ -91,6 +98,15 @@ const speToGrid = (values) => {
  * @returns {Object} Data in Chart.js format
  */
 export const adaptDataForChartJS = (chartData, showContourLine = true, isNormalized = false, colorScheme = 'default', isSeriesModel = false) => {
+  console.log('DEBUG - adaptDataForChartJS called with:', {
+    chartDataLength: chartData?.length,
+    showContourLine,
+    isNormalized,
+    colorScheme,
+    isSeriesModel,
+    seriesLabels: chartData?.map(s => ({ label: s.label, elementType: s.elementType }))
+  });
+  
   // Create a fresh deep copy of chartData to prevent mutations affecting original state
   const processedChartData = JSON.parse(JSON.stringify(chartData));
   
@@ -110,13 +126,15 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
   }
   
   if (!processedChartData || !processedChartData.length || !processedChartData[0]?.data?.length) {
-    return { labels: [], datasets: [] };
+    return { labels: [], datasets: [], yMin: 0, yMax: 1 };
   }
   // Extract labels from the first series
   const labels = chartData[0].data.map(item => item.primary || item.word || '');
   
   // Create datasets - including both bar and line charts
   const datasets = [];
+  // For dynamic y-axis scaling
+  let barValues = [];
   
   // Process each series
   chartData.forEach(series => {
@@ -141,9 +159,9 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     
   // Extract values from data - preserving null values for spanGaps
   const values = series.data.map((item, idx) => {
-    // For normalized models, always prefer norm_mean for contour lines
-    // This ensures contours and bars are on the same scale
-    const useNormMean = isNormalized && item.norm_mean !== undefined;
+    // For normalized models, only use norm_mean for CONTOUR LINES
+    // Bar charts should always use their specific metric value from secondary
+    const useNormMean = isNormalized && isLine && item.norm_mean !== undefined && item.norm_mean !== null;
     
     // If the value is null OR empty string, keep it as null
     // Empty strings are used for punctuation marks in the linguistic data
@@ -153,18 +171,23 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
       return null;
     }
     
-    // For normalized models, always use norm_mean (for both bars and contour lines)
-    // to ensure consistent scaling
-    const rawValue = useNormMean ? item.norm_mean : (item.secondary || item.mean);
+    // For normalized contour lines: use norm_mean
+    // For everything else: use secondary (specific metric) or mean
+    // CRITICAL: Use !== undefined to allow 0 as a valid value
+    const rawValue = useNormMean ? item.norm_mean : 
+                     (item.secondary !== undefined && item.secondary !== null && item.secondary !== "" ? 
+                      item.secondary : item.mean);
     
     // Debug log to check values for normalized model data
     if (isNormalized) {
-      console.log(`DEBUG - Normalized value for ${series.label} at index ${idx}:`, {
+      console.log(`DEBUG - ${isLine ? 'CONTOUR' : 'BAR'} value for ${series.label} at index ${idx}:`, {
+        isLine,
         useNormMean,
         norm_mean: item.norm_mean,
         secondary: item.secondary,
         mean: item.mean,
-        rawValue
+        rawValue,
+        word: item.word || item.primary
       });
     }
     
@@ -184,9 +207,11 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     // 2. Stress contour lines (regardless of model) - ensures consistent visual interpretation with bar charts
     
     // Check if this is a raw model (not normalized) that needs transformation
-    const isRawModel = !isNormalized && !isLine && 
+    // CRITICAL: Never apply transformation to any series with 'norm_' in the label
+    const hasNormInLabel = series.label?.toLowerCase().includes('norm');
+    const isRawModel = !isNormalized && !isLine && !hasNormInLabel &&
                       (series.label?.toLowerCase().includes('raw') || 
-                       // Check for raw model API keys directly
+                       // Check for raw model API keys directly (without norm_ prefix)
                        series.label === 'm1' || 
                        series.label === 'm2a' || 
                        series.label === 'm2b' || 
@@ -202,7 +227,7 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     // Only apply speToGrid to contour lines for non-normalized models
     const shouldApplySpeToGridToContour = isStressContourLine && !isNormalized;
     
-    console.log(`DEBUG - Series: ${series.label}, isNormalized: ${isNormalized}, isLine: ${isLine}, isRawModel: ${isRawModel}, isStressContourLine: ${isStressContourLine}`);
+    console.log(`DEBUG - Series: ${series.label}, isNormalized: ${isNormalized}, isLine: ${isLine}, hasNormInLabel: ${hasNormInLabel}, isRawModel: ${isRawModel}, isStressContourLine: ${isStressContourLine}, shouldApplySpeToGridToContour: ${shouldApplySpeToGridToContour}`);
     
     // Apply transformation for:
     // 1. Raw models - convert SPE values to grid values
@@ -210,12 +235,15 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
     // For normalized models, the values are already normalized in the API
     let displayValues;
     if (isRawModel || shouldApplySpeToGridToContour) {
-      console.log(`DEBUG - Applying speToGrid to ${series.label}, sample values:`, values.slice(0, 3));
+      console.log(`DEBUG - Applying speToGrid to ${series.label}, sample values:`, values.slice(0, 5));
       displayValues = speToGrid(values);
-      console.log(`DEBUG - After speToGrid transformation:`, displayValues.slice(0, 3));
+      console.log(`DEBUG - After speToGrid transformation:`, displayValues.slice(0, 5));
     } else {
       displayValues = values;
-      console.log(`DEBUG - Using raw values for ${series.label}, sample values:`, values.slice(0, 3));
+      console.log(`DEBUG - Using raw values for ${series.label}, sample values:`, values.slice(0, 5));
+      if (isNormalized && isLine) {
+        console.log(`DEBUG - Full normalized contour values:`, displayValues);
+      }
     }
     
     // For raw models and stress contour lines, store both original and transformed values
@@ -329,10 +357,52 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
       };
       
       datasets.push(barDataset);
+
+      // Collect bar values for dynamic y-axis scaling
+      displayValues.forEach(v => {
+        if (v !== null && v !== undefined && !isNaN(v)) {
+          barValues.push(v);
+        }
+      });
     }
   });
   
-  return { labels, datasets };
+  // Compute min/max for y-axis scaling
+  let yMin = 0;
+  let yMax = 1;
+  if (barValues.length > 0) {
+    yMin = Math.min(0, ...barValues); // Always start at 0 or below lowest value
+    yMax = Math.max(...barValues);
+    // Add a margin for visual clarity
+    const margin = (yMax - yMin) * 0.1 || 0.1;
+    yMax += margin;
+    // For normalized models, don't exceed 1.2
+    if (isNormalized) {
+      yMax = Math.min(yMax, 1.2);
+    }
+    // For non-normalized, don't exceed 5.5 unless data is higher
+    else {
+      yMax = Math.max(yMax, 1);
+    }
+    // Round for whole number axis
+    yMin = Math.floor(yMin);
+    yMax = Math.ceil(yMax);
+  }
+
+  console.log('DEBUG - adaptDataForChartJS returning:', {
+    labelsLength: labels.length,
+    datasetsCount: datasets.length,
+    datasetDetails: datasets.map(ds => ({
+      type: ds.type,
+      label: ds.label,
+      dataLength: ds.data?.length,
+      sampleData: ds.data?.slice(0, 3)
+    })),
+    yMin,
+    yMax
+  });
+  
+  return { labels, datasets, yMin, yMax };
 };
 
 /**
@@ -344,13 +414,26 @@ export const adaptDataForChartJS = (chartData, showContourLine = true, isNormali
  * @param {boolean} isSeriesModel - Whether this is a series model (multiple datasets)
  * @returns {Object} Chart.js options
  */
-export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = false, colorScheme = 'default', isSeriesModel = false) => {
+export const createChartOptions = (
+  handleTooltip,
+  closeTooltip,
+  isNormalized = false,
+  colorScheme = 'default',
+  isSeriesModel = false,
+  yMin = 0,
+  yMax = 1
+) => {
   return {
     responsive: true,
     maintainAspectRatio: false,
     devicePixelRatio: window.devicePixelRatio || 1, // Ensure proper rendering on high DPI screens
     animation: {
       duration: 0 // Disable animations for sharper initial render
+    },
+    interaction: {
+      mode: 'point',
+      intersect: true, // Only show tooltip when directly over a point/bar
+      axis: 'x'
     },
     elements: {
       line: {
@@ -370,7 +453,39 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
     // Enable mixed chart types
     plugins: {
       tooltip: {
-        enabled: false, // Completely disable tooltips
+        enabled: true, // Enable tooltips to show values on hover
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: 'white',
+        bodyColor: 'white',
+        borderColor: 'white',
+        borderWidth: 1,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 12
+        },
+        padding: 8,
+        displayColors: false, // Hide the color box
+        callbacks: {
+          title: (tooltipItems) => {
+            // Return the label (word) as title
+            return tooltipItems[0].label || '';
+          },
+          label: (context) => {
+            // Format the value display
+            const dataset = context.dataset;
+            const value = context.parsed.y;
+            const label = dataset.label || '';
+            
+            // Format value to 3 decimal places for precision
+            const formattedValue = typeof value === 'number' ? value.toFixed(3) : value;
+            
+            // Return formatted string
+            return `${label}: ${formattedValue}`;
+          }
+        }
       },
       legend: {
         position: 'top',
@@ -475,12 +590,15 @@ export const createChartOptions = (handleTooltip, closeTooltip, isNormalized = f
           display: true,
           color: 'rgba(0, 0, 255, 0.1)' // Light blue grid for all models
         },
-        min: 0,
+        min: yMin,
         // Set max range appropriate for both bars and contour line
-        max: isNormalized ? 1.2 : 5.5,
+        max: yMax,
         ticks: {
           padding: 8,
-          callback: value => Number(value).toFixed(1),
+          callback: isNormalized
+            ? value => value.toFixed(1)
+            : value => Number.isInteger(value) ? value : '',
+          stepSize: isNormalized ? 0.1 : 1,
           font: {
             weight: 500, // Semi-bold
             size: window.innerWidth < 768 ? 10 : 12 // Smaller font on mobile

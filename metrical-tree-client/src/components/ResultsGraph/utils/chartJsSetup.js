@@ -44,7 +44,6 @@ ChartJS.defaults.elements.bar.borderWidth = 1;
 ChartJS.defaults.animation = false;
 
 // Improve rendering performance
-ChartJS.defaults.plugins.tooltip.enabled = false; // We use custom tooltips
 ChartJS.defaults.plugins.legend.labels.usePointStyle = true;
 ChartJS.defaults.plugins.legend.labels.boxWidth = 6;
 

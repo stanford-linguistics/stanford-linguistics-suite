@@ -271,34 +271,32 @@ export const formatChartData = (
             
             
             // For punctuation marks, use null values
-            if (item.secondary === "" || item.mean === "") {
+            if (item.secondary === "" || item.mean === "" || item.norm_mean === "") {
               return {
                 primary: item.primary || item.word,
                 secondary: null,
                 mean: null,
+                norm_mean: null,
                 word: item.primary || item.word
               };
             }
             
-            // For contour values, use the actual norm_mean values from contourAnalyzer when in normalized mode
-            // Need to set norm_mean to 0 for unstressed words that would typically be 5 in SPE values
-            // This ensures when a normalized model is selected, the contour line matches the bars
+            // For normalized models, use the norm_mean value that's already in the data
+            // For non-normalized models, use the contour value from contourValues
+            // This ensures the contour line matches the bar values for both model types
             
-            // If contour value is 5, this is typically an unstressed syllable, so norm_mean should be 0
-            // If contour value is 1, this is typically fully stressed, so norm_mean should be 1
-            // Other values are scaled between 0-1
-            
-            // Calculate normalized value: (5 - spe_value) / 4
-            // This maps SPE value 5 (unstressed) -> 0
-            //           SPE value 1 (stressed)  -> 1
-            const normalizedValue = value === null || value === "" ? null : (5 - value) / 4;
+            // Parse norm_mean if it exists and is not empty
+            let normMeanValue = null;
+            if (item.norm_mean !== undefined && item.norm_mean !== null && item.norm_mean !== "") {
+              normMeanValue = parseFloat(item.norm_mean);
+            }
             
             return {
               primary: item.primary || item.word,
               secondary: value,
-              mean: value, 
-              // Use properly calculated normalized value
-              norm_mean: normalizedValue,
+              mean: value,
+              // Use the parsed norm_mean from the actual data item - it's already properly normalized by the API
+              norm_mean: normMeanValue,
               // Store the raw SPE value for tooltip display
               rawSPEValue: value,
               word: item.primary || item.word

@@ -538,14 +538,17 @@ export const ResultsGraph = forwardRef(({ model, fullApiResponse }, ref) => {
   const chartOptions = useMemo(() => {
     // Check if this is a series model (multiple datasets)
     const isSeriesModel = chartJsData?.datasets?.filter(d => d.type === 'bar').length > 1;
-    
+    const yMin = chartJsData?.yMin ?? 0;
+    const yMax = chartJsData?.yMax ?? 1;
     // Pass empty functions for tooltip handlers since tooltips are disabled
     return createChartOptions(
       () => {}, 
       () => {}, 
       isNormalized,
       chartDisplayState.colorScheme,
-      isSeriesModel
+      isSeriesModel,
+      yMin,
+      yMax
     );
   }, [isNormalized, chartDisplayState.colorScheme, chartJsData]);
   

@@ -310,6 +310,16 @@ const getModelForSpecifiedKey = (apiKey, data) => {
         ?.map((row) => ({
           primary: row.word,
           secondary: Number(row[apiKey]),
+          // CRITICAL: Preserve all normalized values for contour line calculation
+          norm_mean: row.norm_mean,   // For normalized contour line
+          norm_m1: row.norm_m1,
+          norm_m2a: row.norm_m2a,
+          norm_m2b: row.norm_m2b,
+          // Also preserve raw values for non-normalized contour
+          mean: row.mean,
+          m1: row.m1,
+          m2a: row.m2a,
+          m2b: row.m2b,
           // Preserve linguistic metadata for statistics
           pos: row.pos,               // For POS distribution
           lexstress: row.lexstress,   // For stress distribution

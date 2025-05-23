@@ -156,17 +156,21 @@ export const useChartData = (model, chartDisplayState, paginationState, fullApiR
               primary: item.primary || item.word
             });
             
-            // Calculate normalized value for contour line in normalized mode
-            // This maps SPE value 5 (unstressed) -> 0
-            //           SPE value 1 (stressed)  -> 1
-            const normalizedValue = value === null || value === "" ? null : (5 - value) / 4;
+            // For normalized models, use the norm_mean that's already in the data item
+            // The API has already calculated the proper normalized values
+            
+            // Parse norm_mean if it exists and is not empty
+            let normMeanValue = null;
+            if (item.norm_mean !== undefined && item.norm_mean !== null && item.norm_mean !== "") {
+              normMeanValue = parseFloat(item.norm_mean);
+            }
             
             return {
               primary: item.primary || item.word,
               secondary: value,
               mean: value,
-              // Add properly scaled normalized value
-              norm_mean: normalizedValue,
+              // Use the parsed norm_mean from the actual data item - it's already properly normalized by the API
+              norm_mean: normMeanValue,
               word: item.primary || item.word
             };
           })
