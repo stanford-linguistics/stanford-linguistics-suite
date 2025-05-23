@@ -104,6 +104,70 @@ services:
       - redis-data-dev:/data
     ports:
       - "127.0.0.1:6379:6379"
+  
+  # Manual cleanup service - run with: docker-compose -f docker-compose.dev.yml run --rm cleanup
+  cleanup:
+    image: redis:7.0.10
+    volumes:
+      - ./results:/results
+      - ./public:/public
+    networks:
+      - default
+    environment:
+      - REDIS_STATE_URL=redis://redis:6379/1
+    profiles:
+      - manual
+    command: |
+      sh -c '
+        echo "==================================="
+        echo "CLEANUP SERVICE - MANUAL RUN"
+        echo "==================================="
+        echo ""
+        echo "WARNING: This will delete ALL files in /results and /public directories!"
+        echo "         AND clear all task states from Redis!"
+        echo "Press Ctrl+C within 5 seconds to cancel..."
+        sleep 5
+        
+        echo ""
+        echo "Starting cleanup at $$(date)"
+        
+        # Count files before cleanup
+        RESULTS_COUNT=$$(find /results -type f 2>/dev/null | wc -l || echo 0)
+        PUBLIC_COUNT=$$(find /public -type f 2>/dev/null | wc -l || echo 0)
+        
+        echo "Found $$RESULTS_COUNT files in /results"
+        echo "Found $$PUBLIC_COUNT files in /public"
+        
+        # Clean ALL files and directories in /results
+        if [ -d "/results" ]; then
+          echo "Cleaning /results directory..."
+          rm -rf /results/*
+          find /results -mindepth 1 -delete 2>/dev/null || true
+        fi
+        
+        # Clean ALL files and directories in /public
+        if [ -d "/public" ]; then
+          echo "Cleaning /public directory..."
+          rm -rf /public/*
+          find /public -mindepth 1 -delete 2>/dev/null || true
+        fi
+        
+        # Clean Redis task states
+        echo ""
+        echo "Cleaning Redis task states..."
+        redis-cli -u $$REDIS_STATE_URL --scan --pattern "task_state:*" | while read key; do
+          redis-cli -u $$REDIS_STATE_URL DEL "$$key" > /dev/null
+        done
+        REDIS_COUNT=$$(redis-cli -u $$REDIS_STATE_URL --scan --pattern "task_state:*" | wc -l || echo 0)
+        echo "Deleted all task states from Redis"
+        
+        echo ""
+        echo "Cleanup completed at $$(date)"
+        echo "Deleted $$RESULTS_COUNT files from /results"
+        echo "Deleted $$PUBLIC_COUNT files from /public"
+        echo "Deleted task states from Redis"
+        echo "==================================="
+      '
 
 networks:
   default:
