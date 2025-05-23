@@ -85,8 +85,8 @@ services:
       - default
     environment:
       - REDIS_STATE_URL=redis://redis:6379/1
-    profiles:
-      - manual
+    # No restart policy so it only runs when explicitly called
+    restart: "no"
     command: |
       sh -c '
         echo "==================================="
