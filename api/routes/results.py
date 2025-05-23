@@ -1097,3 +1097,112 @@ def check_task(task_id: str) -> Any:
             'errorMessage': "An internal server error occurred.",
             'error_details': str(e) if app.config.get('DEBUG', False) else None
         }), 500)
+
+
+@routes.route('/task-states/stats', methods=['GET'])
+def get_state_stats():
+    """
+    Get statistics about task states from Redis.
+    
+    Returns:
+        JSON response with state statistics
+    """
+    try:
+        from redis_state_utils import redis_state_client
+        
+        stats = redis_state_client.get_state_statistics()
+        
+        return make_response(jsonify({
+            'success': True,
+            'stats': stats,
+            'timestamp': int(time.time())
+        }), 200)
+        
+    except Exception as e:
+        logger.exception("Error getting state statistics")
+        return make_response(jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500)
+
+
+@routes.route('/task-states/cleanup', methods=['POST'])
+def cleanup_old_states():
+    """
+    Clean up task states older than specified days.
+    
+    Request body (optional):
+        days: Number of days to keep states (default: 30)
+    
+    Returns:
+        JSON response with cleanup results
+    """
+    try:
+        from flask import request
+        from redis_state_utils import redis_state_client
+        
+        # Get days parameter from request body
+        data = request.get_json() or {}
+        days = data.get('days', 30)
+        
+        # Validate days parameter
+        if not isinstance(days, int) or days < 1:
+            return make_response(jsonify({
+                'success': False,
+                'error': 'Invalid days parameter. Must be a positive integer.'
+            }), 400)
+        
+        # Perform cleanup
+        cleaned_count = redis_state_client.cleanup_old_states(days)
+        
+        return make_response(jsonify({
+            'success': True,
+            'cleaned': cleaned_count,
+            'days': days,
+            'message': f'Cleaned up {cleaned_count} task states older than {days} days'
+        }), 200)
+        
+    except Exception as e:
+        logger.exception("Error cleaning up old states")
+        return make_response(jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500)
+
+
+@routes.route('/task-states/<task_id>', methods=['GET'])
+def get_task_state_details(task_id: str):
+    """
+    Get detailed state information for a specific task from Redis.
+    
+    Args:
+        task_id: Task ID to query
+        
+    Returns:
+        JSON response with task state details
+    """
+    try:
+        from redis_state_utils import redis_state_client
+        
+        # Get state from Redis
+        redis_state = redis_state_client.get_task_state(task_id)
+        
+        if not redis_state:
+            return make_response(jsonify({
+                'success': False,
+                'error': 'Task state not found in Redis'
+            }), 404)
+        
+        return make_response(jsonify({
+            'success': True,
+            'task_id': task_id,
+            'state': redis_state,
+            'timestamp': int(time.time())
+        }), 200)
+        
+    except Exception as e:
+        logger.exception(f"Error getting state for task {task_id}")
+        return make_response(jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500)

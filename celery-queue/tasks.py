@@ -33,6 +33,7 @@ from shared.task_state_manager import (
     mark_task_failed,
     write_task_state,
 )
+from shared.redis_state_manager import get_redis_state_manager
 from metrical_tree_helpers.helpers import (
     call_metrical_tree,
     ensure_directory,
@@ -166,11 +167,17 @@ def compute_t_orders(self, input_file_path,
     self.update_state(state='RUNNING')
     folder_id = self.request.id
     
-    # Mark task as started with initial metadata
-    mark_task_started(folder_id, {
+    # Initialize Redis state manager
+    redis_state = get_redis_state_manager()
+    
+    # Mark task as started with initial metadata in both file and Redis
+    task_metadata = {
         'input_file': os.path.basename(input_file_path) if input_file_path else None,
-        'started_at': int(time.time())
-    })
+        'started_at': int(time.time()),
+        'task_type': 'torders'
+    }
+    mark_task_started(folder_id, task_metadata)
+    redis_state.set_task_state(folder_id, 'running', task_metadata)
     
     try:
         # Ensure output directory exists
@@ -183,6 +190,7 @@ def compute_t_orders(self, input_file_path,
             'stage': 't_orders_computation',
             'input_file': os.path.basename(input_file_path)
         })
+        redis_state.update_task_progress(folder_id, 'processing', 'Computing T-orders')
         
         logger.info("Processing t-orders for task {}".format(folder_id))
         
@@ -194,12 +202,14 @@ def compute_t_orders(self, input_file_path,
         write_task_state(folder_id, 'copying_graphs', {
             'stage': 'copying_graphs'
         })
+        redis_state.update_task_progress(folder_id, 'copying_graphs', 'Generating visualization graphs')
         copy_graphs(folder_id)
         
         # Mark packaging stage
         write_task_state(folder_id, 'packaging', {
             'stage': 'results_packaging'
         })
+        redis_state.update_task_progress(folder_id, 'packaging', 'Creating results archive')
         zip_results(input_filename, folder_id)
         
         created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
@@ -208,13 +218,15 @@ def compute_t_orders(self, input_file_path,
                         created_on)
         
         # Create final success markers before cleanup
-        mark_task_successful(folder_id, {
+        result_summary = {
             'download_url': result.download_url,
             'expires_in': result.expires_in,
             'expires_on': result.expires_on,
             'created_on': created_on,
             'input_file': os.path.basename(input_file_path)
-        })
+        }
+        mark_task_successful(folder_id, result_summary)
+        redis_state.mark_task_completed(folder_id, result_summary)
         
         clean_results(folder_id)
         logger.info("Successfully completed t-orders computation for task {}".format(folder_id))
@@ -224,11 +236,13 @@ def compute_t_orders(self, input_file_path,
         self.update_state(state='FAILURE')
         logger.exception("Error in task {}".format(folder_id))
         
-        # Mark task as failed in persistent state file
-        mark_task_failed(folder_id, {
+        # Mark task as failed in persistent state file and Redis
+        error_info = {
             'message': "An error occurred: {}".format(str(e)),
             'timestamp': int(time.time())
-        })
+        }
+        mark_task_failed(folder_id, error_info)
+        redis_state.mark_task_failed(folder_id, str(e))
         
         # Format error result consistently with other tasks
         error_result = {
@@ -263,15 +277,22 @@ def compute_metrical_tree(self, input_file_path,
     self.update_state(state='RUNNING')
     folder_id = self.request.id
     
-    # Mark task as started with initial metadata
-    mark_task_started(folder_id, {
+    # Initialize Redis state manager
+    redis_state = get_redis_state_manager()
+    
+    # Mark task as started with initial metadata in both file and Redis
+    task_metadata = {
         'input_file': os.path.basename(input_file_path) if input_file_path else None,
-        'started_at': int(time.time())
-    })
+        'started_at': int(time.time()),
+        'task_type': 'metricaltree'
+    }
+    mark_task_started(folder_id, task_metadata)
+    redis_state.set_task_state(folder_id, 'running', task_metadata)
     
     try:
         if input_file_path is None or not input_file_path.strip():
             mark_task_failed(folder_id, "No input file specified")
+            redis_state.mark_task_failed(folder_id, "No input file specified")
             raise InputValidationException(
                 message="No input file specified",
                 error_code=ErrorCode.MISSING_REQUIRED_FIELD,
@@ -294,6 +315,7 @@ def compute_metrical_tree(self, input_file_path,
             'stage': 'metrical_tree_computation',
             'input_file': os.path.basename(input_file_path)
         })
+        redis_state.update_task_progress(folder_id, 'processing', 'Computing metrical trees')
 
         call_metrical_tree(input_file_path,
                            output_path,
@@ -309,18 +331,21 @@ def compute_metrical_tree(self, input_file_path,
         write_task_state(folder_id, 'verifying', {
             'stage': 'result_verification'
         })
+        redis_state.update_task_progress(folder_id, 'verifying', 'Verifying computation results')
         verify_metrical_tree_results(folder_id)
         
         # Mark enhancement stage
         write_task_state(folder_id, 'enhancing', {
             'stage': 'results_enhancement'
         })
+        redis_state.update_task_progress(folder_id, 'enhancing', 'Enhancing results with additional analysis')
         enhance_metrical_tree_results(folder_id)
         
         # Mark packaging stage
         write_task_state(folder_id, 'packaging', {
             'stage': 'results_packaging'
         })
+        redis_state.update_task_progress(folder_id, 'packaging', 'Creating results archive')
         zip_results(input_filename, folder_id)
 
         created_on = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds())
@@ -332,13 +357,15 @@ def compute_metrical_tree(self, input_file_path,
         )
         
         # Create final success markers before cleanup
-        mark_task_successful(folder_id, {
+        result_summary = {
             'download_url': result.download_url,
             'expires_in': result.expires_in,
             'expires_on': result.expires_on,
             'created_on': created_on,
             'input_file': os.path.basename(input_file_path)
-        })
+        }
+        mark_task_successful(folder_id, result_summary)
+        redis_state.mark_task_completed(folder_id, result_summary)
 
         clean_results(folder_id)
         
@@ -349,12 +376,14 @@ def compute_metrical_tree(self, input_file_path,
         self.update_state(state='FAILURE')
         error_info = format_error_for_user(e)
 
-        # Mark task as failed in persistent state file
-        mark_task_failed(folder_id, {
+        # Mark task as failed in persistent state file and Redis
+        error_info_dict = {
             'error_code': e.error_code,
             'message': e.message,
             'suggestion': e.suggestion if hasattr(e, 'suggestion') else None
-        })
+        }
+        mark_task_failed(folder_id, error_info_dict)
+        redis_state.mark_task_failed(folder_id, e.message)
 
         logger.error("Task error in task {}: {}".format(folder_id, e.message), extra={
             'error_info': error_info,
@@ -376,12 +405,14 @@ def compute_metrical_tree(self, input_file_path,
         self.update_state(state='FAILURE')
         logger.exception("Unexpected error in task {}".format(folder_id))
         
-        # Mark task as failed in persistent state file with generic error
-        mark_task_failed(folder_id, {
+        # Mark task as failed in persistent state file and Redis with generic error
+        error_info_dict = {
             'error_code': ErrorCode.UNEXPECTED_ERROR,
             'message': "An unexpected error occurred: {}".format(str(e)),
             'timestamp': int(time.time())
-        })
+        }
+        mark_task_failed(folder_id, error_info_dict)
+        redis_state.mark_task_failed(folder_id, str(e))
         
         error_info = format_error_for_user(TaskException(
             message="An unexpected error occurred",
@@ -404,4 +435,34 @@ def compute_metrical_tree(self, input_file_path,
 
 @celery.task(name='tasks.delete_folder')
 def delete_folder(directory_to_delete):
+    """
+    Delete a folder and its associated Redis state.
+    
+    Args:
+        directory_to_delete: Full path to directory to delete
+    """
+    # Extract folder_id from path if it's a results or graphs directory
+    # Path format: /results/<folder_id> or /public/<folder_id>
+    folder_id = None
+    if directory_to_delete.startswith(RESULTS_FOLDER):
+        parts = directory_to_delete.split('/')
+        if len(parts) >= 3:
+            folder_id = parts[2]
+    elif directory_to_delete.startswith(PUBLIC_FOLDER):
+        parts = directory_to_delete.split('/')
+        if len(parts) >= 3:
+            folder_id = parts[2]
+    
+    # Clean the directory
     clean_directory(directory_to_delete)
+    
+    # If we identified a task ID, also clean up Redis state
+    if folder_id:
+        try:
+            redis_state = get_redis_state_manager()
+            if redis_state.delete_task_state(folder_id):
+                logger.info("Deleted Redis state for task %s", folder_id)
+            else:
+                logger.debug("No Redis state found for task %s", folder_id)
+        except Exception as e:
+            logger.warning("Failed to delete Redis state for task %s: %s", folder_id, str(e))

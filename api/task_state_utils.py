@@ -8,6 +8,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, Optional, Tuple
+from redis_state_utils import redis_state_client, get_enhanced_task_state
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -37,6 +38,13 @@ def get_reliable_task_state(task_id: str, celery_state: str) -> Dict[str, Any]:
     Returns:
         Dictionary with resolved state and metadata
     """
+    # First check Redis for the most up-to-date state
+    redis_state = get_enhanced_task_state(task_id, celery_state)
+    if redis_state:
+        logger.info(f"Task {task_id}: Found state in Redis: {redis_state.get('state')}")
+        return redis_state
+    
+    # If Redis doesn't have definitive state, continue with file-based checks
     output_dir = get_output_path(task_id)
     state_file = os.path.join(output_dir, 'task_state.json')
     success_marker = os.path.join(output_dir, 'task_completed')

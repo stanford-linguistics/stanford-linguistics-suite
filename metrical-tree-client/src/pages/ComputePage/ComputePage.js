@@ -228,10 +228,11 @@ const ComputePage = () => {
     }
   );
 
-  const requestResults = () => {
+  const requestResults = (forceRefreshAll = false) => {
     if (results.length > 0) {
       results.forEach(function (result) {
-        if (shouldUpdate(result)) {
+        // On force refresh, update ALL tasks regardless of status
+        if (forceRefreshAll || shouldUpdate(result)) {
           getComputeResult({ id: result.id }).then(
             (updatedResult) => {
               updateComputeResult(updatedResult.data.result);
@@ -327,15 +328,42 @@ const ComputePage = () => {
     }
   };
 
+  // Force refresh all results on mount and when page becomes visible
   useEffect(() => {
-    requestResults();
+    // Initial fetch on mount - force refresh ALL tasks
+    console.log('Initial page load - refreshing all task states...');
+    requestResults(true);
+    
+    // Also refresh when page becomes visible (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, refreshing all task states...');
+        requestResults(true);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Polling for active tasks only
   useEffect(() => {
-    const intervalId = setInterval(requestResults, 3000);
-    return () => clearInterval(intervalId);
-  });
+    // Only poll if there are pending/running tasks
+    const hasActiveTasks = results.some(result => {
+      const mappedStatus = mapBackendStatus(result.status);
+      return mappedStatus === 'pending' || mappedStatus === 'running';
+    });
+    
+    if (hasActiveTasks) {
+      const intervalId = setInterval(requestResults, 3000);
+      return () => clearInterval(intervalId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
 
   const handleComputeClick = () => {
     setIsComputeDialogOpen(true);

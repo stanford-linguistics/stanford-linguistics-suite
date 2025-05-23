@@ -97,11 +97,18 @@ services:
       - nginx-proxy
   
   redis:
-    image: redis
+    image: redis:7.0.10
     restart: always
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data-dev:/data
+    ports:
+      - "127.0.0.1:6379:6379"
 
 networks:
   default:
 
 volumes:
   metrical-tree-client-node-modules:
+  redis-data-dev:
+    driver: local
