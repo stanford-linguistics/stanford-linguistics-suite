@@ -292,11 +292,12 @@ def check_result_files(task_id, retry_count=0):
     # Check for zip file
     zip_exists = bool(get_filename(results_dir, app.config['OUTPUT_FILE_EXTENSION']))
     
-    # Check for results.json
-    json_exists = os.path.exists(os.path.join(public_dir, 'results.json'))
-    
-    # If both files exist, we're good
-    if zip_exists and json_exists:
+    # CoGeTo publishes graph images (no results.json) to the public folder
+    graphs_exist = os.path.isdir(public_dir) and any(
+        f.lower().endswith('.png') for f in os.listdir(public_dir))
+
+    # If both exist, we're good
+    if zip_exists and graphs_exist:
         return True
     
     # Check task state to see if it's in packaging phase
@@ -317,7 +318,7 @@ def check_result_files(task_id, retry_count=0):
     max_retries = 5
     if retry_count < max_retries:
         # Check if there are signs that the task is still completing
-        if (os.path.exists(public_dir) and not json_exists) or in_packaging_phase:
+        if (os.path.exists(public_dir) and not graphs_exist) or in_packaging_phase:
             # Exponential backoff: 0.5s, 1s, 2s, 4s, 8s
             delay = 0.5 * (2 ** retry_count)
             logger.info(f"Files for task {task_id} not fully available yet. Retrying in {delay}s (attempt {retry_count + 1}/{max_retries})")
@@ -326,7 +327,7 @@ def check_result_files(task_id, retry_count=0):
             return check_result_files(task_id, retry_count + 1)
     
     # If we've exhausted retries or no signs of ongoing completion, return the result
-    return zip_exists and json_exists
+    return zip_exists and graphs_exist
 
 
 @routes.route('/torders-results/<string:task_id>', methods=['GET'])

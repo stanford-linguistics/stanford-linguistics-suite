@@ -211,7 +211,15 @@ def compute_metrical_tree(folder_id):
                             api_param_name = "stressed_words"
                             
                         filtered_params[api_param_name] = validation_result["valid_entries"]
-            
+
+        # An empty list would reach the worker as a bare CLI flag (e.g. "--stressed_words"),
+        # which metricaltree.py rejects (argparse nargs='+'). Omit empty lists instead.
+        for param_name in ['unstressed_words', 'unstressed_tags', 'unstressed_deps',
+                           'ambiguous_words', 'ambiguous_tags', 'ambiguous_deps',
+                           'stressed_words']:
+            if not filtered_params.get(param_name):
+                filtered_params.pop(param_name, None)
+
         # Determine name
         if params['name']:
             name = params['name']
